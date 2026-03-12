@@ -1,0 +1,64 @@
+erDiagram
+    %% Core Chat Concept
+    SESSION ||--o{ MESSAGE : contains
+    SESSION {
+        uuid id PK
+        uuid user_id FK
+        timestamp created_at
+        string status "active | closed"
+    }
+
+    MESSAGE }|--|| SESSION : belongs_to
+    MESSAGE {
+        uuid id PK
+        uuid session_id FK
+        string role "user | assistant | system"
+        text content "Raw markdown string"
+        timestamp created_at
+    }
+
+    %% RAG Concepts (Context Mapping)
+    MESSAGE ||--o{ ATTRIBUTION : cites
+    ATTRIBUTION {
+        uuid id PK
+        uuid message_id FK
+        int bookstack_doc_id FK
+        string bookstack_url
+        float confidence_score "Sim search score"
+    }
+
+    VECTOR_DOCUMENT ||--o{ VECTOR_CHUNK : split_into
+    VECTOR_DOCUMENT {
+        string doc_id PK "Typically BookStack ID"
+        string title
+        string url "Original BookStack URL"
+        timestamp last_updated
+    }
+    
+    VECTOR_CHUNK {
+        string chunk_id PK "doc_id + chunk_index"
+        string doc_id FK
+        float[] vector_embedding "1536 dims (text-embedding-3-small)"
+        text chunk_text "Raw chunk string"
+        int char_length
+    }
+
+    %% Backend HTTP Response Envelopes
+    API_RESPONSE ||--o| PROBLEM_DETAILS : errors_with
+    API_RESPONSE {
+        int status_code
+        json metadata "Trace IDs, Pagination"
+        json data "Generic payload (e.g. Message)"
+    }
+
+    PROBLEM_DETAILS {
+        string type "URI ref to error description (RFC 7807)"
+        string title "Short human readable"
+        int status "HTTP status code"
+        string detail "Detailed explanation"
+        string instance "Trace ID or request URI"
+        json extensions "Domain specific error codes"
+    }
+
+    %% Relationships Mapping
+    VECTOR_DOCUMENT ||--o{ ATTRIBUTION : provides_source_for

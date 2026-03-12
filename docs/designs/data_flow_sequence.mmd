@@ -1,0 +1,51 @@
+sequenceDiagram
+    autonumber
+    
+    actor User
+    participant Browser as Browser (Next.js)
+    participant NextCache as Next.js Server (TanStack/Proxy)
+    participant APIGateway as FastAPI (Router)
+    participant RAGSvc as RAG Orchestrator (Service)
+    participant VDB as Pinecone (Vector Store)
+    participant LLM as OpenAI (text-emb & gpt-4o)
+    participant Avatar as HeyGen (Avatar API)
+
+    User->>Browser: Types query & submits
+    Browser->>NextCache: POST /api/chat {query, session}
+    NextCache->>APIGateway: Proxy POST /v1/chat + TraceID
+    
+    rect rgb(240, 248, 255)
+        Note over APIGateway, RAGSvc: Clean Architecture Boundary
+        APIGateway->>RAGSvc: Call `answer_query(query)`
+        
+        Note over RAGSvc, LLM: 1. Vectorization
+        RAGSvc->>LLM: `create_embedding("text-embedding-3-small", query)`
+        LLM-->>RAGSvc: Returns [Vector]
+        
+        Note over RAGSvc, VDB: 2. Semantic Search
+        RAGSvc->>VDB: `query(vector, top_k=5)`
+        VDB-->>RAGSvc: Returns chunks + BookStack IDs + Scores
+        
+        Note over RAGSvc: 3. Confidence Threshold Check
+        alt Score < Minimum Threshold
+            RAGSvc-->>APIGateway: raise ErrNoContextFound()
+            APIGateway-->>NextCache: 404/422 with Domain Error RFC 7807
+            NextCache-->>Browser: Trigger Graceful Decline UI
+        else Score >= Minimum Threshold
+            Note over RAGSvc, LLM: 4. Generation
+            RAGSvc->>LLM: `stream("gpt-4o", prompt + context chunks)`
+            LLM-->>RAGSvc: Stream tokens
+            RAGSvc-->>APIGateway: Yield generator (Stream Response)
+        end
+    end
+    
+    rect rgb(253, 245, 230)
+        Note over RAGSvc, Avatar: 5. Avatar Trigger (Async/Background)
+        %% Assuming Avatar is triggered post-LLM or via dual-stream 
+        RAGSvc->>Avatar: POST `/v1/avatar/speak` {text_chunk}
+        Avatar-->>Browser: WebRTC stream updates directly
+    end
+
+    APIGateway-->>NextCache: Stream chunk + BookStack IDs (Attribution)
+    NextCache-->>Browser: Update UI (Markdown Chat + Source Links)
+    Browser-->>User: Views generated answer & sources

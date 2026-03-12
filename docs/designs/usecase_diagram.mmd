@@ -1,0 +1,31 @@
+flowchart LR
+    %% Actors
+    User([👤 Customer])
+    Sys([⚙️ Subsystem: RAG Orchestrator])
+    VDB[(🗄️ Vector Database)]
+    LLM[(🧠 OpenAI API)]
+    HeyGen([🎥 HeyGen API])
+
+    %% User Actions
+    User -->|1| AskQ(Ask Support Question)
+    User -->|6| Watch(View Avatar & Read Sources)
+
+    %% System Use Cases
+    subgraph Use Cases - Project Vanguard
+        AskQ -.->|<< include >> \n 2| Ext(Extract Context)
+        AskQ -.->|<< include >> \n 3| Eval(Evaluate Confidence Threshold)
+        
+        Eval -.->|If Score < X \n 4a| Decline(Decline Answer Gracefully)
+        Eval -.->|If Score >= X \n 4b| Gen(Generate AI Response)
+        
+        Gen -.->|<< include >> \n 5| AV(Fetch Avatar Video)
+    end
+
+    %% Backend Dependencies
+    Ext --> VDB
+    Gen --> LLM
+    AV --> HeyGen
+    
+    %% Output
+    Decline --> Watch
+    Gen --> Watch

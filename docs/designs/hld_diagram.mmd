@@ -1,0 +1,33 @@
+graph TD
+    classDef frontend fill:#e1f5fe,stroke:#0277bd,stroke-width:2px;
+    classDef backend fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef infra fill:#fff3e0,stroke:#e65100,stroke-width:2px;
+
+    User([👤 User]) -->|Interacts via| Next[Next.js Application]
+    
+    subgraph Frontend [Next.js Presentation & Client]
+        Next -->|Feature UI Components| C[components/ui & features/*]
+        Next -->|Server State & Cache| T[TanStack Query]
+        Next -->|Client State| Z[Zustand]
+    end
+
+    Frontend -->|REST API Request / Trace ID| APIGateway[FastAPI / Flask Backend]
+
+    subgraph Backend [Application Core - Clean Architecture]
+        APIGateway -->|Routing| R(Routers: Chat, Avatar, Knowledge)
+        R -->|Validates & Calls| Services(Usecases / Services Layer)
+        Services -->|Abstracts Data| Domain(Domain Entities & Errors)
+        
+        Services ..->|DI Injected| Adapters(Infrastructure Adapters)
+    end
+    
+    subgraph Infrastructure [Data & External APIs]
+        Adapters -->|text-embedding-3-small \n gpt-4o| OpenAI[OpenAI API]
+        Adapters -->|Similarity Search| VectorDB[(Pinecone / Qdrant)]
+        Adapters -->|Video Stream| HeyGen[HeyGen Avatar API]
+        Adapters -->|Knowledge Base| BookStack[BookStack API]
+    end
+
+    class Frontend frontend
+    class Backend backend
+    class Infrastructure infra

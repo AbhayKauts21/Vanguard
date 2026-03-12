@@ -1,0 +1,46 @@
+stateDiagram-v2
+    classDef domain fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef error fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    classDef external fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
+
+    [*] --> ReceiveQuery : HTTP POST /chat
+
+    state "RAG Orchestration Service Layer" as RAGService {
+        ReceiveQuery --> InputSanitization : Validate DTO
+        InputSanitization --> EmbedQuery
+        
+        EmbedQuery --> SimilaritySearch : Vector
+        
+        state "Vector Store (Pinecone)" as VDB
+        SimilaritySearch --> VDB : Request
+        VDB --> EvaluateScores : chunks[score, metadata]
+
+        state "Confidence Threshold Gate" as Gate {
+            EvaluateScores --> ThresholdCheck : config.MIN_SIMILARITY
+            
+            ThresholdCheck --> GracefulDegradation : score < MIN_SIMILARITY
+            ThresholdCheck --> ConstructPrompt : score >= MIN_SIMILARITY
+            
+            GracefulDegradation --> RaiseException : ErrNoContextFound
+        }
+        
+        state "Fall-back HTTP Response" as HTTPError
+        RaiseException --> HTTPError : API maps to 404/422
+
+        ConstructPrompt --> GenerateResponse
+        
+        state "LLM (GPT-4o)" as LLM
+        GenerateResponse --> LLM : System Prompt + Chunks
+        LLM --> ParseGeneratedTokens : Stream Iterable
+        
+        ParseGeneratedTokens --> FormatResponseDTO
+        FormatResponseDTO --> ResponseReady : Append BookStack Map
+    }
+
+    ResponseReady --> [*] : Stream HTTP 200 chunked
+    HTTPError --> [*] : Return RFC 7807 problem
+    
+    class VDB external
+    class Gate domain
+    class HTTPError error
+    class LLM external

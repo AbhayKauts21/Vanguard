@@ -6,17 +6,26 @@ uvicorn[standard]>=0.30.0
 pydantic-settings>=2.4.0
 python-dotenv>=1.0.0
 
-# AI & RAG
+# AI & RAG — LangChain ecosystem
 openai>=1.40.0
 langchain>=0.2.0
+langchain-openai>=0.1.0
+langchain-pinecone>=0.1.0
+langchain-text-splitters>=0.2.0
+
+# Vector Store
 pinecone-client>=4.1.0
 
 # API Clients
 httpx>=0.27.0
 
-# Ingestion
+# Ingestion & Parsing
 beautifulsoup4>=4.12.0
 python-multipart>=0.0.9
+lxml>=5.0.0
+
+# Scheduling (auto-sync polling)
+apscheduler>=3.10.0
 
 # Observability
 loguru>=0.7.0
@@ -24,4 +33,3 @@ loguru>=0.7.0
 # Testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
-httpx>=0.27.0

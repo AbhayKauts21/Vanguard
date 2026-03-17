@@ -7,6 +7,7 @@ from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.router_chat import router as chat_router
+from app.api.router_azure_chat import router as azure_chat_router
 from app.api.router_admin import router as admin_router
 from app.api.router_webhook import router as webhook_router
 from app.core.config import settings
@@ -55,6 +56,7 @@ def get_application() -> FastAPI:
 
     # Routers
     _app.include_router(chat_router, prefix=settings.API_V1_STR)
+    _app.include_router(azure_chat_router, prefix=settings.API_V1_STR)
     _app.include_router(admin_router, prefix=settings.API_V1_STR)
     _app.include_router(webhook_router, prefix=settings.API_V1_STR)
 

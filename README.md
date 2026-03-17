@@ -19,7 +19,7 @@
 
 ## 💡 The Problem & Our Solution
 > **Static documentation often leads to support tickets even for common questions.** 
-Vanguard eliminates the friction of digging through dense wikis. We built an AI-powered avatar assistant that interacts with users naturally (via text or voice) and utilizes a **Retrieval-Augmented Generation (RAG)** pipeline to pull highly accurate troubleshooting steps directly from our BookStack knowledge repository.
+Vanguard eliminates the friction of digging through dense wikis. We built an AI-powered avatar assistant that interacts with users naturally (via text or voice) and utilizes a **Retrieval-Augmented Generation (RAG)** pipeline to pull highly accurate troubleshooting steps directly from our BookStack knowledge repository. The backend also supports a separate **Azure OpenAI Foundry direct-chat module** for prompt-and-context driven generation outside the RAG path.
 
 ---
 
@@ -39,11 +39,14 @@ graph TD
 
     subgraph Backend [Core Logic Layer]
         APIGateway -->|RAG Pipeline| RAGSvc[RAG Orchestrator]
+        APIGateway -->|Direct Chat| AzureSvc[Azure Chat Service]
         RAGSvc -->|Domain Logic| Domain[Domain Entities]
+        AzureSvc -->|Domain Logic| Domain
     end
     
     subgraph Infra [Infrastructure Layer]
         RAGSvc -->|Embed & Gen| OpenAI[OpenAI API]
+        AzureSvc -->|Prompted Generation| AzureOpenAI[Azure OpenAI Foundry]
         RAGSvc -->|Search| VectorDB[(Pinecone)]
         RAGSvc -->|Visual| HeyGen[HeyGen Avatar]
     end
@@ -92,6 +95,7 @@ sequenceDiagram
 | **Frontend** | React 19, Tailwind CSS | UI/UX & Responsive Design |
 | **Backend** | Python, Flask / FastAPI | API Gateway & RAG Orchestration |
 | **AI Generation** | OpenAI `gpt-4o` | Conversational Intelligence |
+| **Direct Prompted Generation** | Azure OpenAI Foundry | Stateless prompt + context chat module |
 | **Embeddings** | `text-embedding-3-small` | Semantic Vectorization |
 | **Vector Store** | Pinecone (Serverless) | Knowledge Storage & Similarity Search |
 | **AV Avatar** | HeyGen Interactive API | Life-like Visual Interaction |
@@ -108,6 +112,45 @@ We follow production-grade standards inspired by the **Checkingmate** ecosystem:
 
 ---
 
+## 🔌 Backend APIs
+
+The backend currently exposes two different chat paths:
+
+- `POST /api/v1/chat/` and `POST /api/v1/chat/stream`
+  RAG-backed chat using BookStack context from Pinecone plus the existing OpenAI generation path.
+- `POST /api/v1/azure-chat/`
+  Direct Azure OpenAI Foundry chat for stateless prompt + context requests.
+
+### Azure Direct Chat Request
+
+```json
+{
+  "conversation_id": "conv-001",
+  "prompt": "Summarize this issue for an engineering handoff.",
+  "input_text": "User cannot authenticate with SSO after password reset.",
+  "context": {
+    "priority": "high",
+    "product": "Vanguard"
+  },
+  "params": {
+    "temperature": 0.2,
+    "max_tokens": 250
+  },
+  "metadata": {
+    "source": "manual-test"
+  }
+}
+```
+
+### Azure Setup Notes
+
+- Set Azure values in [`backend/.env.example`](backend/.env.example) and copy them into `backend/.env`.
+- `AZURE_OPENAI_ENDPOINT` must be the resource endpoint only, such as `https://your-resource.openai.azure.com`.
+- `AZURE_OPENAI_CHAT_DEPLOYMENT` must be the Azure deployment name, not just the raw model family.
+- The smoke-test script is available at `backend/scripts/test_azure_chat.py`.
+
+---
+
 ## 🚀 Getting Started
 
 1. **Clone the repository:**
@@ -120,6 +163,12 @@ We follow production-grade standards inspired by the **Checkingmate** ecosystem:
    pip install -r requirements.txt
    cp .env.example .env # Fill in your API keys
    python main.py
+   ```
+   For Azure direct chat, set:
+   `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and `AZURE_OPENAI_CHAT_DEPLOYMENT`.
+   Then verify with:
+   ```bash
+   python scripts/test_azure_chat.py
    ```
 3. **Setup Frontend:**
    ```bash

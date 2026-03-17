@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 from enum import Enum
 
@@ -86,6 +86,52 @@ class ChatResponse(BaseModel):
     answer: str
     citations: List[Citation]
     conversation_id: Optional[str] = None
+
+
+class AzureChatParams(BaseModel):
+    """Optional generation controls for direct Azure chat."""
+
+    temperature: float = Field(0.2, ge=0.0, le=2.0)
+    max_tokens: Optional[int] = Field(default=None, ge=1)
+
+
+class AzureChatRequest(BaseModel):
+    """Stateless direct-chat request for Azure OpenAI."""
+
+    conversation_id: Optional[str] = Field(default=None, max_length=200)
+    prompt: str = Field(..., min_length=1, max_length=8_000)
+    input_text: Optional[str] = Field(default=None, max_length=12_000)
+    context: Dict[str, Any] = Field(default_factory=dict)
+    params: AzureChatParams = Field(default_factory=AzureChatParams)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AzureChatUsage(BaseModel):
+    """Normalized token usage values returned from Azure when available."""
+
+    prompt_tokens: Optional[int] = None
+    completion_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
+
+class AzureChatResponse(BaseModel):
+    """Normalized response for direct Azure chat requests."""
+
+    conversation_id: Optional[str] = None
+    output_text: str
+    deployment: str
+    request_id: Optional[str] = None
+    usage: Optional[AzureChatUsage] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AzureChatMessage(BaseModel):
+    """Outbound message sent to Azure OpenAI."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    role: str
+    content: str
 
 
 # --- Ingestion DTOs ---

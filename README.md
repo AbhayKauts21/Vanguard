@@ -1,13 +1,15 @@
 <div align="center">
 
-# 🛡️ PROJECT VANGUARD
-**The Future of Interactive Customer Support**
+# 🧠 CLEO
+**Contextual Learning & Enterprise Oracle**
+
+*The Future of Interactive Customer Support — built by Team Vanguard*
 
 [![Hackathon](https://img.shields.io/badge/Event-Andino_Global_AI_Hackathon-blue?style=for-the-badge)](https://github.com/AbhayKauts21/Vanguard)
 [![Status](https://img.shields.io/badge/Status-Active_Development-brightgreen?style=for-the-badge)](#)
-[![Python](https://img.shields.io/badge/Python-3.10+-blue?style=for-the-badge&logo=python&logoColor=white)](#)
-[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](#)
-[![Tailwind](https://img.shields.io/badge/Tailwind-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](#)
+[![Python](https://img.shields.io/badge/Python-3.13-blue?style=for-the-badge&logo=python&logoColor=white)](#)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white)](#)
+[![Tailwind](https://img.shields.io/badge/Tailwind-4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](#)
 
 *Transforming static documentation into a dynamic, conversational AI experience.*
 
@@ -19,12 +21,12 @@
 
 ## 💡 The Problem & Our Solution
 > **Static documentation often leads to support tickets even for common questions.** 
-Vanguard eliminates the friction of digging through dense wikis. We built an AI-powered avatar assistant that interacts with users naturally (via text or voice) and utilizes a **Retrieval-Augmented Generation (RAG)** pipeline to pull highly accurate troubleshooting steps directly from our BookStack knowledge repository. The backend also supports a separate **Azure OpenAI Foundry direct-chat module** for prompt-and-context driven generation outside the RAG path.
+CLEO eliminates the friction of digging through dense wikis. We built an AI-powered avatar assistant that interacts with users naturally (via text or voice) and utilizes a **Retrieval-Augmented Generation (RAG)** pipeline to pull highly accurate troubleshooting steps directly from our BookStack knowledge repository.
 
 ---
 
 ## 🏗️ High-Level Architecture
-Vanguard is built on **Clean Architecture** and **Domain-Driven Design (DDD)** principles, ensuring that our AI logic is decoupled from external APIs and infrastructure.
+CLEO is built on **Clean Architecture** and **Domain-Driven Design (DDD)** principles, ensuring that our AI logic is decoupled from external APIs and infrastructure.
 
 ```mermaid
 graph TD
@@ -92,14 +94,16 @@ sequenceDiagram
 
 | Layer | Technology | Role |
 | :--- | :--- | :--- |
-| **Frontend** | React 19, Tailwind CSS | UI/UX & Responsive Design |
-| **Backend** | Python, Flask / FastAPI | API Gateway & RAG Orchestration |
-| **AI Generation** | OpenAI `gpt-4o` | Conversational Intelligence |
-| **Direct Prompted Generation** | Azure OpenAI Foundry | Stateless prompt + context chat module |
+| **Frontend** | Next.js 16 (App Router), TypeScript, Tailwind CSS v4 | Neural-themed UI with i18n |
+| **State** | Zustand, TanStack Query v5 | Client & server state management |
+| **UI Library** | Radix UI, Framer Motion, CVA | Accessible components & animation |
+| **i18n** | next-intl v4 | English / Spanish locale routing |
+| **Backend** | Python 3.13, FastAPI | API Gateway & RAG Orchestration |
+| **AI Generation** | OpenAI `gpt-4o-mini` | Conversational Intelligence |
 | **Embeddings** | `text-embedding-3-small` | Semantic Vectorization |
 | **Vector Store** | Pinecone (Serverless) | Knowledge Storage & Similarity Search |
 | **AV Avatar** | HeyGen Interactive API | Life-like Visual Interaction |
-| **Observability** | OpenTelemetry | Distributed Tracing & Performance |
+| **Testing** | Vitest, Istanbul, Testing Library | Unit & integration coverage |
 
 ---
 
@@ -153,29 +157,51 @@ The backend currently exposes two different chat paths:
 
 ## 🚀 Getting Started
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/AbhayKauts21/Vanguard.git
-   ```
-2. **Setup Backend:**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   cp .env.example .env # Fill in your API keys
-   python main.py
-   ```
-   For Azure direct chat, set:
-   `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and `AZURE_OPENAI_CHAT_DEPLOYMENT`.
-   Then verify with:
-   ```bash
-   python scripts/test_azure_chat.py
-   ```
-3. **Setup Frontend:**
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
+### Prerequisites
+- **Python 3.13+** and **pip**
+- **Node.js 20+** and **npm 10+**
+- API keys for OpenAI, Pinecone, and BookStack
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/AbhayKauts21/Vanguard.git
+cd Vanguard
+```
+
+### 2. Backend
+```bash
+cd backend
+pip install -r requirements.txt
+cp .env.example .env   # fill in your API keys
+python main.py         # starts FastAPI on http://localhost:8000
+```
+
+### 3. Frontend
+```bash
+cd frontend
+npm install
+cp .env.example .env.local  # set NEXT_PUBLIC_API_BASE_URL
+npm run dev                  # starts Next.js on http://localhost:3000
+```
+
+### 4. Run Tests
+```bash
+cd frontend && npx vitest run       # unit tests
+cd frontend && npx vitest --coverage # with istanbul coverage
+```
+
+### Environment Variables
+
+| Variable | Where | Description |
+| :--- | :--- | :--- |
+| `OPENAI_API_KEY` | Backend | OpenAI API key |
+| `PINECONE_API_KEY` | Backend | Pinecone API key |
+| `BOOKSTACK_BASE_URL` | Backend | BookStack instance URL |
+| `BOOKSTACK_TOKEN_ID` | Backend | BookStack API token ID |
+| `BOOKSTACK_TOKEN_SECRET` | Backend | BookStack API token secret |
+| `NEXT_PUBLIC_API_BASE_URL` | Frontend | Backend URL (default `http://localhost:8000`) |
+| `NEXT_PUBLIC_ENABLE_STREAMING` | Frontend | Enable SSE streaming (`true`/`false`) |
+| `NEXT_PUBLIC_ENABLE_AMBIENT_EFFECTS` | Frontend | Enable particle/scanline effects (`true`/`false`) |
 
 ---
 

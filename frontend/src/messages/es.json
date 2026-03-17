@@ -1,0 +1,47 @@
+{
+  "common": {
+    "appName": "CLEO",
+    "appTagline": "Oráculo Contextual de Aprendizaje Empresarial",
+    "loading": "Cargando",
+    "send": "Enviar",
+    "cancel": "Cancelar",
+    "settings": "Configuración",
+    "error": "Algo salió mal",
+    "retry": "Reintentar"
+  },
+  "header": {
+    "neuralLink": "Enlace Neural",
+    "archive": "Archivo",
+    "nexus": "Nexus",
+    "language": "Idioma"
+  },
+  "chat": {
+    "sessionStable": "Enlace Estable",
+    "sessionConnecting": "Conectando...",
+    "inputPlaceholder": "Consulta a CLEO...",
+    "emptyState": "¿Cómo puedo ayudarte hoy?",
+    "emptyStateHint": "Pregúntame lo que quieras sobre nuestra documentación.",
+    "thinking": "Procesando consulta neural...",
+    "citation": "Fuente",
+    "citations": "Fuentes",
+    "noContext": "No se encontró documentación relevante para tu pregunta.",
+    "streamError": "Transmisión interrumpida. Por favor, inténtalo de nuevo."
+  },
+  "avatar": {
+    "coreSync": "SINCRONIZACIÓN: ACTIVA",
+    "meshEngaged": "RED_NEURAL: CONECTADA",
+    "systemReady": "SISTEMA: LISTO",
+    "awaiting": "Esperando Entrada"
+  },
+  "status": {
+    "online": "En línea",
+    "offline": "Desconectado",
+    "syncing": "Sincronizando",
+    "healthy": "Sistema Operativo",
+    "degraded": "Sistema Degradado"
+  },
+  "footer": {
+    "poweredBy": "Impulsado por CLEO Neural Engine",
+    "version": "v0.1.0"
+  }
+}

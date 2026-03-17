@@ -1,0 +1,93 @@
+/* === CLEO Animation Utilities === */
+
+/* Subtle glow pulse — used on accent elements. */
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Scanning line effect — ambient layer. */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+/* Slow rotation — avatar ring, loading states. */
+@keyframes slow-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Breathing scale — idle avatar indicator. */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+/* Fade-in from bottom — message entry. */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Shimmer — skeleton loading. */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Typing cursor blink. */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Utility classes */
+.animate-glow-pulse {
+  animation: glow-pulse var(--cleo-duration-ambient) ease-in-out infinite;
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
+}
+
+.animate-slow-spin {
+  animation: slow-spin 20s linear infinite;
+}
+
+.animate-breathe {
+  animation: breathe 4s ease-in-out infinite;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up var(--cleo-duration-base) var(--cleo-ease-out) both;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--cleo-bg-glass) 25%,
+    var(--cleo-bg-glass-hover) 50%,
+    var(--cleo-bg-glass) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Reduced motion: disable non-essential animations. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-glow-pulse,
+  .animate-scanline,
+  .animate-slow-spin,
+  .animate-breathe,
+  .animate-shimmer {
+    animation: none;
+  }
+  .animate-fade-in-up {
+    animation-duration: 0ms;
+  }
+}

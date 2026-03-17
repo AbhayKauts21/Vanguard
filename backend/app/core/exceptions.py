@@ -6,8 +6,8 @@ from loguru import logger
 
 # --- Domain Exceptions (Business Logic Errors) ---
 
-class VanguardError(Exception):
-    """Base exception for all Vanguard domain errors."""
+class CleoError(Exception):
+    """Base exception for all CLEO domain errors."""
 
     def __init__(self, detail: str, status_code: int = 500):
         self.detail = detail
@@ -15,35 +15,35 @@ class VanguardError(Exception):
         super().__init__(detail)
 
 
-class NoContextFoundError(VanguardError):
+class NoContextFoundError(CleoError):
     """Raised when similarity scores are below the confidence threshold."""
 
     def __init__(self, detail: str = "No relevant documentation found for your question."):
         super().__init__(detail=detail, status_code=404)
 
 
-class IngestionError(VanguardError):
+class IngestionError(CleoError):
     """Raised when data ingestion from BookStack fails."""
 
     def __init__(self, detail: str = "Failed to ingest BookStack content."):
         super().__init__(detail=detail, status_code=500)
 
 
-class BookStackConnectionError(VanguardError):
+class BookStackConnectionError(CleoError):
     """Raised when BookStack API is unreachable or returns errors."""
 
     def __init__(self, detail: str = "Failed to connect to BookStack."):
         super().__init__(detail=detail, status_code=502)
 
 
-class VectorStoreError(VanguardError):
+class VectorStoreError(CleoError):
     """Raised when Pinecone operations fail."""
 
     def __init__(self, detail: str = "Vector store operation failed."):
         super().__init__(detail=detail, status_code=503)
 
 
-class EmbeddingError(VanguardError):
+class EmbeddingError(CleoError):
     """Raised when OpenAI embedding API call fails."""
 
     def __init__(self, detail: str = "Failed to generate embeddings."):
@@ -65,7 +65,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     )
 
 
-async def vanguard_exception_handler(request: Request, exc: VanguardError):
+async def cleo_exception_handler(request: Request, exc: CleoError):
     """Handles all domain exceptions in RFC 7807 format."""
     logger.error(f"[{exc.__class__.__name__}] {exc.detail} | path={request.url}")
     return JSONResponse(

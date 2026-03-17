@@ -1,12 +1,23 @@
+from typing import Any
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Centralized application configuration loaded from .env file."""
 
-    PROJECT_NAME: str = "Project Vanguard"
+    PROJECT_NAME: str = "CLEO"
     API_V1_STR: str = "/api/v1"
-    DEBUG: bool = True
+    DEBUG: bool = False
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def coerce_debug(cls, v: Any) -> bool:
+        """Accept 'true'/'false'/'1'/'0'/'release' etc from env."""
+        if isinstance(v, bool):
+            return v
+        return str(v).lower() in ("true", "1", "yes", "on")
 
     # OpenAI — shared key for embeddings + generation
     OPENAI_API_KEY: str = ""
@@ -15,7 +26,7 @@ class Settings(BaseSettings):
 
     # Pinecone — serverless vector store
     PINECONE_API_KEY: str = ""
-    PINECONE_INDEX_NAME: str = "vanguard-docs"
+    PINECONE_INDEX_NAME: str = "cleo-docs"
     PINECONE_CLOUD: str = "aws"
     PINECONE_REGION: str = "us-east-1"
 

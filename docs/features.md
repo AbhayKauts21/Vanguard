@@ -1,5 +1,6 @@
-# 🛡️ PROJECT VANGUARD — Feature Documentation
+# 🧠 CLEO — Feature Documentation
 
+> **CLEO** — *Contextual Learning & Enterprise Oracle*
 > This file tracks all features as they are implemented. Updated continuously throughout development.
 
 ---

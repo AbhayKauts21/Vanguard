@@ -11,9 +11,9 @@ from app.api.router_admin import router as admin_router
 from app.api.router_webhook import router as webhook_router
 from app.core.config import settings
 from app.core.exceptions import (
-    VanguardError,
+    CleoError,
     http_exception_handler,
-    vanguard_exception_handler,
+    cleo_exception_handler,
 )
 from app.services.sync_scheduler import start_scheduler, stop_scheduler
 
@@ -21,10 +21,10 @@ from app.services.sync_scheduler import start_scheduler, stop_scheduler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: launch auto-sync scheduler. Shutdown: cleanup."""
-    logger.info("🛡️ Vanguard backend starting...")
+    logger.info("🧠 CLEO backend starting...")
     start_scheduler()
     yield
-    logger.info("🛡️ Vanguard backend shutting down...")
+    logger.info("🧠 CLEO backend shutting down...")
     stop_scheduler()
 
     # Close adapter HTTP clients
@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
 def get_application() -> FastAPI:
     _app = FastAPI(
         title=settings.PROJECT_NAME,
-        description="AI-powered customer support assistant backend",
+        description="CLEO — AI-powered customer support assistant backend",
         version="1.0.0",
         lifespan=lifespan,
     )
@@ -51,7 +51,7 @@ def get_application() -> FastAPI:
 
     # Exception handlers (RFC 7807)
     _app.add_exception_handler(StarletteHTTPException, http_exception_handler)
-    _app.add_exception_handler(VanguardError, vanguard_exception_handler)
+    _app.add_exception_handler(CleoError, cleo_exception_handler)
 
     # Routers
     _app.include_router(chat_router, prefix=settings.API_V1_STR)

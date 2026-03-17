@@ -1,7 +1,9 @@
 <div align="center">
 
-# 🛡️ PROJECT VANGUARD
-**The Future of Interactive Customer Support**
+# 🧠 CLEO
+**Contextual Learning & Enterprise Oracle**
+
+*The Future of Interactive Customer Support — built by Team Vanguard*
 
 [![Hackathon](https://img.shields.io/badge/Event-Andino_Global_AI_Hackathon-blue?style=for-the-badge)](https://github.com/AbhayKauts21/Vanguard)
 [![Status](https://img.shields.io/badge/Status-Active_Development-brightgreen?style=for-the-badge)](#)
@@ -19,12 +21,12 @@
 
 ## 💡 The Problem & Our Solution
 > **Static documentation often leads to support tickets even for common questions.** 
-Vanguard eliminates the friction of digging through dense wikis. We built an AI-powered avatar assistant that interacts with users naturally (via text or voice) and utilizes a **Retrieval-Augmented Generation (RAG)** pipeline to pull highly accurate troubleshooting steps directly from our BookStack knowledge repository.
+CLEO eliminates the friction of digging through dense wikis. We built an AI-powered avatar assistant that interacts with users naturally (via text or voice) and utilizes a **Retrieval-Augmented Generation (RAG)** pipeline to pull highly accurate troubleshooting steps directly from our BookStack knowledge repository.
 
 ---
 
 ## 🏗️ High-Level Architecture
-Vanguard is built on **Clean Architecture** and **Domain-Driven Design (DDD)** principles, ensuring that our AI logic is decoupled from external APIs and infrastructure.
+CLEO is built on **Clean Architecture** and **Domain-Driven Design (DDD)** principles, ensuring that our AI logic is decoupled from external APIs and infrastructure.
 
 ```mermaid
 graph TD

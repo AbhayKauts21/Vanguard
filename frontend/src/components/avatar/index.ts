@@ -1,0 +1,1 @@
+export { AvatarPanel } from "./AvatarPanel";

@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { StatusBadge } from "@/components/ui";
+import { AvatarTelemetry } from "./AvatarTelemetry";
 
 /* Neural avatar display shell — placeholder until HeyGen integration. */
 export function AvatarPanel() {
@@ -31,10 +31,9 @@ export function AvatarPanel() {
         </span>
       </div>
 
-      {/* Telemetry badges */}
-      <div className="absolute bottom-6 flex flex-col items-center gap-2">
-        <StatusBadge status="online" label={t("coreSync")} />
-        <StatusBadge status="online" label={t("meshEngaged")} />
+      {/* Live telemetry badges — polls backend health + sync. */}
+      <div className="absolute bottom-6">
+        <AvatarTelemetry />
       </div>
 
       {/* Corner metrics */}

@@ -44,14 +44,34 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ```
 src/
-├── app/            # Next.js App Router pages
-│   └── [locale]/   # Locale-aware routing
-├── components/     # Shared UI components
-├── domains/        # Feature-oriented domain logic
-├── i18n/           # Internationalization config
-├── lib/            # Utilities, API client, constants
-├── messages/       # Translation JSON files
-├── styles/         # Design tokens & animations
-├── test/           # Test setup, mocks, fixtures
-└── types/          # Shared TypeScript types
+├── app/                  # Next.js App Router pages
+│   └── [locale]/         # Locale-aware routing (en, es)
+├── components/
+│   ├── avatar/           # AvatarPanel, AvatarTelemetry
+│   ├── chat/             # ChatPanel, MessageBubble, Composer, etc.
+│   ├── effects/          # ParticleCanvas, ScanlineOverlay, HexGrid
+│   ├── i18n/             # LanguageSwitcher
+│   ├── layout/           # AppShell, TopBar, FooterStatusBar, CleoInterface
+│   └── ui/               # Button, GlassCard, Skeleton, StatusBadge
+├── domains/
+│   ├── chat/             # API, hooks (useChat, useChatStream), Zustand store
+│   └── system/           # useHealthStatus, useSyncStatus hooks
+├── i18n/                 # next-intl routing, request, navigation
+├── lib/
+│   ├── api/              # Typed fetch client, SSE parser
+│   ├── constants/        # App-wide constant values
+│   ├── env/              # Type-safe env access
+│   └── utils/            # cn() and general helpers
+├── messages/             # en.json, es.json translation files
+├── styles/               # tokens.css, animations.css
+├── test/                 # Vitest setup & fixtures
+└── types/                # Shared TypeScript interfaces
 ```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000` | Backend API URL |
+| `NEXT_PUBLIC_ENABLE_STREAMING` | `false` | Toggle SSE streaming |
+| `NEXT_PUBLIC_ENABLE_AMBIENT_EFFECTS` | `true` | Toggle particle/scanline effects |

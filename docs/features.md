@@ -32,8 +32,28 @@
 
 | # | Feature | Priority | Target |
 |---|---|---|---|
-| F-015 | Conversation memory (multi-turn) | 🟡 P1 | v0.2.0 |
-| F-016 | Health check endpoint | 🟡 P1 | v0.2.0 |
-| F-017 | HeyGen Avatar integration | 🔴 P0 | v0.2.0 |
-| F-018 | OpenTelemetry distributed tracing | 🟢 P2 | v0.3.0 |
-| F-019 | Frontend (Next.js) | 🔴 P0 | v0.2.0 |
+| F-015 | Conversation memory (multi-turn) | 🟡 P1 | v0.3.0 |
+| F-016 | Health check endpoint | 🟡 P1 | v0.3.0 |
+| F-017 | HeyGen Avatar integration | 🔴 P0 | v0.3.0 |
+| F-018 | OpenTelemetry distributed tracing | 🟢 P2 | v0.4.0 |
+
+---
+
+### v0.2.0 — CLEO Neural Interface Frontend (2026-03-16)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-020 | **Next.js Scaffold** — App Router, TypeScript strict, Tailwind v4, Radix UI | ✅ Done | `frontend/` |
+| F-021 | **i18n Foundation** — next-intl locale routing (en/es), LanguageSwitcher | ✅ Done | `i18n/`, `middleware.ts` |
+| F-022 | **Design Token System** — CSS custom properties for colors, spacing, typography | ✅ Done | `styles/tokens.css` |
+| F-023 | **Animation Library** — 7 keyframes, utility classes, prefers-reduced-motion | ✅ Done | `styles/animations.css` |
+| F-024 | **Layout Components** — AppShell, TopBar, FooterStatusBar, SplitPanelLayout | ✅ Done | `components/layout/` |
+| F-025 | **UI Primitives** — Button (4 variants), GlassCard, Skeleton, StatusBadge | ✅ Done | `components/ui/` |
+| F-026 | **Chat Interface** — ChatPanel, MessageBubble, MessageList, Composer, EmptyState | ✅ Done | `components/chat/` |
+| F-027 | **Chat State Management** — Zustand store with full streaming lifecycle | ✅ Done | `domains/chat/model/` |
+| F-028 | **API Client** — Typed fetch wrapper with ApiError, GET/POST/stream methods | ✅ Done | `lib/api/client.ts` |
+| F-029 | **Chat Integration** — useChat hook for non-streaming message flow | ✅ Done | `domains/chat/hooks/useChat.ts` |
+| F-030 | **SSE Streaming** — SSE parser, consumeSSEStream, useChatStream hook | ✅ Done | `lib/api/sse-parser.ts`, `domains/chat/hooks/` |
+| F-031 | **Ambient Effects** — ParticleCanvas, ScanlineOverlay, HexGrid, GhostTerminal | ✅ Done | `components/effects/` |
+| F-032 | **Avatar Shell & Telemetry** — Live health/sync polling, AvatarTelemetry badges | ✅ Done | `components/avatar/`, `domains/system/` |
+| F-033 | **Test Suite** — 35 Vitest tests across 7 files with Istanbul coverage | ✅ Done | `src/**/*.test.ts` |

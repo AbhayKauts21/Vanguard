@@ -1,0 +1,47 @@
+{
+  "common": {
+    "appName": "CLEO",
+    "appTagline": "Contextual Learning & Enterprise Oracle",
+    "loading": "Loading",
+    "send": "Send",
+    "cancel": "Cancel",
+    "settings": "Settings",
+    "error": "Something went wrong",
+    "retry": "Retry"
+  },
+  "header": {
+    "neuralLink": "Neural Link",
+    "archive": "Archive",
+    "nexus": "Nexus",
+    "language": "Language"
+  },
+  "chat": {
+    "sessionStable": "Uplink Stable",
+    "sessionConnecting": "Connecting...",
+    "inputPlaceholder": "Address CLEO...",
+    "emptyState": "How can I help you today?",
+    "emptyStateHint": "Ask me anything about our documentation.",
+    "thinking": "Processing neural query...",
+    "citation": "Source",
+    "citations": "Sources",
+    "noContext": "No relevant documentation found for your question.",
+    "streamError": "Stream interrupted. Please try again."
+  },
+  "avatar": {
+    "coreSync": "CORE_SYNC: ACTIVE",
+    "meshEngaged": "NEURAL_MESH: ENGAGED",
+    "systemReady": "SYSTEM: READY",
+    "awaiting": "Awaiting Input"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "syncing": "Syncing",
+    "healthy": "System Healthy",
+    "degraded": "System Degraded"
+  },
+  "footer": {
+    "poweredBy": "Powered by CLEO Neural Engine",
+    "version": "v0.1.0"
+  }
+}

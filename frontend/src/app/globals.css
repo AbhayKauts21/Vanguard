@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/* === CLEO neural interface dark theme === */
+
+:root {
+  --cleo-bg-primary: #0a0a12;
+  --cleo-bg-secondary: #0f0f1a;
+  --cleo-bg-panel: rgba(15, 15, 30, 0.85);
+  --cleo-bg-glass: rgba(255, 255, 255, 0.03);
+  --cleo-border: rgba(255, 255, 255, 0.06);
+  --cleo-border-glow: rgba(0, 210, 255, 0.15);
+  --cleo-text-primary: rgba(255, 255, 255, 0.9);
+  --cleo-text-secondary: rgba(255, 255, 255, 0.5);
+  --cleo-text-muted: rgba(255, 255, 255, 0.3);
+  --cleo-accent-cyan: #00d2ff;
+  --cleo-accent-purple: #7b2ff7;
+  --cleo-accent-magenta: #ff2d95;
+  --cleo-glass-blur: 20px;
+  --cleo-radius-sm: 6px;
+  --cleo-radius-md: 10px;
+  --cleo-radius-lg: 16px;
+  --font-inter: var(--font-inter);
+}
+
+@theme inline {
+  --color-cleo-bg: var(--cleo-bg-primary);
+  --color-cleo-bg-secondary: var(--cleo-bg-secondary);
+  --color-cleo-accent: var(--cleo-accent-cyan);
+  --color-cleo-purple: var(--cleo-accent-purple);
+  --color-cleo-magenta: var(--cleo-accent-magenta);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: var(--cleo-bg-primary);
+  color: var(--cleo-text-primary);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* Glass panel utility */
+.glass-panel {
+  background: var(--cleo-bg-glass);
+  backdrop-filter: blur(var(--cleo-glass-blur));
+  border: 1px solid var(--cleo-border);
+  border-radius: var(--cleo-radius-md);
+}
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

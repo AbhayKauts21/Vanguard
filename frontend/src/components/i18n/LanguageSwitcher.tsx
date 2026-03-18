@@ -2,11 +2,8 @@
 
 import { useLocale } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/navigation";
-import { routing } from "@/i18n/routing";
-import { Globe } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-/* Toggle between supported locales. */
+/* Toggle between supported locales — styled to match header buttons. */
 export function LanguageSwitcher() {
   const locale = useLocale();
   const router = useRouter();
@@ -23,14 +20,9 @@ export function LanguageSwitcher() {
     <button
       onClick={switchLocale}
       aria-label={`Switch to ${nextLocale}`}
-      className={cn(
-        "flex items-center gap-1.5 rounded-md px-2 py-1",
-        "border border-[var(--cleo-border)] bg-[var(--cleo-bg-glass)]",
-        "text-[10px] font-medium uppercase tracking-wider text-[var(--cleo-text-secondary)]",
-        "transition-colors hover:border-[var(--cleo-border-hover)] hover:text-[var(--cleo-text-primary)]",
-      )}
+      className="flex items-center gap-1.5 rounded-full h-9 px-3 bg-white/5 text-white/70 border border-white/10 transition-all hover:bg-white/10 text-[10px] font-medium tracking-widest uppercase"
     >
-      <Globe className="h-3 w-3" />
+      <span className="material-symbols-outlined text-[14px]">language</span>
       {label}
     </button>
   );

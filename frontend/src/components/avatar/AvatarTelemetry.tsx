@@ -1,11 +1,12 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { StatusBadge } from "@/components/ui";
 import { useHealthStatus, useSyncStatus } from "@/domains/system";
 
-/* Telemetry panel — live health & sync badges on the avatar panel. */
+/**
+ * Telemetry status indicators — matches original HTML bottom-of-avatar layout.
+ * CORE_SYNC: ACTIVE / NEURAL_MESH: ENGAGED style.
+ */
 export function AvatarTelemetry() {
   const t = useTranslations("avatar");
   const ts = useTranslations("status");
@@ -14,28 +15,21 @@ export function AvatarTelemetry() {
   const sync = useSyncStatus();
 
   const isHealthy = health.isSuccess;
-  const isSyncing = sync.data?.status === "syncing";
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      {/* Health badge */}
-      <StatusBadge
-        status={isHealthy ? "online" : "offline"}
-        label={isHealthy ? ts("healthy") : ts("degraded")}
-      />
-
-      {/* Sync badge */}
-      <StatusBadge
-        status={isSyncing ? "syncing" : "online"}
-        label={isSyncing ? ts("syncing") : t("coreSync")}
-      />
-
-      {/* Page count */}
-      {sync.data && (
-        <span className="text-[9px] font-mono text-[var(--cleo-text-muted)]">
-          PAGES: {sync.data.total_pages} | CHUNKS: {sync.data.total_chunks}
+    <div className="flex gap-6 mt-2">
+      <div className="flex items-center gap-2.5">
+        <span className="material-symbols-outlined text-white/30 text-xs font-light">auto_awesome</span>
+        <span className="text-[10px] font-medium text-white/30 tracking-[0.15em]">
+          {t("coreSync")}
         </span>
-      )}
+      </div>
+      <div className="flex items-center gap-2.5">
+        <span className="material-symbols-outlined text-white/30 text-xs font-light">memory</span>
+        <span className="text-[10px] font-medium text-white/30 tracking-[0.15em]">
+          {isHealthy ? t("meshEngaged") : ts("degraded")}
+        </span>
+      </div>
     </div>
   );
 }

@@ -1,8 +1,6 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { Send } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 
 interface ComposerProps {
@@ -10,7 +8,10 @@ interface ComposerProps {
   disabled?: boolean;
 }
 
-/* Chat input composer with send button. */
+/**
+ * Chat input composer — matches original HTML exactly.
+ * Rounded-full input with gradient glow aura, arrow_upward send button.
+ */
 export function Composer({ onSend, disabled = false }: ComposerProps) {
   const t = useTranslations("chat");
   const [value, setValue] = useState("");
@@ -23,7 +24,7 @@ export function Composer({ onSend, disabled = false }: ComposerProps) {
     setValue("");
   }
 
-  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -31,41 +32,31 @@ export function Composer({ onSend, disabled = false }: ComposerProps) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className={cn(
-        "flex items-end gap-2 border-t border-[var(--cleo-border)] px-4 py-3",
-        "bg-[var(--cleo-bg-panel)] backdrop-blur-[var(--cleo-glass-blur)]",
-      )}
-    >
-      <textarea
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={t("inputPlaceholder")}
-        disabled={disabled}
-        rows={1}
-        className={cn(
-          "flex-1 resize-none rounded-[var(--cleo-radius-md)] px-4 py-2.5",
-          "border border-[var(--cleo-border)] bg-[var(--cleo-bg-input)]",
-          "text-sm text-[var(--cleo-text-primary)] placeholder:text-[var(--cleo-text-muted)]",
-          "focus:border-[var(--cleo-border-accent)] focus:outline-none",
-          "transition-colors",
-        )}
-      />
-      <button
-        type="submit"
-        disabled={disabled || !value.trim()}
-        aria-label={t("inputPlaceholder")}
-        className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-[var(--cleo-radius-md)]",
-          "bg-[var(--cleo-cyan)]/10 border border-[var(--cleo-cyan)]/20",
-          "text-[var(--cleo-cyan)] transition-all",
-          "hover:bg-[var(--cleo-cyan)]/20 disabled:opacity-30 disabled:cursor-not-allowed",
-        )}
-      >
-        <Send className="h-4 w-4" />
-      </button>
-    </form>
+    <div className="p-8">
+      <form onSubmit={handleSubmit} className="relative group" id="input-container">
+        {/* Gradient glow aura */}
+        <div className="absolute -inset-1 bg-gradient-to-r from-violet-500/10 via-white/10 to-violet-500/10 rounded-full blur-xl opacity-20 group-hover:opacity-40 transition duration-700 animate-pulse-slow" />
+
+        {/* Input wrapper */}
+        <div className="relative flex items-center bg-black border border-white/10 rounded-full px-7 py-4 liquid-glow">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={t("inputPlaceholder")}
+            disabled={disabled}
+            className="glow-scribe bg-transparent border-none focus:ring-0 focus:outline-none text-white text-[13px] flex-1 placeholder-white/20 font-light"
+          />
+          <button
+            type="submit"
+            disabled={disabled || !value.trim()}
+            className="ml-2 text-white/30 hover:text-white hover:scale-110 active:scale-95 transition-all duration-500 disabled:opacity-30"
+          >
+            <span className="material-symbols-outlined font-light">arrow_upward</span>
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

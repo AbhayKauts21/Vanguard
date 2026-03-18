@@ -41,7 +41,8 @@
     "degraded": "System Degraded"
   },
   "footer": {
-    "poweredBy": "Powered by CLEO Neural Engine",
-    "version": "v0.1.0"
+    "neuralMesh": "Neural Mesh Analysis...",
+    "nodeLocation": "Neo-Tokyo Node 07",
+    "buildInfo": "CLEO Systems // Build 4.2.0-A // Protocol 99"
   }
 }

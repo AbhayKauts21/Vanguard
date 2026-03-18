@@ -1,27 +1,38 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { env } from "@/lib/env";
-import { ParticleCanvas, ScanlineOverlay, HexGridBackground, GhostTerminalOverlay } from "@/components/effects";
+import {
+  MoodOverlay,
+  PlasmaBackground,
+  HexGridBackground,
+  GhostTerminalOverlay,
+  ParticleCanvas,
+  ScanlineOverlay,
+  NeuralSvgOverlay,
+  LiquidFilter,
+} from "@/components/effects";
 import type { ReactNode } from "react";
 
-/* Full-screen shell with ambient effect layer support. */
+/**
+ * Full-screen shell with ambient effect layers.
+ * Layer order matches original HTML: mood → plasma → hex → ghost → particles → scanline → neural-svg.
+ */
 export function AppShell({ children }: { children: ReactNode }) {
-  const showEffects = env.enableAmbientEffects;
-
   return (
-    <div className={cn("relative flex h-screen w-screen flex-col overflow-hidden bg-[var(--cleo-bg-primary)]")}>
-      {/* Ambient effects layer — behind all content. */}
-      {showEffects && (
-        <>
-          <HexGridBackground />
-          <ParticleCanvas />
-          <ScanlineOverlay />
-          <GhostTerminalOverlay />
-        </>
-      )}
+    <div className="relative flex h-screen w-full flex-col overflow-hidden font-display text-white min-h-screen selection:bg-white/20">
+      {/* Ambient layers — behind all content */}
+      <MoodOverlay />
+      <PlasmaBackground />
+      <HexGridBackground />
+      <GhostTerminalOverlay />
+      <ParticleCanvas />
+      <ScanlineOverlay />
+      <NeuralSvgOverlay />
 
+      {/* Content */}
       {children}
+
+      {/* Hidden SVG defs for liquid displacement filter */}
+      <LiquidFilter />
     </div>
   );
 }

@@ -1,24 +1,21 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
-/* Animated typing indicator for assistant processing state. */
+/* Typing indicator with waveform bars — matches original CLEO style. */
 export function TypingIndicator() {
   const t = useTranslations("chat");
 
   return (
-    <div className="animate-fade-in-up flex items-center gap-2 px-4 py-2">
-      <div className="flex gap-1">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="h-1.5 w-1.5 rounded-full bg-[var(--cleo-cyan)]/60"
-            style={{ animation: `glow-pulse 1.4s ease-in-out ${i * 0.2}s infinite` }}
-          />
-        ))}
+    <div className="flex items-center gap-3 px-8 py-2 message-bloom">
+      <div className="size-6 rounded-full glass-panel flex items-center justify-center border border-white/20 bg-white/5">
+        <div className="flex items-end h-3 gap-[1px]">
+          <div className="waveform-bar animate-waveform" style={{ animationDelay: "0.1s" }} />
+          <div className="waveform-bar animate-waveform" style={{ animationDelay: "0.3s" }} />
+          <div className="waveform-bar animate-waveform" style={{ animationDelay: "0.2s" }} />
+        </div>
       </div>
-      <span className="text-xs text-[var(--cleo-text-muted)]">{t("thinking")}</span>
+      <span className="text-[10px] text-white/40 uppercase tracking-widest">{t("thinking")}</span>
     </div>
   );
 }

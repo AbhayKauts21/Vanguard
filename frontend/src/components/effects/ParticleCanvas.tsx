@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
 
-/* Floating particle field — canvas-based ambient background effect. */
-export function ParticleCanvas({ className }: { className?: string }) {
+/**
+ * Full-screen particle canvas with mouse velocity physics and panel repulsion.
+ * Matches original HTML: 1200 particles, viscous friction, glow, connections.
+ */
+export function ParticleCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -14,80 +15,147 @@ export function ParticleCanvas({ className }: { className?: string }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    /* Check reduced motion preference. */
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    let w = (canvas.width = canvas.offsetWidth);
-    let h = (canvas.height = canvas.offsetHeight);
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    /* Particle pool. */
-    const count = Math.min(60, Math.floor((w * h) / 15000));
-    const particles = Array.from({ length: count }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3,
-      r: Math.random() * 1.5 + 0.5,
-      alpha: Math.random() * 0.4 + 0.1,
-    }));
+    const mouse = { x: 0, y: 0, lastX: 0, lastY: 0, vx: 0, vy: 0 };
+    const viscousFriction = 0.98;
+    const particleDensity = 1200;
 
-    function draw() {
-      ctx!.clearRect(0, 0, w, h);
+    class Particle {
+      x: number; y: number; size: number;
+      vx = 0; vy = 0; opacity: number;
+      repelX = 0; repelY = 0;
 
-      for (const p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-
-        /* Wrap around edges. */
-        if (p.x < 0) p.x = w;
-        if (p.x > w) p.x = 0;
-        if (p.y < 0) p.y = h;
-        if (p.y > h) p.y = 0;
-
-        ctx!.beginPath();
-        ctx!.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx!.fillStyle = `rgba(0, 210, 255, ${p.alpha})`;
-        ctx!.fill();
+      constructor() {
+        this.x = Math.random() * canvas!.width;
+        this.y = Math.random() * canvas!.height;
+        this.size = Math.random() * 2.5 + 1.2;
+        this.opacity = Math.random() * 0.4 + 0.5;
       }
 
-      /* Draw faint connections between nearby particles. */
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
+      draw() {
+        ctx!.shadowBlur = 10;
+        ctx!.shadowColor = "rgba(255, 255, 255, 0.7)";
+        ctx!.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+        ctx!.beginPath();
+        ctx!.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx!.fill();
+        ctx!.shadowBlur = 0;
+      }
+
+      update(panels: DOMRect[]) {
+        /* Mouse velocity influence */
+        if (mouse.vx !== 0 || mouse.vy !== 0) {
+          const dx = this.x - mouse.x;
+          const dy = this.y - mouse.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) {
-            ctx!.beginPath();
-            ctx!.moveTo(particles[i].x, particles[i].y);
-            ctx!.lineTo(particles[j].x, particles[j].y);
-            ctx!.strokeStyle = `rgba(0, 210, 255, ${0.05 * (1 - dist / 120)})`;
-            ctx!.stroke();
+          const influenceRadius = 300;
+          if (dist < influenceRadius) {
+            const force = (influenceRadius - dist) / influenceRadius;
+            this.vx += mouse.vx * force * 0.35;
+            this.vy += mouse.vy * force * 0.35;
+            this.vx += (Math.random() - 0.5) * 0.4;
+            this.vy += (Math.random() - 0.5) * 0.4;
           }
         }
+
+        this.vx *= viscousFriction;
+        this.vy *= viscousFriction;
+
+        /* Panel repulsion */
+        for (const rect of panels) {
+          const margin = 40;
+          if (
+            this.x > rect.left - margin && this.x < rect.right + margin &&
+            this.y > rect.top - margin && this.y < rect.bottom + margin
+          ) {
+            const dx = this.x - (rect.left + rect.width / 2);
+            const dy = this.y - (rect.top + rect.height / 2);
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            this.repelX += (dx / dist) * 1.2;
+            this.repelY += (dy / dist) * 1.2;
+          }
+        }
+
+        this.x += this.vx + this.repelX;
+        this.y += this.vy + this.repelY;
+        this.repelX *= 0.8;
+        this.repelY *= 0.8;
+
+        /* Wrap edges */
+        if (this.x < -20) this.x = canvas!.width + 20;
+        if (this.x > canvas!.width + 20) this.x = -20;
+        if (this.y < -20) this.y = canvas!.height + 20;
+        if (this.y > canvas!.height + 20) this.y = -20;
+      }
+    }
+
+    let particles = Array.from({ length: particleDensity }, () => new Particle());
+
+    function getPanelRects(): DOMRect[] {
+      return Array.from(document.querySelectorAll(".panel-boundary")).map(
+        (el) => el.getBoundingClientRect(),
+      );
+    }
+
+    let panels = getPanelRects();
+    let rafId: number;
+
+    function animate() {
+      ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
+
+      mouse.vx = mouse.x - mouse.lastX;
+      mouse.vy = mouse.y - mouse.lastY;
+      mouse.lastX = mouse.x;
+      mouse.lastY = mouse.y;
+
+      for (const p of particles) {
+        p.update(panels);
+        p.draw();
       }
 
-      animRef.current = requestAnimationFrame(draw);
+      mouse.vx *= 0.6;
+      mouse.vy *= 0.6;
+      rafId = requestAnimationFrame(animate);
     }
 
-    draw();
+    animate();
 
-    function handleResize() {
-      w = canvas!.width = canvas!.offsetWidth;
-      h = canvas!.height = canvas!.offsetHeight;
+    function onMouseMove(e: MouseEvent) {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
     }
-    window.addEventListener("resize", handleResize);
+
+    function onResize() {
+      canvas!.width = window.innerWidth;
+      canvas!.height = window.innerHeight;
+      panels = getPanelRects();
+      particles = Array.from({ length: particleDensity }, () => new Particle());
+    }
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("resize", onResize);
+
+    /* Refresh panel rects periodically */
+    const panelInterval = setInterval(() => { panels = getPanelRects(); }, 2000);
 
     return () => {
-      cancelAnimationFrame(animRef.current);
-      window.removeEventListener("resize", handleResize);
+      cancelAnimationFrame(rafId);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("resize", onResize);
+      clearInterval(panelInterval);
     };
   }, []);
 
   return (
     <canvas
       ref={canvasRef}
-      className={cn("pointer-events-none absolute inset-0 z-[var(--z-effects)]", className)}
+      className="pointer-events-none fixed inset-0"
+      style={{ zIndex: -2 }}
     />
   );
 }

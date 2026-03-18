@@ -1,48 +1,76 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { fireNeuralLink } from "@/components/effects/NeuralSvgOverlay";
 import type { Citation } from "@/types";
-import { ExternalLink } from "lucide-react";
+import { useRef } from "react";
 
 interface MessageBubbleProps {
   role: "user" | "assistant";
   content: string;
   citations?: Citation[];
   isStreaming?: boolean;
+  delay?: number;
 }
 
-/* Single chat message bubble — user or assistant. */
-export function MessageBubble({ role, content, citations, isStreaming }: MessageBubbleProps) {
+/**
+ * Single chat message — matches original HTML exactly.
+ * CLEO messages: waveform icon + left-aligned rounded-tl-none bubble.
+ * Operator messages: diamond icon + right-aligned rounded-tr-none bubble.
+ */
+export function MessageBubble({ role, content, citations, isStreaming, delay = 0 }: MessageBubbleProps) {
   const t = useTranslations("chat");
   const isUser = role === "user";
 
   return (
-    <div className={cn("animate-fade-in-up flex w-full", isUser ? "justify-end" : "justify-start")}>
+    <div
+      className="flex flex-col gap-3 max-w-[95%] message-bloom message-echo"
+      style={{
+        animationDelay: `${delay}s`,
+        ...(isUser ? { marginLeft: "auto", alignItems: "flex-end" } : {}),
+      }}
+    >
+      {/* Sender label row */}
+      <div className={`flex items-center gap-3 mb-0.5 ${isUser ? "flex-row-reverse" : ""}`}>
+        {/* Avatar icon */}
+        <div className="size-6 rounded-full glass-panel flex items-center justify-center border border-white/20 bg-white/5">
+          {isUser ? (
+            /* Diamond shape for operator */
+            <div className="w-3 h-3 rotate-45 border border-white/40" />
+          ) : (
+            /* Waveform bars for CLEO */
+            <div className="flex items-end h-3 gap-[1px]">
+              <div className="waveform-bar animate-waveform" style={{ animationDelay: "0.1s" }} />
+              <div className="waveform-bar animate-waveform" style={{ animationDelay: "0.3s" }} />
+              <div className="waveform-bar animate-waveform" style={{ animationDelay: "0.2s" }} />
+            </div>
+          )}
+        </div>
+        <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+          {isUser ? "Operator" : "CLEO Core"}
+        </span>
+      </div>
+
+      {/* Message bubble */}
       <div
-        className={cn(
-          "max-w-[85%] rounded-[var(--cleo-radius-md)] px-4 py-3",
+        className={`border border-white/10 p-5 text-white/80 text-[13px] leading-relaxed shadow-sm hover:border-white/20 transition-colors inline-block w-fit ${
           isUser
-            ? "bg-[var(--cleo-cyan)]/10 border border-[var(--cleo-cyan)]/20 text-[var(--cleo-text-primary)]"
-            : "bg-[var(--cleo-bg-glass)] border border-[var(--cleo-border)] text-[var(--cleo-text-primary)]",
-        )}
+            ? "bg-white/[0.08] rounded-2xl rounded-tr-none text-white/90"
+            : "bg-white/[0.03] rounded-2xl rounded-tl-none"
+        }`}
       >
-        {/* Message text */}
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
+        {content}
 
         {/* Streaming cursor */}
         {isStreaming && (
-          <span className="animate-blink ml-0.5 inline-block h-4 w-[2px] bg-[var(--cleo-cyan)]" />
+          <span className="inline-block w-[2px] h-4 bg-white/60 ml-0.5 animate-pulse" />
         )}
 
-        {/* Citations */}
+        {/* Citations / source cards */}
         {citations && citations.length > 0 && (
-          <div className="mt-3 flex flex-col gap-1.5 border-t border-[var(--cleo-border)] pt-2">
-            <span className="text-[10px] uppercase tracking-wider text-[var(--cleo-text-muted)]">
-              {t("citations")}
-            </span>
+          <div className="mt-5 grid grid-cols-1 gap-2.5">
             {citations.map((c) => (
-              <CitationCard key={c.page_id} citation={c} />
+              <SourceCard key={c.page_id} citation={c} />
             ))}
           </div>
         )}
@@ -51,22 +79,36 @@ export function MessageBubble({ role, content, citations, isStreaming }: Message
   );
 }
 
-/* Compact citation link card. */
-function CitationCard({ citation }: { citation: Citation }) {
+/* Source card with chevron and neural link fire — matches original HTML. */
+function SourceCard({ citation }: { citation: Citation }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  function handleClick() {
+    if (ref.current) fireNeuralLink(ref.current);
+  }
+
   return (
-    <a
-      href={citation.page_url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={cn(
-        "flex items-center gap-2 rounded-[var(--cleo-radius-sm)] px-2.5 py-1.5",
-        "border border-[var(--cleo-border)] bg-[var(--cleo-bg-glass)]",
-        "text-xs text-[var(--cleo-text-secondary)] transition-colors",
-        "hover:border-[var(--cleo-border-hover)] hover:text-[var(--cleo-text-primary)]",
-      )}
+    <div
+      ref={ref}
+      onClick={handleClick}
+      className="source-card flex items-center justify-between p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/5 hover:border-white/30 transition-all cursor-pointer group"
     >
-      <ExternalLink className="h-3 w-3 shrink-0 text-[var(--cleo-cyan)]" />
-      <span className="truncate">{citation.page_title}</span>
-    </a>
+      <div className="flex items-center gap-3">
+        <span className="material-symbols-outlined text-white/40 group-hover:text-white/80 transition-colors text-lg">
+          database
+        </span>
+        <div>
+          <p className="text-[11px] font-semibold text-white/90 leading-tight">
+            {citation.page_title}
+          </p>
+          <p className="text-[9px] text-white/30 tracking-wider">
+            Page {citation.page_id}
+          </p>
+        </div>
+      </div>
+      <span className="material-symbols-outlined text-sm text-white/30 group-hover:translate-x-0.5 transition-transform">
+        chevron_right
+      </span>
+    </div>
   );
 }

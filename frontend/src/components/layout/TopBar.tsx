@@ -1,46 +1,50 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
-import { Brain } from "lucide-react";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 
-/* Top navigation bar with CLEO branding and nav links. */
+/**
+ * Header bar — exact match to original HTML.
+ * Grain icon, CLEO shimmer logo, nav links, settings + power buttons.
+ */
 export function TopBar() {
   const t = useTranslations("header");
-  const tc = useTranslations("common");
 
   return (
-    <header
-      className={cn(
-        "relative z-[var(--z-header)] flex h-14 items-center justify-between",
-        "border-b border-[var(--cleo-border)] px-6",
-        "bg-[var(--cleo-bg-panel)] backdrop-blur-[var(--cleo-glass-blur)]",
-      )}
-    >
-      {/* Brand */}
-      <div className="flex items-center gap-2">
-        <Brain className="h-5 w-5 text-[var(--cleo-cyan)]" />
-        <span className="text-sm font-bold tracking-widest text-[var(--cleo-text-primary)]">
-          {tc("appName")}
-        </span>
+    <header className="flex items-center justify-between border-b border-white/10 px-10 py-5 glass-panel z-50">
+      {/* Brand: grain icon + CLEO shimmer */}
+      <div className="flex items-center gap-6 group cursor-pointer">
+        <div className="size-6 transition-transform duration-700 group-hover:rotate-[180deg]">
+          <span className="material-symbols-outlined text-2xl font-light">grain</span>
+        </div>
+        <h2 className="text-xl font-light cleo-logo uppercase">CLEO</h2>
       </div>
 
-      {/* Nav links */}
-      <nav className="hidden items-center gap-6 md:flex">
-        {(["neuralLink", "archive", "nexus"] as const).map((key) => (
-          <span
-            key={key}
-            className="cursor-pointer text-xs uppercase tracking-wider text-[var(--cleo-text-muted)] transition-colors hover:text-[var(--cleo-text-secondary)]"
-          >
-            {t(key)}
-          </span>
-        ))}
-      </nav>
+      {/* Right side: nav + actions */}
+      <div className="flex flex-1 justify-end gap-10">
+        {/* Nav links */}
+        <div className="flex items-center gap-10">
+          {(["neuralLink", "archive", "nexus"] as const).map((key) => (
+            <a
+              key={key}
+              href="#"
+              className="text-white/40 hover:text-white transition-all text-[10px] font-medium tracking-[0.15em] uppercase"
+            >
+              {t(key)}
+            </a>
+          ))}
+        </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        <LanguageSwitcher />
+        {/* Action buttons */}
+        <div className="flex gap-4 items-center">
+          <LanguageSwitcher />
+          <button className="flex items-center justify-center rounded-full h-9 w-9 bg-white/5 text-white/70 border border-white/10 transition-all hover:bg-white/10">
+            <span className="material-symbols-outlined text-[18px]">settings</span>
+          </button>
+          <button className="flex items-center justify-center rounded-full h-9 w-9 bg-white/5 text-white/40 border border-white/10 transition-all hover:bg-white/10">
+            <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+          </button>
+        </div>
       </div>
     </header>
   );

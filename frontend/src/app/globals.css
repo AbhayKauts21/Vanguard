@@ -2,63 +2,193 @@
 @import "../styles/tokens.css";
 @import "../styles/animations.css";
 
-/* === CLEO neural interface dark theme === */
-
-:root {
-  --cleo-bg-primary: #0a0a12;
-  --cleo-bg-secondary: #0f0f1a;
-  --cleo-bg-panel: rgba(15, 15, 30, 0.85);
-  --cleo-bg-glass: rgba(255, 255, 255, 0.03);
-  --cleo-border: rgba(255, 255, 255, 0.06);
-  --cleo-border-glow: rgba(0, 210, 255, 0.15);
-  --cleo-text-primary: rgba(255, 255, 255, 0.9);
-  --cleo-text-secondary: rgba(255, 255, 255, 0.5);
-  --cleo-text-muted: rgba(255, 255, 255, 0.3);
-  --cleo-accent-cyan: #00d2ff;
-  --cleo-accent-purple: #7b2ff7;
-  --cleo-accent-magenta: #ff2d95;
-  --cleo-glass-blur: 20px;
-  --cleo-radius-sm: 6px;
-  --cleo-radius-md: 10px;
-  --cleo-radius-lg: 16px;
-  --font-inter: var(--font-inter);
-}
+/* === CLEO Neural Interface — exact match to HTML spec === */
 
 @theme inline {
-  --color-cleo-bg: var(--cleo-bg-primary);
-  --color-cleo-bg-secondary: var(--cleo-bg-secondary);
-  --color-cleo-accent: var(--cleo-accent-cyan);
-  --color-cleo-purple: var(--cleo-accent-purple);
-  --color-cleo-magenta: var(--cleo-accent-magenta);
-  --font-sans: var(--font-inter);
+  --color-primary: #ffffff;
+  --color-background-light: #f5f5f5;
+  --color-background-dark: #050505;
+  --color-atmosphere: #0a0a14;
+  --font-display: var(--font-inter), "Inter", sans-serif;
 }
 
 body {
-  background: var(--cleo-bg-primary);
-  color: var(--cleo-text-primary);
-  font-family: var(--font-inter), system-ui, sans-serif;
+  background-color: #050505;
+  position: relative;
   overflow: hidden;
+  transition: background 1s ease;
+  color: white;
+  font-family: var(--font-display);
 }
 
-/* Glass panel utility */
+/* === Glass Panel — core UI surface === */
 .glass-panel {
-  background: var(--cleo-bg-glass);
-  backdrop-filter: blur(var(--cleo-glass-blur));
-  border: 1px solid var(--cleo-border);
-  border-radius: var(--cleo-radius-md);
+  background: rgba(8, 8, 12, 0.75);
+  backdrop-filter: blur(40px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
 }
 
-/* Scrollbar styling for dark theme */
-::-webkit-scrollbar {
-  width: 4px;
+/* Adaptive depth when CLEO is speaking */
+.glass-panel.speaking {
+  background: rgba(8, 8, 12, 0.4);
+  backdrop-filter: blur(10px) saturate(1.1);
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+/* === Plasma Background === */
+.plasma-bg {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: -3;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(100, 80, 255, 0.03) 0%, transparent 60%);
+  filter: blur(60px);
+  animation: plasmaMove 20s ease-in-out infinite alternate;
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
+
+/* === Mood Overlay === */
+#mood-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(30, 20, 60, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -4;
+  transition: all 2s ease-in-out;
 }
-::-webkit-scrollbar-thumb:hover {
+
+/* === Scanline CRT Effect === */
+.scanline {
+  width: 100%; height: 100%;
+  z-index: 50;
+  background: linear-gradient(0deg, rgba(255, 255, 255, 0.02) 50%, transparent 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  position: fixed;
+  top: 0; left: 0;
+}
+
+/* === Hex Grid Pattern === */
+.hex-grid {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.15;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='104' viewBox='0 0 60 104' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l30 17.32v34.64L30 69.28 0 51.96V17.32L30 0z' fill-rule='evenodd' stroke='%23ffffff' stroke-width='0.5' fill='none'/%3E%3C/svg%3E");
+  background-size: 60px 104px;
+}
+
+/* === Ghost Terminal === */
+.ghost-terminal {
+  position: fixed;
+  inset: 0;
+  z-index: -5;
+  opacity: 0.03;
+  font-family: monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.03);
+  pointer-events: none;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: pre;
+}
+
+/* === CLEO Logo Shimmer === */
+.cleo-logo {
+  font-weight: 200;
+  letter-spacing: 0.3em;
+  background: linear-gradient(90deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.4) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 12s infinite linear, logoBreathe 8s infinite ease-in-out;
+}
+
+/* === Source / Citation Cards === */
+.source-card {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.source-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* === Liquid Glow Input === */
+.liquid-glow {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+/* === Glow-Scribe Input Effect === */
+.glow-scribe::placeholder {
+  transition: opacity 0.3s ease;
+}
+.glow-scribe {
+  text-shadow: 0 0 0px rgba(255, 255, 255, 0);
+  transition: text-shadow 0.3s ease;
+}
+.glow-scribe:focus {
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+/* === Waveform Bars (CLEO message icon) === */
+.waveform-bar {
+  width: 2px;
+  background: white;
+  border-radius: 1px;
+  margin: 0 1px;
+}
+
+/* === Thread Synapse Lines === */
+.thread-synapse {
+  position: absolute;
+  width: 2px;
+  background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.15), transparent);
+  left: 20px;
+  top: 0; bottom: 0;
+  z-index: -1;
+}
+
+/* === Neural Link SVG Line === */
+.neural-link-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.4);
+  stroke-width: 1.5;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+}
+
+/* === Ripple Shockwave === */
+.ripple-effect {
+  position: fixed;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+  transform: scale(0);
+  animation: ripple-animation 0.8s cubic-bezier(0, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 99;
+}
+
+/* === Message Echo Magnetic Pull === */
+.message-echo {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* === Scrollbar (3px thin) === */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+
+/* === Selection === */
+::selection {
   background: rgba(255, 255, 255, 0.2);
 }

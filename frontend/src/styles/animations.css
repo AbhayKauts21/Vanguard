@@ -1,93 +1,135 @@
-/* === CLEO Animation Utilities === */
+/* === CLEO Animation System === */
+/* Matches the original HTML neural interface animations exactly. */
 
-/* Subtle glow pulse — used on accent elements. */
-@keyframes glow-pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+/* Plasma background movement */
+@keyframes plasmaMove {
+  0% { transform: scale(1) translate(0, 0) rotate(0deg); }
+  33% { transform: scale(1.2) translate(5%, -5%) rotate(5deg); }
+  66% { transform: scale(0.9) translate(-5%, 5%) rotate(-5deg); }
+  100% { transform: scale(1.1) translate(2%, 2%) rotate(2deg); }
 }
 
-/* Scanning line effect — ambient layer. */
-@keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
+/* Message entry bloom */
+@keyframes bloom {
+  from { opacity: 0; transform: translateY(25px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Slow rotation — avatar ring, loading states. */
-@keyframes slow-spin {
+/* Slow spin for avatar rings */
+@keyframes spin-slow {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-/* Breathing scale — idle avatar indicator. */
-@keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.05); opacity: 0.8; }
+/* Avatar sharp pulse */
+@keyframes sharpPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 100px rgba(255, 255, 255, 0.6);
+    border-color: rgba(255, 255, 255, 1);
+  }
 }
 
-/* Fade-in from bottom — message entry. */
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+/* CLEO logo breathing */
+@keyframes logoBreathe {
+  0%, 100% { opacity: 0.8; letter-spacing: 0.3em; filter: blur(0px); }
+  50% { opacity: 1; letter-spacing: 0.35em; filter: blur(0.5px); }
 }
 
-/* Shimmer — skeleton loading. */
+/* Text shimmer gradient sweep */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
-/* Typing cursor blink. */
-@keyframes blink {
+/* Floating badges */
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-20px) translateX(5px); }
+}
+
+/* Ripple expand */
+@keyframes ripple {
+  0% { transform: scale(1); opacity: 0.4; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* Orbital path for decorative dots */
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(240px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(240px) rotate(-360deg); }
+}
+
+/* Neural activity bar pulse */
+@keyframes neuralPulse {
+  0%, 100% { opacity: 0.3; height: 20%; }
+  50% { opacity: 1; height: 80%; }
+}
+
+/* Waveform bar animation for CLEO avatar icon */
+@keyframes waveform {
+  0%, 100% { height: 4px; }
+  50% { height: 12px; }
+}
+
+/* Neural link SVG line draw */
+@keyframes drawLink {
+  0% { stroke-dashoffset: 1000; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* Collision shimmer on panel edges */
+@keyframes collisionShimmer {
+  0% { box-shadow: inset 0 0 0px rgba(255,255,255,0); }
+  50% { box-shadow: inset 0 0 15px rgba(255,255,255,0.4); }
+  100% { box-shadow: inset 0 0 0px rgba(255,255,255,0); }
+}
+
+/* Shockwave ripple on click */
+@keyframes ripple-animation {
+  to { transform: scale(6); opacity: 0; }
+}
+
+/* Slow pulse for glow elements */
+@keyframes pulse-slow {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  50% { opacity: 0.5; }
 }
 
 /* Utility classes */
-.animate-glow-pulse {
-  animation: glow-pulse var(--cleo-duration-ambient) ease-in-out infinite;
-}
+.animate-spin-slow { animation: spin-slow 20s linear infinite; }
+.animate-sharp-pulse { animation: sharpPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-logo-breathe { animation: logoBreathe 5s ease-in-out infinite; }
+.animate-shimmer-text { animation: shimmer 8s linear infinite; }
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-neural-pulse { animation: neuralPulse 3s ease-in-out infinite; }
+.animate-waveform { animation: waveform 1.2s ease-in-out infinite; }
+.animate-pulse-slow { animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
-.animate-scanline {
-  animation: scanline 8s linear infinite;
-}
-
-.animate-slow-spin {
-  animation: slow-spin 20s linear infinite;
-}
-
-.animate-breathe {
-  animation: breathe 4s ease-in-out infinite;
-}
-
-.animate-fade-in-up {
-  animation: fade-in-up var(--cleo-duration-base) var(--cleo-ease-out) both;
-}
-
-.animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--cleo-bg-glass) 25%,
-    var(--cleo-bg-glass-hover) 50%,
-    var(--cleo-bg-glass) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-}
-
-.animate-blink {
-  animation: blink 1s step-end infinite;
+.message-bloom {
+  animation: bloom 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  opacity: 0;
+  transform: translateY(25px) scale(0.95);
 }
 
 /* Reduced motion: disable non-essential animations. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-glow-pulse,
-  .animate-scanline,
-  .animate-slow-spin,
-  .animate-breathe,
-  .animate-shimmer {
+  .animate-spin-slow,
+  .animate-sharp-pulse,
+  .animate-logo-breathe,
+  .animate-shimmer-text,
+  .animate-float,
+  .animate-neural-pulse,
+  .animate-waveform,
+  .animate-pulse-slow,
+  .message-bloom {
     animation: none;
-  }
-  .animate-fade-in-up {
-    animation-duration: 0ms;
   }
 }

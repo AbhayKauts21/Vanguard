@@ -1,84 +1,19 @@
 /* === CLEO Design Tokens === */
-/* Centralized CSS custom properties for the neural interface theme. */
+/* Matches the original HTML neural interface spec exactly. */
 
 :root {
-  /* Background layers */
-  --cleo-bg-primary: #0a0a12;
-  --cleo-bg-secondary: #0f0f1a;
-  --cleo-bg-tertiary: #141425;
-  --cleo-bg-panel: rgba(15, 15, 30, 0.85);
-  --cleo-bg-glass: rgba(255, 255, 255, 0.03);
-  --cleo-bg-glass-hover: rgba(255, 255, 255, 0.06);
-  --cleo-bg-input: rgba(0, 0, 0, 0.3);
+  /* Core palette — from original tailwind config */
+  --cleo-primary: #ffffff;
+  --cleo-bg-light: #f5f5f5;
+  --cleo-bg-dark: #050505;
+  --cleo-atmosphere: #0a0a14;
 
-  /* Borders */
-  --cleo-border: rgba(255, 255, 255, 0.06);
-  --cleo-border-hover: rgba(255, 255, 255, 0.12);
-  --cleo-border-glow: rgba(0, 210, 255, 0.15);
-  --cleo-border-accent: rgba(0, 210, 255, 0.3);
-
-  /* Text hierarchy */
-  --cleo-text-primary: rgba(255, 255, 255, 0.9);
-  --cleo-text-secondary: rgba(255, 255, 255, 0.5);
-  --cleo-text-muted: rgba(255, 255, 255, 0.3);
-  --cleo-text-accent: #00d2ff;
-
-  /* Accent palette */
-  --cleo-cyan: #00d2ff;
-  --cleo-cyan-dim: rgba(0, 210, 255, 0.3);
-  --cleo-purple: #7b2ff7;
-  --cleo-purple-dim: rgba(123, 47, 247, 0.3);
-  --cleo-magenta: #ff2d95;
-  --cleo-magenta-dim: rgba(255, 45, 149, 0.3);
-  --cleo-green: #00ff88;
-  --cleo-green-dim: rgba(0, 255, 136, 0.3);
-
-  /* Glass effects */
-  --cleo-glass-blur: 20px;
-  --cleo-glass-blur-heavy: 40px;
-
-  /* Spacing scale */
-  --cleo-space-xs: 4px;
-  --cleo-space-sm: 8px;
-  --cleo-space-md: 16px;
-  --cleo-space-lg: 24px;
-  --cleo-space-xl: 32px;
-  --cleo-space-2xl: 48px;
-
-  /* Radius scale */
-  --cleo-radius-sm: 6px;
-  --cleo-radius-md: 10px;
-  --cleo-radius-lg: 16px;
-  --cleo-radius-xl: 24px;
+  /* Radius — from original config */
+  --cleo-radius: 1rem;
+  --cleo-radius-lg: 2rem;
+  --cleo-radius-xl: 3rem;
   --cleo-radius-full: 9999px;
 
-  /* Font scale */
-  --cleo-font-xs: 0.75rem;
-  --cleo-font-sm: 0.8125rem;
-  --cleo-font-base: 0.875rem;
-  --cleo-font-md: 1rem;
-  --cleo-font-lg: 1.25rem;
-  --cleo-font-xl: 1.5rem;
-  --cleo-font-2xl: 2rem;
-  --cleo-font-display: 3rem;
-
-  /* Z-index layers */
-  --z-base: 0;
-  --z-effects: 1;
-  --z-panel: 10;
-  --z-header: 20;
-  --z-overlay: 30;
-  --z-modal: 40;
-  --z-tooltip: 50;
-
-  /* Animation durations */
-  --cleo-duration-fast: 150ms;
-  --cleo-duration-base: 250ms;
-  --cleo-duration-slow: 500ms;
-  --cleo-duration-ambient: 3000ms;
-
-  /* Easing curves */
-  --cleo-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --cleo-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --cleo-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Font */
+  --font-display: var(--font-inter), "Inter", sans-serif;
 }

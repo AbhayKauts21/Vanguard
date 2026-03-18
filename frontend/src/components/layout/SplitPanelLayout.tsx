@@ -1,9 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
-/* Two-column split layout: chat (left) + avatar (right). */
+/* Two-column split: 40% chat + 60% avatar — matches original HTML. */
 export function SplitPanelLayout({
   left,
   right,
@@ -12,14 +11,13 @@ export function SplitPanelLayout({
   right: ReactNode;
 }) {
   return (
-    <div className={cn("relative flex flex-1 overflow-hidden")}>
-      {/* Chat panel — left column */}
-      <div className="flex w-full flex-col border-r border-[var(--cleo-border)] md:w-1/2 lg:w-[45%]">
+    <main className="flex flex-1 overflow-hidden p-6 gap-6">
+      <section className="w-[40%] flex flex-col gap-4 relative" id="chat-panel">
         {left}
-      </div>
-
-      {/* Avatar panel — right column (hidden on mobile) */}
-      <div className="hidden flex-1 flex-col md:flex">{right}</div>
-    </div>
+      </section>
+      <section className="w-[60%] relative" id="avatar-container">
+        {right}
+      </section>
+    </main>
   );
 }

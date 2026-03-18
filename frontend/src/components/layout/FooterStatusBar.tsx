@@ -1,24 +1,41 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { cn } from "@/lib/utils";
 
-/* Bottom status bar — system health and version info. */
+/**
+ * Footer bar — exact match to original HTML.
+ * Neural Mesh Analysis + location node + build string.
+ */
 export function FooterStatusBar() {
   const t = useTranslations("footer");
 
   return (
-    <footer
-      className={cn(
-        "relative z-[var(--z-header)] flex h-8 items-center justify-between",
-        "border-t border-[var(--cleo-border)] px-6",
-        "bg-[var(--cleo-bg-panel)] backdrop-blur-[var(--cleo-glass-blur)]",
-      )}
-    >
-      <span className="text-[10px] uppercase tracking-wider text-[var(--cleo-text-muted)]">
-        {t("poweredBy")}
-      </span>
-      <span className="text-[10px] text-[var(--cleo-text-muted)]">{t("version")}</span>
+    <footer className="px-10 py-4 flex justify-between border-t border-white/5 glass-panel z-50">
+      {/* Left status items */}
+      <div className="flex gap-8 items-center">
+        <div className="flex items-center gap-2.5 group cursor-pointer">
+          <span className="material-symbols-outlined text-[14px] text-white/20 group-hover:text-white/50 transition-colors font-light">
+            hub
+          </span>
+          <span className="text-[9px] uppercase font-medium tracking-[0.25em] text-white/20 group-hover:text-white/50 transition-colors">
+            {t("neuralMesh")}
+          </span>
+        </div>
+        <div className="w-px h-3 bg-white/5" />
+        <div className="flex items-center gap-2.5 group cursor-pointer">
+          <span className="material-symbols-outlined text-[14px] text-white/20 group-hover:text-white/50 transition-colors font-light">
+            public
+          </span>
+          <span className="text-[9px] uppercase font-medium tracking-[0.25em] text-white/20 group-hover:text-white/50 transition-colors">
+            {t("nodeLocation")}
+          </span>
+        </div>
+      </div>
+
+      {/* Build version */}
+      <div className="text-[9px] font-medium text-white/10 uppercase tracking-[0.3em] hover:text-white/30 transition-colors cursor-default">
+        {t("buildInfo")}
+      </div>
     </footer>
   );
 }

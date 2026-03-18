@@ -41,11 +41,14 @@ graph TD
 
     subgraph Backend [Core Logic Layer]
         APIGateway -->|RAG Pipeline| RAGSvc[RAG Orchestrator]
+        APIGateway -->|Direct Chat| AzureSvc[Azure Chat Service]
         RAGSvc -->|Domain Logic| Domain[Domain Entities]
+        AzureSvc -->|Domain Logic| Domain
     end
     
     subgraph Infra [Infrastructure Layer]
         RAGSvc -->|Embed & Gen| OpenAI[OpenAI API]
+        AzureSvc -->|Prompted Generation| AzureOpenAI[Azure OpenAI Foundry]
         RAGSvc -->|Search| VectorDB[(Pinecone)]
         RAGSvc -->|Visual| HeyGen[HeyGen Avatar]
     end
@@ -110,6 +113,45 @@ We follow production-grade standards inspired by the **Checkingmate** ecosystem:
 - **Fail-Fast Error Handling:** Standardized error responses to prevent internal leaks.
 - **Dependency Injection:** Making our services swapable and testable.
 - **Observability First:** Distributed tracing from the UI to the Vector DB.
+
+---
+
+## 🔌 Backend APIs
+
+The backend currently exposes two different chat paths:
+
+- `POST /api/v1/chat/` and `POST /api/v1/chat/stream`
+  RAG-backed chat using BookStack context from Pinecone plus the existing OpenAI generation path.
+- `POST /api/v1/azure-chat/`
+  Direct Azure OpenAI Foundry chat for stateless prompt + context requests.
+
+### Azure Direct Chat Request
+
+```json
+{
+  "conversation_id": "conv-001",
+  "prompt": "Summarize this issue for an engineering handoff.",
+  "input_text": "User cannot authenticate with SSO after password reset.",
+  "context": {
+    "priority": "high",
+    "product": "Vanguard"
+  },
+  "params": {
+    "temperature": 0.2,
+    "max_tokens": 250
+  },
+  "metadata": {
+    "source": "manual-test"
+  }
+}
+```
+
+### Azure Setup Notes
+
+- Set Azure values in [`backend/.env.example`](backend/.env.example) and copy them into `backend/.env`.
+- `AZURE_OPENAI_ENDPOINT` must be the resource endpoint only, such as `https://your-resource.openai.azure.com`.
+- `AZURE_OPENAI_CHAT_DEPLOYMENT` must be the Azure deployment name, not just the raw model family.
+- The smoke-test script is available at `backend/scripts/test_azure_chat.py`.
 
 ---
 

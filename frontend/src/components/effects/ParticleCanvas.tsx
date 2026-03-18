@@ -1,13 +1,43 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
+import {
+  DEFAULT_PARTICLE_CONFIG,
+  createParticle,
+  stepParticle,
+  drawParticle,
+  drawConnections,
+  dist,
+  type MouseState,
+  type ParticleState,
+  type BoundingRect,
+  type ParticleConfig,
+} from "@/lib/physics";
 
 /**
- * Full-screen particle canvas with mouse velocity physics and panel repulsion.
- * Matches original HTML: 1200 particles, viscous friction, glow, connections.
+ * Full-screen foreground particle canvas.
+ * Uses the physics engine for two-zone mouse interaction (repel + attract),
+ * Brownian jitter, gravity, panel repulsion, and constellation connections.
+ *
+ * z-index 20 = foreground (above glass panels), pointer-events: none so UI stays clickable.
+ * Config is injectable via props for extensibility (Open/Closed principle).
  */
-export function ParticleCanvas() {
+interface ParticleCanvasProps {
+  config?: Partial<ParticleConfig>;
+}
+
+export function ParticleCanvas({ config: overrides }: ParticleCanvasProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const particlesRef = useRef<ParticleState[]>([]);
+
+  /** Expose shockwave trigger for external consumers (message send, etc.). */
+  const triggerShockwave = useCallback(
+    (epicentreX: number, epicentreY: number) => {
+      const { applyShockwave } = require("@/lib/physics");
+      applyShockwave(particlesRef.current, { x: epicentreX, y: epicentreY }, 500, 12);
+    },
+    [],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -18,108 +48,68 @@ export function ParticleCanvas() {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const config: ParticleConfig = { ...DEFAULT_PARTICLE_CONFIG, ...overrides };
 
-    const mouse = { x: 0, y: 0, lastX: 0, lastY: 0, vx: 0, vy: 0 };
-    const viscousFriction = 0.98;
-    const particleDensity = 1200;
-
-    class Particle {
-      x: number; y: number; size: number;
-      vx = 0; vy = 0; opacity: number;
-      repelX = 0; repelY = 0;
-
-      constructor() {
-        this.x = Math.random() * canvas!.width;
-        this.y = Math.random() * canvas!.height;
-        this.size = Math.random() * 2.5 + 1.2;
-        this.opacity = Math.random() * 0.4 + 0.5;
-      }
-
-      draw() {
-        ctx!.shadowBlur = 10;
-        ctx!.shadowColor = "rgba(255, 255, 255, 0.7)";
-        ctx!.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
-        ctx!.beginPath();
-        ctx!.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx!.fill();
-        ctx!.shadowBlur = 0;
-      }
-
-      update(panels: DOMRect[]) {
-        /* Mouse velocity influence */
-        if (mouse.vx !== 0 || mouse.vy !== 0) {
-          const dx = this.x - mouse.x;
-          const dy = this.y - mouse.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const influenceRadius = 300;
-          if (dist < influenceRadius) {
-            const force = (influenceRadius - dist) / influenceRadius;
-            this.vx += mouse.vx * force * 0.35;
-            this.vy += mouse.vy * force * 0.35;
-            this.vx += (Math.random() - 0.5) * 0.4;
-            this.vy += (Math.random() - 0.5) * 0.4;
-          }
-        }
-
-        this.vx *= viscousFriction;
-        this.vy *= viscousFriction;
-
-        /* Panel repulsion */
-        for (const rect of panels) {
-          const margin = 40;
-          if (
-            this.x > rect.left - margin && this.x < rect.right + margin &&
-            this.y > rect.top - margin && this.y < rect.bottom + margin
-          ) {
-            const dx = this.x - (rect.left + rect.width / 2);
-            const dy = this.y - (rect.top + rect.height / 2);
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            this.repelX += (dx / dist) * 1.2;
-            this.repelY += (dy / dist) * 1.2;
-          }
-        }
-
-        this.x += this.vx + this.repelX;
-        this.y += this.vy + this.repelY;
-        this.repelX *= 0.8;
-        this.repelY *= 0.8;
-
-        /* Wrap edges */
-        if (this.x < -20) this.x = canvas!.width + 20;
-        if (this.x > canvas!.width + 20) this.x = -20;
-        if (this.y < -20) this.y = canvas!.height + 20;
-        if (this.y > canvas!.height + 20) this.y = -20;
-      }
+    /* High-DPI support */
+    const dpr = window.devicePixelRatio || 1;
+    function resize() {
+      canvas!.width = window.innerWidth * dpr;
+      canvas!.height = window.innerHeight * dpr;
+      canvas!.style.width = `${window.innerWidth}px`;
+      canvas!.style.height = `${window.innerHeight}px`;
+      ctx!.scale(dpr, dpr);
     }
+    resize();
 
-    let particles = Array.from({ length: particleDensity }, () => new Particle());
+    const logicalW = () => window.innerWidth;
+    const logicalH = () => window.innerHeight;
 
-    function getPanelRects(): DOMRect[] {
-      return Array.from(document.querySelectorAll(".panel-boundary")).map(
-        (el) => el.getBoundingClientRect(),
-      );
+    /* Initialise particles */
+    particlesRef.current = Array.from({ length: config.count }, () =>
+      createParticle(logicalW(), logicalH(), config),
+    );
+
+    /* Mouse state — tracked via window listener */
+    const mouse: MouseState = { x: -9999, y: -9999, lastX: -9999, lastY: -9999, vx: 0, vy: 0 };
+
+    /* Cached panel rects */
+    let panels: BoundingRect[] = [];
+    function refreshPanels() {
+      panels = Array.from(document.querySelectorAll(".panel-boundary")).map((el) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height };
+      });
     }
+    refreshPanels();
 
-    let panels = getPanelRects();
     let rafId: number;
 
     function animate() {
-      ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
+      const w = logicalW();
+      const h = logicalH();
+      ctx!.clearRect(0, 0, w, h);
 
+      /* Update mouse velocity */
       mouse.vx = mouse.x - mouse.lastX;
       mouse.vy = mouse.y - mouse.lastY;
       mouse.lastX = mouse.x;
       mouse.lastY = mouse.y;
 
+      const particles = particlesRef.current;
+
+      /* Step & draw particles */
       for (const p of particles) {
-        p.update(panels);
-        p.draw();
+        stepParticle(p, mouse, panels, w, h, config);
+
+        /* Glow intensity: higher near mouse */
+        const d = dist(p, mouse);
+        const glow = d < config.repelRadius ? 1 - d / config.repelRadius : 0;
+        drawParticle(ctx!, p, glow);
       }
 
-      mouse.vx *= 0.6;
-      mouse.vy *= 0.6;
+      /* Connection lines (constellation mesh) */
+      drawConnections(ctx!, particles, config);
+
       rafId = requestAnimationFrame(animate);
     }
 
@@ -131,17 +121,18 @@ export function ParticleCanvas() {
     }
 
     function onResize() {
-      canvas!.width = window.innerWidth;
-      canvas!.height = window.innerHeight;
-      panels = getPanelRects();
-      particles = Array.from({ length: particleDensity }, () => new Particle());
+      resize();
+      particlesRef.current = Array.from({ length: config.count }, () =>
+        createParticle(logicalW(), logicalH(), config),
+      );
+      refreshPanels();
     }
 
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("resize", onResize);
 
-    /* Refresh panel rects periodically */
-    const panelInterval = setInterval(() => { panels = getPanelRects(); }, 2000);
+    /* Refresh panel rects periodically (panels might shift on scroll/resize). */
+    const panelInterval = setInterval(refreshPanels, 2000);
 
     return () => {
       cancelAnimationFrame(rafId);
@@ -149,13 +140,13 @@ export function ParticleCanvas() {
       window.removeEventListener("resize", onResize);
       clearInterval(panelInterval);
     };
-  }, []);
+  }, [overrides]);
 
   return (
     <canvas
       ref={canvasRef}
       className="pointer-events-none fixed inset-0"
-      style={{ zIndex: -2 }}
+      style={{ zIndex: 20 }}
     />
   );
 }

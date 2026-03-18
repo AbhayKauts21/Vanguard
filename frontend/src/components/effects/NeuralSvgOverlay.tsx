@@ -11,7 +11,7 @@ export function NeuralSvgOverlay() {
       width="100%"
       height="100%"
       className="pointer-events-none fixed inset-0"
-      style={{ zIndex: 40 }}
+      style={{ zIndex: 120 }}
     />
   );
 }

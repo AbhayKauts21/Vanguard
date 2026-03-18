@@ -2,7 +2,7 @@
 
 /**
  * Hidden SVG defs for the liquid turbulence displacement filter.
- * Applied to the avatar core image.
+ * Matches reference: fractalNoise, baseFrequency 0.02, numOctaves 3, scale 55.
  */
 export function LiquidFilter() {
   return (
@@ -26,7 +26,7 @@ export function LiquidFilter() {
           <feDisplacementMap
             in="SourceGraphic"
             in2="noise"
-            scale={50}
+            scale={55}
           />
         </filter>
       </defs>

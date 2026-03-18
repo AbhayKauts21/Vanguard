@@ -3,9 +3,98 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Full-screen particle canvas with mouse velocity physics and panel repulsion.
- * Matches original HTML: 1200 particles, viscous friction, glow, connections.
+ * Anti-gravity particle field — exact match to CLEO reference implementation.
+ *
+ * 1200 particles with slow drift, mouse repulsion (150px), sphere masking.
+ * Canvas is foreground (z-index 100) with pointer-events: none.
+ * Lightweight: no external physics lib, simple update/draw loop.
  */
+
+/** Single particle with origin-return physics */
+class Particle {
+  x: number;
+  y: number;
+  baseX: number;
+  baseY: number;
+  size: number;
+  opacity: number;
+  vx: number;
+  vy: number;
+
+  constructor(canvasW: number, canvasH: number) {
+    this.x = Math.random() * canvasW;
+    this.y = Math.random() * canvasH;
+    this.baseX = this.x;
+    this.baseY = this.y;
+    this.size = Math.random() * 1.5 + 0.5;
+    this.opacity = Math.random() * 0.7 + 0.3;
+    this.vx = (Math.random() - 0.5) * 0.2;
+    this.vy = (Math.random() - 0.5) * 0.2;
+  }
+
+  /** Update position: drift + mouse repulsion + edge bounce */
+  update(
+    mouseX: number | null,
+    mouseY: number | null,
+    canvasW: number,
+    canvasH: number,
+  ) {
+    this.x += this.vx;
+    this.y += this.vy;
+
+    /* Bounce at edges */
+    if (this.x < 0 || this.x > canvasW) this.vx *= -1;
+    if (this.y < 0 || this.y > canvasH) this.vy *= -1;
+
+    /* Mouse repulsion — 150px radius, push away */
+    if (mouseX !== null && mouseY !== null) {
+      const dx = mouseX - this.x;
+      const dy = mouseY - this.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < 150) {
+        const force = (150 - distance) / 150;
+        this.x -= (dx / distance) * force * 2;
+        this.y -= (dy / distance) * force * 2;
+      }
+    }
+  }
+
+  /** Draw particle, skipping if inside the sphere mask area */
+  draw(
+    ctx: CanvasRenderingContext2D,
+    sphereCx: number,
+    sphereCy: number,
+    sphereR: number,
+  ) {
+    /* Sphere masking — don't render particles inside the avatar sphere */
+    if (sphereR > 0) {
+      const distToSphere = Math.sqrt(
+        (this.x - sphereCx) ** 2 + (this.y - sphereCy) ** 2,
+      );
+      if (distToSphere < sphereR) return;
+    }
+
+    ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** Cache sphere position from DOM */
+function getSphereRect(): { cx: number; cy: number; r: number } {
+  const el = document.getElementById("avatar-sphere-mask-target");
+  if (!el) return { cx: 0, cy: 0, r: 0 };
+  const rect = el.getBoundingClientRect();
+  return {
+    cx: rect.left + rect.width / 2,
+    cy: rect.top + rect.height / 2,
+    r: rect.width / 2,
+  };
+}
+
+const PARTICLE_COUNT = 1200;
+
 export function ParticleCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -15,111 +104,38 @@ export function ParticleCanvas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const prefersReduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     if (prefersReduced) return;
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const mouse = { x: 0, y: 0, lastX: 0, lastY: 0, vx: 0, vy: 0 };
-    const viscousFriction = 0.98;
-    const particleDensity = 1200;
+    const mouse: { x: number | null; y: number | null } = {
+      x: null,
+      y: null,
+    };
 
-    class Particle {
-      x: number; y: number; size: number;
-      vx = 0; vy = 0; opacity: number;
-      repelX = 0; repelY = 0;
+    /* Initialise particles */
+    let particles = Array.from(
+      { length: PARTICLE_COUNT },
+      () => new Particle(canvas.width, canvas.height),
+    );
 
-      constructor() {
-        this.x = Math.random() * canvas!.width;
-        this.y = Math.random() * canvas!.height;
-        this.size = Math.random() * 2.5 + 1.2;
-        this.opacity = Math.random() * 0.4 + 0.5;
-      }
+    /* Cache sphere rect — refresh periodically */
+    let sphere = getSphereRect();
 
-      draw() {
-        ctx!.shadowBlur = 10;
-        ctx!.shadowColor = "rgba(255, 255, 255, 0.7)";
-        ctx!.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
-        ctx!.beginPath();
-        ctx!.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        ctx!.fill();
-        ctx!.shadowBlur = 0;
-      }
-
-      update(panels: DOMRect[]) {
-        /* Mouse velocity influence */
-        if (mouse.vx !== 0 || mouse.vy !== 0) {
-          const dx = this.x - mouse.x;
-          const dy = this.y - mouse.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const influenceRadius = 300;
-          if (dist < influenceRadius) {
-            const force = (influenceRadius - dist) / influenceRadius;
-            this.vx += mouse.vx * force * 0.35;
-            this.vy += mouse.vy * force * 0.35;
-            this.vx += (Math.random() - 0.5) * 0.4;
-            this.vy += (Math.random() - 0.5) * 0.4;
-          }
-        }
-
-        this.vx *= viscousFriction;
-        this.vy *= viscousFriction;
-
-        /* Panel repulsion */
-        for (const rect of panels) {
-          const margin = 40;
-          if (
-            this.x > rect.left - margin && this.x < rect.right + margin &&
-            this.y > rect.top - margin && this.y < rect.bottom + margin
-          ) {
-            const dx = this.x - (rect.left + rect.width / 2);
-            const dy = this.y - (rect.top + rect.height / 2);
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            this.repelX += (dx / dist) * 1.2;
-            this.repelY += (dy / dist) * 1.2;
-          }
-        }
-
-        this.x += this.vx + this.repelX;
-        this.y += this.vy + this.repelY;
-        this.repelX *= 0.8;
-        this.repelY *= 0.8;
-
-        /* Wrap edges */
-        if (this.x < -20) this.x = canvas!.width + 20;
-        if (this.x > canvas!.width + 20) this.x = -20;
-        if (this.y < -20) this.y = canvas!.height + 20;
-        if (this.y > canvas!.height + 20) this.y = -20;
-      }
-    }
-
-    let particles = Array.from({ length: particleDensity }, () => new Particle());
-
-    function getPanelRects(): DOMRect[] {
-      return Array.from(document.querySelectorAll(".panel-boundary")).map(
-        (el) => el.getBoundingClientRect(),
-      );
-    }
-
-    let panels = getPanelRects();
     let rafId: number;
 
     function animate() {
       ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
 
-      mouse.vx = mouse.x - mouse.lastX;
-      mouse.vy = mouse.y - mouse.lastY;
-      mouse.lastX = mouse.x;
-      mouse.lastY = mouse.y;
-
       for (const p of particles) {
-        p.update(panels);
-        p.draw();
+        p.update(mouse.x, mouse.y, canvas!.width, canvas!.height);
+        p.draw(ctx!, sphere.cx, sphere.cy, sphere.r);
       }
 
-      mouse.vx *= 0.6;
-      mouse.vy *= 0.6;
       rafId = requestAnimationFrame(animate);
     }
 
@@ -133,29 +149,35 @@ export function ParticleCanvas() {
     function onResize() {
       canvas!.width = window.innerWidth;
       canvas!.height = window.innerHeight;
-      panels = getPanelRects();
-      particles = Array.from({ length: particleDensity }, () => new Particle());
+      particles = Array.from(
+        { length: PARTICLE_COUNT },
+        () => new Particle(canvas!.width, canvas!.height),
+      );
+      sphere = getSphereRect();
     }
 
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("resize", onResize);
 
-    /* Refresh panel rects periodically */
-    const panelInterval = setInterval(() => { panels = getPanelRects(); }, 2000);
+    /* Refresh sphere rect periodically (it can shift on layout changes) */
+    const sphereInterval = setInterval(() => {
+      sphere = getSphereRect();
+    }, 1000);
 
     return () => {
       cancelAnimationFrame(rafId);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("resize", onResize);
-      clearInterval(panelInterval);
+      clearInterval(sphereInterval);
     };
   }, []);
 
   return (
     <canvas
       ref={canvasRef}
+      id="particle-canvas"
       className="pointer-events-none fixed inset-0"
-      style={{ zIndex: -2 }}
+      style={{ zIndex: 100, backgroundColor: "transparent" }}
     />
   );
 }

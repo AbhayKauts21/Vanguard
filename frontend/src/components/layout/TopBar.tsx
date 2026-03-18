@@ -11,13 +11,13 @@ export function TopBar() {
   const t = useTranslations("header");
 
   return (
-    <header className="flex items-center justify-between border-b border-white/10 px-10 py-5 glass-panel z-50">
+    <header className="flex items-center justify-between border-b border-white/10 px-10 py-5 glass-panel" style={{ zIndex: 150 }}>
       {/* Brand: grain icon + CLEO shimmer */}
       <div className="flex items-center gap-6 group cursor-pointer">
         <div className="size-6 transition-transform duration-700 group-hover:rotate-[180deg]">
           <span className="material-symbols-outlined text-2xl font-light">grain</span>
         </div>
-        <h2 className="text-xl font-light cleo-logo uppercase">CLEO</h2>
+        <h2 className="text-xl font-light cleo-logo uppercase relative" style={{ zIndex: 160 }}>CLEO</h2>
       </div>
 
       {/* Right side: nav + actions */}

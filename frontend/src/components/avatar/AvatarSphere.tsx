@@ -61,35 +61,38 @@ export function AvatarSphere() {
   return (
     <div
       ref={sphereRef}
-      className="relative w-[28rem] h-[28rem] flex items-center justify-center sphere-container"
+      className="relative w-[30rem] h-[30rem] flex items-center justify-center sphere-container"
       id="sphere-anchor"
     >
-      {/* Outermost ring — very faint, slow spin */}
-      <div className="absolute inset-0 rounded-full border border-white/[0.03] scale-[1.6] animate-spin-slow" />
+      {/* Telemetry ring — outermost, very faint */}
+      <div className="absolute inset-0 rounded-full border border-white/[0.05] scale-[1.6] animate-spin-slow" />
 
-      {/* Dashed ring — counter-rotate */}
+      {/* Dashed ring — mid layer */}
       <div
-        className="absolute w-[400px] h-[400px] rounded-full border border-dashed border-white/10 animate-spin-slow"
-        style={{ animationDuration: "40s", animationDirection: "reverse" }}
+        className="absolute inset-0 rounded-full border border-dashed border-white/10 scale-[1.3] animate-spin-slow"
+        style={{ animationDuration: "40s" }}
       />
 
-      {/* Dotted orbit ring */}
+      {/* Outermost faint ring — reverse spin */}
       <div
-        className="absolute w-[460px] h-[460px] rounded-full border border-dotted border-white/[0.04] animate-spin-slow"
-        style={{ animationDuration: "60s" }}
+        className="absolute inset-0 rounded-full border border-white/[0.03] scale-[1.9] animate-spin-slow"
+        style={{ animationDirection: "reverse", animationDuration: "35s" }}
       />
 
-      {/* Core sphere with sharp pulse */}
-      <div className="absolute inset-[15%] bg-white/5 rounded-full backdrop-blur-3xl overflow-hidden border border-white/[0.15] shadow-[0_0_120px_rgba(255,255,255,0.05)] animate-sharp-pulse sphere-core">
+      {/* Core sphere with sharp pulse — id used for particle masking */}
+      <div
+        id="avatar-sphere-mask-target"
+        className="absolute inset-[15%] bg-white/5 rounded-full backdrop-blur-3xl overflow-hidden border border-white/[0.15] shadow-[0_0_120px_rgba(255,255,255,0.08)] animate-sharp-pulse sphere-core"
+      >
         {/* Liquid core image with SVG turbulence filter */}
         <div
           ref={coreRef}
           id="avatar-liquid-core"
-          className="w-full h-full bg-cover bg-center mix-blend-overlay opacity-40 grayscale brightness-150"
+          className="w-full h-full bg-cover bg-center mix-blend-overlay opacity-60 grayscale brightness-150"
           style={{
             backgroundImage: `url('${AVATAR_IMAGE}')`,
-            transform: "scale(1.1)",
-            filter: "url(#liquid-filter) grayscale(1) brightness(1.5)",
+            transform: "scale(1.15)",
+            filter: "url(#liquid-filter) grayscale(1) brightness(1.8)",
             willChange: "filter, transform",
             transition: "transform 0.1s ease-out",
             animation: "liquidBreathe 4s ease-in-out infinite",

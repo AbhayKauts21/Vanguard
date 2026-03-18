@@ -3,7 +3,6 @@
 import {
   MoodOverlay,
   PlasmaBackground,
-  HexGridBackground,
   GhostTerminalOverlay,
   ParticleCanvas,
   ScanlineOverlay,
@@ -22,7 +21,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Ambient layers — behind all content */}
       <MoodOverlay />
       <PlasmaBackground />
-      <HexGridBackground />
       <GhostTerminalOverlay />
       <ParticleCanvas />
       <ScanlineOverlay />

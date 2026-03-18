@@ -2,58 +2,31 @@
 
 /**
  * Hidden SVG defs for the liquid turbulence displacement filter.
- * Dual-layer noise: slow base undulation + fast surface shimmer.
- * The displacement scale is dynamically adjusted by AvatarSphere via DOM id.
+ * Matches reference: fractalNoise, baseFrequency 0.02, numOctaves 3, scale 55.
  */
 export function LiquidFilter() {
   return (
     <svg className="hidden" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <filter id="liquid-filter">
-          {/* Layer 1: slow base undulation */}
           <feTurbulence
             type="fractalNoise"
-            baseFrequency="0.015"
-            numOctaves={4}
-            result="noise1"
+            baseFrequency="0.02"
+            numOctaves={3}
+            result="noise"
           >
             <animate
               attributeName="baseFrequency"
-              dur="8s"
-              values="0.012 0.018;0.022 0.035;0.012 0.018"
+              dur="15s"
+              values="0.015 0.02;0.025 0.04;0.015 0.02"
               keyTimes="0;0.5;1"
               repeatCount="indefinite"
             />
           </feTurbulence>
-
-          {/* Layer 2: fast surface shimmer */}
-          <feTurbulence
-            type="turbulence"
-            baseFrequency="0.04"
-            numOctaves={2}
-            result="noise2"
-          >
-            <animate
-              attributeName="baseFrequency"
-              dur="3s"
-              values="0.03 0.04;0.05 0.06;0.03 0.04"
-              keyTimes="0;0.5;1"
-              repeatCount="indefinite"
-            />
-          </feTurbulence>
-
-          {/* Merge both noise layers */}
-          <feMerge result="combinedNoise">
-            <feMergeNode in="noise1" />
-            <feMergeNode in="noise2" />
-          </feMerge>
-
-          {/* Displacement — scale is dynamically adjusted by AvatarSphere */}
           <feDisplacementMap
-            id="liquid-displace"
             in="SourceGraphic"
-            in2="combinedNoise"
-            scale={50}
+            in2="noise"
+            scale={55}
           />
         </filter>
       </defs>

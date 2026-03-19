@@ -2,15 +2,15 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.router_azure_chat import router as azure_chat_router
-from app.core.exceptions import AzureOpenAITimeoutError, vanguard_exception_handler
+from app.core.exceptions import AzureOpenAITimeoutError, cleo_exception_handler
 from app.domain.schemas import AzureChatResponse, ChatResponse
 
 
 def test_azure_chat_route_returns_sync_response(monkeypatch):
     app = FastAPI()
-    from app.core.exceptions import VanguardError
+    from app.core.exceptions import CleoError
 
-    app.add_exception_handler(VanguardError, vanguard_exception_handler)
+    app.add_exception_handler(CleoError, cleo_exception_handler)
     app.include_router(azure_chat_router, prefix="/api/v1")
 
     async def fake_create_chat(request):
@@ -44,9 +44,9 @@ def test_azure_chat_route_returns_sync_response(monkeypatch):
 
 def test_azure_chat_route_returns_422_for_invalid_payload():
     app = FastAPI()
-    from app.core.exceptions import VanguardError
+    from app.core.exceptions import CleoError
 
-    app.add_exception_handler(VanguardError, vanguard_exception_handler)
+    app.add_exception_handler(CleoError, cleo_exception_handler)
     app.include_router(azure_chat_router, prefix="/api/v1")
     client = TestClient(app)
 
@@ -57,9 +57,9 @@ def test_azure_chat_route_returns_422_for_invalid_payload():
 
 def test_azure_chat_route_maps_timeout_error(monkeypatch):
     app = FastAPI()
-    from app.core.exceptions import VanguardError
+    from app.core.exceptions import CleoError
 
-    app.add_exception_handler(VanguardError, vanguard_exception_handler)
+    app.add_exception_handler(CleoError, cleo_exception_handler)
     app.include_router(azure_chat_router, prefix="/api/v1")
 
     async def failing_create_chat(request):
@@ -83,7 +83,7 @@ def test_azure_chat_route_maps_timeout_error(monkeypatch):
 
 def test_direct_azure_route_does_not_break_existing_chat(monkeypatch):
     import main
-    from app.core.exceptions import VanguardError
+    from app.core.exceptions import CleoError
 
     async def fake_create_chat(request):
         return AzureChatResponse(
@@ -107,7 +107,7 @@ def test_direct_azure_route_does_not_break_existing_chat(monkeypatch):
     )
 
     app = main.get_application()
-    app.add_exception_handler(VanguardError, vanguard_exception_handler)
+    app.add_exception_handler(CleoError, cleo_exception_handler)
 
     with TestClient(app) as client:
         azure_response = client.post(

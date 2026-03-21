@@ -11,6 +11,7 @@ describe("useChatStore", () => {
     expect(state.messages).toEqual([]);
     expect(state.isThinking).toBe(false);
     expect(state.streamingMessageId).toBeNull();
+    expect(state.errorType).toBeNull();
   });
 
   it("adds a user message", () => {
@@ -31,7 +32,7 @@ describe("useChatStore", () => {
     const state = useChatStore.getState();
     expect(state.messages).toHaveLength(1);
     expect(state.messages[0].role).toBe("assistant");
-    expect(state.messages[0].citations).toHaveLength(1);
+    expect(state.messages[0].primary_citations).toHaveLength(1);
     expect(state.isThinking).toBe(false);
   });
 
@@ -47,7 +48,12 @@ describe("useChatStore", () => {
     state = useChatStore.getState();
     expect(state.messages[0].content).toBe("Hello world");
 
-    useChatStore.getState().finishAssistantMessage([]);
+    useChatStore.getState().finishAssistantMessage({
+      primary_citations: [],
+      secondary_citations: [],
+      all_citations: [],
+      hidden_sources_count: 0
+    });
     state = useChatStore.getState();
     expect(state.messages[0].isStreaming).toBe(false);
     expect(state.streamingMessageId).toBeNull();
@@ -70,5 +76,6 @@ describe("useChatStore", () => {
     expect(state.messages).toEqual([]);
     expect(state.isThinking).toBe(false);
     expect(state.streamingMessageId).toBeNull();
+    expect(state.errorType).toBeNull();
   });
 });

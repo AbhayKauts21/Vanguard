@@ -19,7 +19,7 @@ export function useChat() {
       try {
         const body: ChatRequest = { message };
         const res = await sendChatMessage(body);
-        addAssistantMessage(res.answer, res.citations);
+        addAssistantMessage(res.answer, res.primary_citations);
       } catch (err) {
         const errorMsg =
           err instanceof Error ? err.message : "An unexpected error occurred.";

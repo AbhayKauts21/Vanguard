@@ -11,6 +11,7 @@ from app.domain.schemas import ChatResponse, Citation, VectorSearchResult
 from app.adapters.embedding_client import embedding_client
 from app.adapters.vector_store import vector_store
 from app.adapters.llm_client import llm_client
+from app.services.citation_ranker import citation_ranker
 
 
 class RAGService:
@@ -43,7 +44,7 @@ class RAGService:
 
         # 4. Build context from top chunks
         context_chunks = [r.text for r in relevant]
-        citations = self._build_citations(relevant)
+        ranked_citations = citation_ranker.rank_citations(relevant)
 
         # 5. Generate answer using LLM
         answer = await llm_client.generate(
@@ -56,7 +57,13 @@ class RAGService:
             f"top_score={relevant[0].score:.3f}"
         )
 
-        return ChatResponse(answer=answer, citations=citations)
+        return ChatResponse(
+            answer=answer, 
+            primary_citations=ranked_citations["primary"],
+            secondary_citations=ranked_citations["secondary"],
+            all_citations=ranked_citations["all_sources"],
+            hidden_sources_count=ranked_citations["hidden_count"]
+        )
 
     async def answer_query_stream(self, question: str):
         """Streaming RAG pipeline — yields tokens + returns citations."""
@@ -76,46 +83,19 @@ class RAGService:
             raise NoContextFoundError()
 
         context_chunks = [r.text for r in relevant]
-        citations = self._build_citations(relevant)
+        ranked_citations = citation_ranker.rank_citations(relevant)
 
         # 4. Stream tokens from LLM
         return llm_client.generate_stream(
             question=question,
             context_chunks=context_chunks,
-        ), citations
+        ), ranked_citations
 
     def _filter_by_confidence(
         self, results: List[VectorSearchResult]
     ) -> List[VectorSearchResult]:
         """Only keep results above the minimum similarity threshold."""
         return [r for r in results if r.score >= self.min_score]
-
-    def _build_citations(
-        self, results: List[VectorSearchResult]
-    ) -> List[Citation]:
-        """Convert search results into citation objects for the response."""
-        seen_pages = set()
-        citations: List[Citation] = []
-
-        for r in results:
-            # Deduplicate by page — one citation per source page
-            if r.page_id in seen_pages:
-                continue
-            seen_pages.add(r.page_id)
-
-            citations.append(
-                Citation(
-                    page_id=r.page_id,
-                    page_title=r.page_title,
-                    source_url=r.bookstack_url,
-                    source_type="bookstack",
-                    source_name=getattr(r, "book_title", ""),
-                    chunk_text=r.text[:200] + "..." if len(r.text) > 200 else r.text,
-                    score=round(r.score, 3),
-                )
-            )
-
-        return citations
 
 
 # Singleton instance

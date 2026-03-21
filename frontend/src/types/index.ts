@@ -14,11 +14,15 @@ export interface Citation {
   source_name: string;        // parent container: book title, space name, etc.
   chunk_text: string;
   score: number;
+  tier?: "primary" | "secondary" | "tertiary";
 }
 
 export interface ChatResponse {
   answer: string;
-  citations: Citation[];
+  primary_citations: Citation[];
+  secondary_citations: Citation[];
+  all_citations: Citation[];
+  hidden_sources_count: number;
   conversation_id?: string;
 }
 
@@ -30,7 +34,10 @@ export interface SSETokenEvent {
 
 export interface SSEDoneEvent {
   type: "done";
-  citations: Citation[];
+  primary_citations: Citation[];
+  secondary_citations: Citation[];
+  all_citations: Citation[];
+  hidden_sources_count: number;
 }
 
 export type SSEEvent = SSETokenEvent | SSEDoneEvent;

@@ -14,6 +14,7 @@ export function useChatStream() {
   const appendToken = useChatStore((s) => s.appendToken);
   const finishAssistantMessage = useChatStore((s) => s.finishAssistantMessage);
   const addAssistantMessage = useChatStore((s) => s.addAssistantMessage);
+  const setErrorType = useChatStore((s) => s.setErrorType);
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -26,6 +27,7 @@ export function useChatStream() {
 
       addUserMessage(message);
       setThinking(true);
+      setErrorType(null);
 
       try {
         const body: ChatRequest = { message };
@@ -38,18 +40,37 @@ export function useChatStream() {
           /* onToken */
           (token: string) => appendToken(token),
           /* onDone */
-          (event: SSEDoneEvent) => finishAssistantMessage(event.citations),
+          (event: SSEDoneEvent) => finishAssistantMessage({
+            primary_citations: event.primary_citations || [],
+            secondary_citations: event.secondary_citations || [],
+            all_citations: event.all_citations || [],
+            hidden_sources_count: event.hidden_sources_count || 0
+          }),
           /* onError */
           (err: Error) => {
-            finishAssistantMessage([]);
-            addAssistantMessage(`Stream error: ${err.message}`, []);
+            finishAssistantMessage({
+              primary_citations: [],
+              secondary_citations: [],
+              all_citations: [],
+              hidden_sources_count: 0
+            });
+            if (err.message.includes("429")) {
+              setErrorType("rate-limit");
+            } else if (err.message.includes("5")) { // 500, 502, 503, 504
+              setErrorType("server");
+            } else {
+              setErrorType("network");
+            }
           },
         );
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         setThinking(false);
-        const errorMsg = err instanceof Error ? err.message : "Streaming failed.";
-        addAssistantMessage(errorMsg, []);
+        if ((err as Error).message.includes("429")) {
+          setErrorType("rate-limit");
+        } else {
+          setErrorType("network");
+        }
       }
     },
     [
@@ -59,6 +80,7 @@ export function useChatStream() {
       appendToken,
       finishAssistantMessage,
       addAssistantMessage,
+      setErrorType,
     ],
   );
 

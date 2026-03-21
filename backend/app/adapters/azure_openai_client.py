@@ -85,5 +85,33 @@ class AzureOpenAIClient:
             logger.error(f"Azure OpenAI request failed: {exc}")
             raise AzureOpenAIError(detail=f"Azure OpenAI request failed: {exc}") from exc
 
+    async def stream_chat_completion(
+        self,
+        messages: Sequence[AzureChatMessage],
+        *,
+        temperature: float,
+        max_tokens: Optional[int] = None,
+    ):
+        """Stream a chat completion from Azure OpenAI."""
+        client = self._get_client()
+        payload: Dict[str, Any] = {
+            "model": settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
+            "temperature": temperature,
+            "stream": True,
+            "messages": [message.model_dump() for message in messages],
+        }
+        if max_tokens is not None:
+            payload["max_tokens"] = max_tokens
+
+        try:
+            stream = client.chat.completions.create(**payload)
+            for chunk in stream:
+                delta = chunk.choices[0].delta
+                if hasattr(delta, "content") and delta.content:
+                    yield delta.content
+        except Exception as exc:
+            logger.error(f"Azure OpenAI stream failed: {exc}")
+            raise AzureOpenAIError(detail=f"Azure stream failed: {exc}") from exc
+
 
 azure_openai_client = AzureOpenAIClient()

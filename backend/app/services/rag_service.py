@@ -7,7 +7,7 @@ from loguru import logger
 from app.core.config import settings
 from app.core.exceptions import NoContextFoundError
 from app.core.prompts import NO_CONTEXT_RESPONSE
-from app.domain.schemas import ChatResponse, Citation, VectorSearchResult
+from app.domain.schemas import ChatResponse, Citation, VectorSearchResult, ConversationMessage
 from app.adapters.embedding_client import embedding_client
 from app.adapters.vector_store import vector_store
 from app.adapters.llm_client import llm_client
@@ -22,7 +22,9 @@ class RAGService:
         self.min_score = settings.MIN_SIMILARITY_SCORE
         self.top_k = settings.TOP_K_RESULTS
 
-    async def answer_query(self, question: str) -> ChatResponse:
+    async def answer_query(
+        self, question: str, history: List[ConversationMessage] | None = None
+    ) -> ChatResponse:
         """Full RAG pipeline — returns answer with citations."""
         # 1. Embed the user's question
         query_vector = await embedding_client.embed_text(question)
@@ -51,6 +53,7 @@ class RAGService:
         answer = await llm_client.generate(
             question=question,
             context_chunks=context_chunks,
+            history=history,
         )
 
         logger.info(
@@ -68,7 +71,9 @@ class RAGService:
             max_confidence=relevant[0].score if relevant else 0.0
         )
 
-    async def answer_query_stream(self, question: str) -> AsyncGenerator[dict, None]:
+    async def answer_query_stream(
+        self, question: str, history: List[ConversationMessage] | None = None
+    ) -> AsyncGenerator[dict, None]:
         """Streaming RAG pipeline — yields tokens + final summary dict based on confidence routing."""
         # 1. Embed and query
         query_vector = await embedding_client.embed_text(question)
@@ -87,6 +92,7 @@ class RAGService:
             token_stream = llm_client.generate_stream(
                 question=question,
                 context_chunks=context_chunks,
+                history=history,
             )
             async for token in token_stream:
                 yield {"type": "token", "content": token}
@@ -144,7 +150,8 @@ Do NOT make up details about our product features or policies."""
             token_stream = azure_chat_service.stream_chat(
                 system_prompt=system_prompt,
                 messages=[{"role": "user", "content": question}],
-                params=None
+                params=None,
+                history=history,
             )
             
             async for chunk in token_stream:

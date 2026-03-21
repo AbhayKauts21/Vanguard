@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator, ConfigDict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 from datetime import datetime
 from enum import Enum
 
@@ -79,10 +79,17 @@ class Citation(BaseModel):
     tier: str = "tertiary"              # "primary" | "secondary" | "tertiary"
 
 
+class ConversationMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class ChatRequest(BaseModel):
     """Incoming user query."""
     message: str = Field(..., min_length=1, max_length=2000)
     conversation_id: Optional[str] = None
+    conversation_history: List[ConversationMessage] = Field(default_factory=list)
+    max_history: int = Field(default=10, le=20)
 
 
 class ChatResponse(BaseModel):
@@ -112,6 +119,7 @@ class AzureChatRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=8_000)
     input_text: Optional[str] = Field(default=None, max_length=12_000)
     context: Dict[str, Any] = Field(default_factory=dict)
+    conversation_history: List[ConversationMessage] = Field(default_factory=list)
     params: AzureChatParams = Field(default_factory=AzureChatParams)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 

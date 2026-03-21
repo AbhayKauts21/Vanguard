@@ -1,6 +1,7 @@
 """OpenAI LLM client — chat completion with streaming support."""
 
-from typing import AsyncGenerator, List, Dict
+from typing import AsyncGenerator, List, Dict, Optional
+from app.domain.schemas import ConversationMessage
 
 from loguru import logger
 
@@ -27,19 +28,24 @@ class LLMClient:
         question: str,
         context_chunks: List[str],
         temperature: float = 0.2,
+        history: Optional[List[ConversationMessage]] = None,
     ) -> str:
         """Generate a non-streaming response (used for simple calls)."""
         client = self._get_client()
         context = "\n\n---\n\n".join(context_chunks)
+        history = history or []
+
+        messages = [{"role": "system", "content": RAG_SYSTEM_PROMPT.format(context=context)}]
+        for msg in history:
+            messages.append({"role": msg.role, "content": msg.content})
+            
+        messages.append({"role": "user", "content": RAG_USER_PROMPT.format(question=question)})
 
         try:
             response = client.chat.completions.create(
                 model=self.model,
                 temperature=temperature,
-                messages=[
-                    {"role": "system", "content": RAG_SYSTEM_PROMPT.format(context=context)},
-                    {"role": "user", "content": RAG_USER_PROMPT.format(question=question)},
-                ],
+                messages=messages,
             )
             return response.choices[0].message.content or ""
 
@@ -52,20 +58,25 @@ class LLMClient:
         question: str,
         context_chunks: List[str],
         temperature: float = 0.2,
+        history: Optional[List[ConversationMessage]] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream tokens for real-time UI response."""
         client = self._get_client()
         context = "\n\n---\n\n".join(context_chunks)
+        history = history or []
+
+        messages = [{"role": "system", "content": RAG_SYSTEM_PROMPT.format(context=context)}]
+        for msg in history:
+            messages.append({"role": msg.role, "content": msg.content})
+            
+        messages.append({"role": "user", "content": RAG_USER_PROMPT.format(question=question)})
 
         try:
             stream = client.chat.completions.create(
                 model=self.model,
                 temperature=temperature,
                 stream=True,
-                messages=[
-                    {"role": "system", "content": RAG_SYSTEM_PROMPT.format(context=context)},
-                    {"role": "user", "content": RAG_USER_PROMPT.format(question=question)},
-                ],
+                messages=messages,
             )
 
             for chunk in stream:

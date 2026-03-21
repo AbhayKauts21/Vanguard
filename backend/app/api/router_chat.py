@@ -31,12 +31,12 @@ async def chat_stream(request: ChatRequest):
     logger.info(f"Streaming query: '{request.message[:80]}...'")
 
     try:
-        token_stream, citations = await rag_service.answer_query_stream(request.message)
+        token_stream, ranked_citations = await rag_service.answer_query_stream(request.message)
     except NoContextFoundError:
         # Return graceful decline as SSE
         async def no_context_stream():
             yield f"data: {json.dumps({'type': 'token', 'content': NO_CONTEXT_RESPONSE})}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'citations': []})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'primary_citations': [], 'secondary_citations': [], 'all_citations': [], 'hidden_sources_count': 0})}\n\n"
         return StreamingResponse(no_context_stream(), media_type="text/event-stream")
 
     async def event_stream():
@@ -45,7 +45,12 @@ async def chat_stream(request: ChatRequest):
             yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
 
         # Send citations as final event
-        citation_data = [c.model_dump() for c in citations]
-        yield f"data: {json.dumps({'type': 'done', 'citations': citation_data})}\n\n"
+        yield f"data: {json.dumps({
+            'type': 'done', 
+            'primary_citations': [c.model_dump() for c in ranked_citations['primary']],
+            'secondary_citations': [c.model_dump() for c in ranked_citations['secondary']],
+            'all_citations': [c.model_dump() for c in ranked_citations['all_sources']],
+            'hidden_sources_count': ranked_citations['hidden_count']
+        })}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

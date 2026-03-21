@@ -76,6 +76,7 @@ class Citation(BaseModel):
     source_name: str = ""               # parent container: book title, space name, etc.
     chunk_text: str = ""
     score: float = 0.0
+    tier: str = "tertiary"              # "primary" | "secondary" | "tertiary"
 
 
 class ChatRequest(BaseModel):
@@ -87,7 +88,10 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     """Response with AI answer + BookStack citations."""
     answer: str
-    citations: List[Citation]
+    primary_citations: List[Citation] = Field(default_factory=list)
+    secondary_citations: List[Citation] = Field(default_factory=list)
+    all_citations: List[Citation] = Field(default_factory=list)
+    hidden_sources_count: int = 0
     conversation_id: Optional[str] = None
 
 

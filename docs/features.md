@@ -85,9 +85,24 @@
 
 | # | Feature | Priority | Target |
 |---|---|---|---|
-| F-048 | RAG Chat End-to-End Hardening (Phase 2) | 🔴 P0 | v0.3.1 |
-| F-049 | Smart Routing with RAG Confidence (Phase 3) | 🔴 P0 | v0.3.1 |
-| F-050 | Conversation Memory & Persistence (Phase 4) | 🟡 P1 | v0.3.2 |
-| F-051 | HeyGen Avatar Integration (Phase 6) | 🔴 P0 | v0.4.0 |
-| F-052 | Admin Dashboard (Phase 5) | 🟡 P1 | v0.3.2 |
+### v0.3.1 — Phase 2: RAG Chat End-to-End Hardening (2026-03-22)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-048 | **CitationRanker Service** — Tiered grouping of Citations by confidence score | ✅ Done | `backend/services/citation_ranker.py` |
+| F-049 | **Tiered Citations API** — `primary_citations`, `secondary_citations`, `all_citations` schema | ✅ Done | `backend/domain/schemas.py`, `backend/api/router_chat.py` |
+| F-050 | **Frontend Stream Resiliency** — Error categorization (`errorType` state) and banners | ✅ Done | `frontend/domains/chat/hooks/useChatStream.ts`, `ChatPanel.tsx` |
+| F-051 | **CitationList Component** — Expandable sources list depending on primary/secondary tiers | ✅ Done | `frontend/components/chat/CitationList.tsx` |
+| F-052 | **Smart Auto-Scroll Logic** — Pauses when scrolled up, floating indicator button | ✅ Done | `frontend/components/chat/MessageList.tsx` |
+
+---
+
+## 🔮 Upcoming Features
+
+| # | Feature | Priority | Target |
+|---|---|---|---|
+| F-053 | Smart Routing with RAG Confidence (Phase 3) | 🔴 P0 | v0.3.1 |
+| F-054 | Conversation Memory & Persistence (Phase 4) | 🟡 P1 | v0.3.2 |
+| F-055 | HeyGen Avatar Integration (Phase 6) | 🔴 P0 | v0.4.0 |
+| F-056 | Admin Dashboard (Phase 5) | 🟡 P1 | v0.3.2 |
 

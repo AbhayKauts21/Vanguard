@@ -1,14 +1,16 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { fireNeuralLink } from "@/components/effects/NeuralSvgOverlay";
 import type { Citation } from "@/types";
-import { useRef } from "react";
+import { CitationList } from "./CitationList";
 
 interface MessageBubbleProps {
   role: "user" | "assistant";
   content: string;
-  citations?: Citation[];
+  primary_citations?: Citation[];
+  secondary_citations?: Citation[];
+  all_citations?: Citation[];
+  hidden_sources_count?: number;
   isStreaming?: boolean;
   delay?: number;
 }
@@ -18,7 +20,16 @@ interface MessageBubbleProps {
  * CLEO messages: waveform icon + left-aligned rounded-tl-none bubble.
  * Operator messages: diamond icon + right-aligned rounded-tr-none bubble.
  */
-export function MessageBubble({ role, content, citations, isStreaming, delay = 0 }: MessageBubbleProps) {
+export function MessageBubble({ 
+  role, 
+  content, 
+  primary_citations, 
+  secondary_citations, 
+  all_citations, 
+  hidden_sources_count, 
+  isStreaming, 
+  delay = 0 
+}: MessageBubbleProps) {
   const t = useTranslations("chat");
   const isUser = role === "user";
 
@@ -67,59 +78,12 @@ export function MessageBubble({ role, content, citations, isStreaming, delay = 0
         )}
 
         {/* Citations / source cards */}
-        {citations && citations.length > 0 && (
-          <div className="mt-5 grid grid-cols-1 gap-2.5">
-            {citations.map((c) => (
-              <SourceCard key={c.page_id} citation={c} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* Source card with chevron and neural link fire — matches original HTML. */
-function SourceCard({ citation }: { citation: Citation }) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  function handleClick() {
-    if (ref.current) fireNeuralLink(ref.current);
-    if (citation.source_url) {
-      window.open(citation.source_url, "_blank", "noopener,noreferrer");
-    }
-  }
-
-  return (
-    <div
-      ref={ref}
-      onClick={handleClick}
-      className="source-card flex items-center justify-between p-3.5 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/5 hover:border-white/30 transition-all cursor-pointer group"
-    >
-      <div className="flex items-center gap-3">
-        <span className="material-symbols-outlined text-white/40 group-hover:text-white/80 transition-colors text-lg">
-          database
-        </span>
-        <div>
-          <p className="text-[11px] font-semibold text-white/90 leading-tight">
-            {citation.page_title}
-          </p>
-          <p className="text-[9px] text-white/30 tracking-wider">
-            {citation.source_name || `Page ${citation.page_id}`}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        {/* Relevance score indicator */}
-        <div className="w-12 h-1 rounded-full bg-white/10 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-emerald-400/60"
-            style={{ width: `${Math.round(citation.score * 100)}%` }}
-          />
-        </div>
-        <span className="material-symbols-outlined text-sm text-white/30 group-hover:translate-x-0.5 transition-transform">
-          chevron_right
-        </span>
+        <CitationList 
+          primary={primary_citations}
+          secondary={secondary_citations}
+          all={all_citations}
+          hiddenCount={hidden_sources_count}
+        />
       </div>
     </div>
   );

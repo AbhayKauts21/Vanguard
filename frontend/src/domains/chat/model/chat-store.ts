@@ -12,6 +12,7 @@ interface ChatState {
   messages: ChatMessage[];
   isThinking: boolean;
   streamingMessageId: string | null;
+  errorType: 'network' | 'server' | 'rate-limit' | null;
 
   /* Add a user message. */
   addUserMessage: (content: string) => string;
@@ -20,11 +21,18 @@ interface ChatState {
   /* Append a token to the streaming assistant message. */
   appendToken: (token: string) => void;
   /* Finalize the streaming message with citations. */
-  finishAssistantMessage: (citations: Citation[]) => void;
-  /* Set a complete assistant response (non-streaming). */
-  addAssistantMessage: (content: string, citations: Citation[]) => void;
+  finishAssistantMessage: (data: {
+    primary_citations: Citation[];
+    secondary_citations: Citation[];
+    all_citations: Citation[];
+    hidden_sources_count: number;
+  }) => void;
+  /* Set a complete assistant response (non-streaming) or error. */
+  addAssistantMessage: (content: string, primary_citations?: Citation[]) => void;
   /* Mark thinking state. */
   setThinking: (val: boolean) => void;
+  /* Set system error type. */
+  setErrorType: (err: 'network' | 'server' | 'rate-limit' | null) => void;
   /* Clear all messages. */
   clearMessages: () => void;
 }
@@ -34,6 +42,7 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   isThinking: false,
   streamingMessageId: null,
+  errorType: null,
 
   addUserMessage: (content) => {
     const id = nextId();
@@ -61,24 +70,34 @@ export const useChatStore = create<ChatState>((set) => ({
     }));
   },
 
-  finishAssistantMessage: (citations) => {
+  finishAssistantMessage: (data) => {
     set((s) => ({
       messages: s.messages.map((m) =>
-        m.id === s.streamingMessageId ? { ...m, isStreaming: false, citations } : m,
+        m.id === s.streamingMessageId ? { ...m, isStreaming: false, ...data } : m,
       ),
       streamingMessageId: null,
     }));
   },
 
-  addAssistantMessage: (content, citations) => {
+  addAssistantMessage: (content, primary_citations = []) => {
     const id = nextId();
     set((s) => ({
-      messages: [...s.messages, { id, role: "assistant", content, citations }],
+      messages: [...s.messages, { 
+        id, 
+        role: "assistant", 
+        content, 
+        primary_citations, 
+        secondary_citations: [], 
+        all_citations: primary_citations, 
+        hidden_sources_count: 0 
+      }],
       isThinking: false,
     }));
   },
 
   setThinking: (val) => set({ isThinking: val }),
 
-  clearMessages: () => set({ messages: [], streamingMessageId: null, isThinking: false }),
+  setErrorType: (err) => set({ errorType: err }),
+
+  clearMessages: () => set({ messages: [], streamingMessageId: null, isThinking: false, errorType: null }),
 }));

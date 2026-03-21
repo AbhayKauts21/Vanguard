@@ -80,6 +80,32 @@ class AzureChatService:
                 await middleware.on_error(request, messages, exc)
             raise
 
+    async def stream_chat(
+        self,
+        system_prompt: str,
+        messages: List[Dict[str, str]],
+        params: Optional[Any] = None,
+        history: Optional[List[Any]] = None,
+    ):
+        """Execute a streaming stateless direct chat call against Azure OpenAI."""
+        history = history or []
+        
+        azure_msgs = [AzureChatMessage(role="system", content=system_prompt)]
+        
+        for msg in history:
+            azure_msgs.append(AzureChatMessage(role=msg.role, content=msg.content))
+            
+        for msg in messages:
+            azure_msgs.append(AzureChatMessage(role=msg["role"], content=msg["content"]))
+
+        stream = azure_openai_client.stream_chat_completion(
+            azure_msgs,
+            temperature=params.temperature if params else 0.2,
+            max_tokens=params.max_tokens if params else None,
+        )
+        async for token in stream:
+            yield token
+
     def _normalize_response(
         self, request: AzureChatRequest, raw_response: Any
     ) -> AzureChatResponse:

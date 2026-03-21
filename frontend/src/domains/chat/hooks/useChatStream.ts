@@ -20,6 +20,15 @@ export function useChatStream() {
 
   const sendStream = useCallback(
     async (message: string) => {
+      const { messages, conversationId } = useChatStore.getState();
+      const history = messages
+        .filter(m => !m.isStreaming) // Don't send partial states
+        .slice(-10)
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+
       /* Cancel any in-flight stream. */
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -30,7 +39,11 @@ export function useChatStream() {
       setErrorType(null);
 
       try {
-        const body: ChatRequest = { message };
+        const body: ChatRequest = { 
+          message,
+          conversation_id: conversationId,
+          conversation_history: history,
+        };
         const response = await api.stream(CHAT_STREAM_ENDPOINT, body, controller.signal);
 
         startAssistantMessage();

@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { v4 as uuidv4 } from "uuid";
 import type { Citation } from "@/types";
 import type { ChatMessage } from "@/components/chat";
 
@@ -13,6 +15,7 @@ interface ChatState {
   isThinking: boolean;
   streamingMessageId: string | null;
   errorType: 'network' | 'server' | 'rate-limit' | null;
+  conversationId: string;
 
   /* Add a user message. */
   addUserMessage: (content: string) => string;
@@ -38,14 +41,19 @@ interface ChatState {
   setErrorType: (err: 'network' | 'server' | 'rate-limit' | null) => void;
   /* Clear all messages. */
   clearMessages: () => void;
+  /* Reset session. */
+  newConversation: () => void;
 }
 
-/* Zustand store for transient chat UI state. */
-export const useChatStore = create<ChatState>((set) => ({
-  messages: [],
-  isThinking: false,
-  streamingMessageId: null,
-  errorType: null,
+/* Zustand store for transient chat UI state. Persisted in sessionStorage. */
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set) => ({
+      messages: [],
+      isThinking: false,
+      streamingMessageId: null,
+      errorType: null,
+      conversationId: uuidv4(),
 
   addUserMessage: (content) => {
     const id = nextId();
@@ -113,4 +121,33 @@ export const useChatStore = create<ChatState>((set) => ({
   setErrorType: (err) => set({ errorType: err }),
 
   clearMessages: () => set({ messages: [], streamingMessageId: null, isThinking: false, errorType: null }),
-}));
+
+  newConversation: () => set({
+    messages: [],
+    streamingMessageId: null,
+    isThinking: false,
+    errorType: null,
+    conversationId: uuidv4(),
+  }),
+    }),
+    {
+      name: "cleo-chat-session",
+      storage: createJSONStorage(() => {
+        try {
+          return sessionStorage;
+        } catch (e) {
+          // SSR fallback
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          };
+        }
+      }),
+      partialize: (state) => ({
+        messages: state.messages.map(m => ({ ...m, isStreaming: false })),
+        conversationId: state.conversationId,
+      }),
+    }
+  )
+);

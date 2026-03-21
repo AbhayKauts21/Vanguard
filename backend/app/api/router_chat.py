@@ -20,7 +20,10 @@ router = APIRouter(
 async def chat(request: ChatRequest):
     """Handle user query via the RAG pipeline. Returns answer + citations."""
     logger.info(f"Chat query: '{request.message[:80]}...'")
-    response = await rag_service.answer_query(request.message)
+    response = await rag_service.answer_query(
+        request.message,
+        history=request.conversation_history[-request.max_history:] if request.conversation_history else None
+    )
     response.conversation_id = request.conversation_id
     return response
 
@@ -32,7 +35,10 @@ async def chat_stream(request: ChatRequest):
 
     async def event_stream():
         try:
-            async for chunk in rag_service.answer_query_stream(request.message):
+            async for chunk in rag_service.answer_query_stream(
+                request.message,
+                history=request.conversation_history[-request.max_history:] if request.conversation_history else None
+            ):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except NoContextFoundError:
             # Graceful decline as SSE if knowledge base is totally empty (E-002)

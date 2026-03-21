@@ -4,6 +4,7 @@
 export interface ChatRequest {
   message: string;
   conversation_id?: string;
+  conversation_history?: { role: string; content: string }[];
 }
 
 export interface Citation {

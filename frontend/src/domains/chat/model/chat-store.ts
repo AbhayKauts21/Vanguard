@@ -26,6 +26,9 @@ interface ChatState {
     secondary_citations: Citation[];
     all_citations: Citation[];
     hidden_sources_count: number;
+    mode_used: 'rag' | 'uncertain' | 'azure_fallback';
+    max_confidence: number;
+    what_i_found?: { page_title: string; score: number }[];
   }) => void;
   /* Set a complete assistant response (non-streaming) or error. */
   addAssistantMessage: (content: string, primary_citations?: Citation[]) => void;
@@ -73,7 +76,17 @@ export const useChatStore = create<ChatState>((set) => ({
   finishAssistantMessage: (data) => {
     set((s) => ({
       messages: s.messages.map((m) =>
-        m.id === s.streamingMessageId ? { ...m, isStreaming: false, ...data } : m,
+        m.id === s.streamingMessageId ? { 
+          ...m, 
+          isStreaming: false, 
+          primary_citations: data.primary_citations,
+          secondary_citations: data.secondary_citations,
+          all_citations: data.all_citations,
+          hidden_sources_count: data.hidden_sources_count,
+          modeUsed: data.mode_used,
+          maxConfidence: data.max_confidence,
+          whatIFound: data.what_i_found
+        } : m
       ),
       streamingMessageId: null,
     }));

@@ -11,6 +11,9 @@ interface MessageBubbleProps {
   secondary_citations?: Citation[];
   all_citations?: Citation[];
   hidden_sources_count?: number;
+  modeUsed?: 'rag' | 'uncertain' | 'azure_fallback';
+  maxConfidence?: number;
+  whatIFound?: { page_title: string; score: number }[];
   isStreaming?: boolean;
   delay?: number;
 }
@@ -27,6 +30,9 @@ export function MessageBubble({
   secondary_citations, 
   all_citations, 
   hidden_sources_count, 
+  modeUsed,
+  maxConfidence,
+  whatIFound,
   isStreaming, 
   delay = 0 
 }: MessageBubbleProps) {
@@ -77,13 +83,74 @@ export function MessageBubble({
           <span className="inline-block w-[2px] h-4 bg-white/60 ml-0.5 animate-pulse" />
         )}
 
-        {/* Citations / source cards */}
-        <CitationList 
-          primary={primary_citations}
-          secondary={secondary_citations}
-          all={all_citations}
-          hiddenCount={hidden_sources_count}
-        />
+        {/* Tier 1: High confidence — show citations */}
+        {modeUsed === "rag" && (
+          <CitationList 
+            primary={primary_citations}
+            secondary={secondary_citations}
+            all={all_citations}
+            hiddenCount={hidden_sources_count}
+          />
+        )}
+
+        {/* Tier 2: Uncertain — show honest deflection */}
+        {modeUsed === "uncertain" && (
+          <div className="mt-4 p-4 border border-yellow-500/20 bg-yellow-500/10 rounded-xl relative overflow-hidden group">
+            <div className="flex items-start gap-3 relative z-10">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <p className="text-yellow-400 font-bold mb-1 text-[13px] tracking-wide">
+                  {t("uncertainTitle")}
+                </p>
+                <p className="text-yellow-400/80 leading-relaxed mb-3 text-[13px]">
+                  {t("uncertainDesc")}
+                </p>
+                
+                {whatIFound && whatIFound.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-yellow-500 text-[11px] uppercase tracking-wider font-bold mb-1.5 opacity-80">
+                      {t("whatIFound")}
+                    </p>
+                    <ul className="space-y-1">
+                      {whatIFound.map((item, idx) => (
+                        <li key={idx} className="text-yellow-400/90 text-[12px] flex items-center gap-2">
+                          <span className="w-1 h-1 bg-yellow-500/50 rounded-full" />
+                          <span className="truncate">{item.page_title}</span>
+                          <span className="text-yellow-500/50 text-[10px]">({Math.round(item.score * 100)}%)</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                <a 
+                  href="mailto:support@andino.com" 
+                  className="inline-flex items-center gap-2 text-[12px] font-bold text-yellow-300 hover:text-yellow-100 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[14px]">mail</span>
+                  {t("contactSupport")}
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tier 3: Azure fallback — show mode indicator */}
+        {modeUsed === "azure_fallback" && (
+          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/10">
+            <span className="text-blue-400 text-[14px]">⚡</span>
+            <span className="text-blue-300/90 text-[11px] font-medium tracking-wide uppercase">
+              {t("azureMode")}
+            </span>
+          </div>
+        )}
+
+        {/* Optional Debug confidence */}
+        {maxConfidence !== undefined && maxConfidence > 0 && process.env.NODE_ENV === "development" && (
+          <div className="mt-2 text-[10px] text-white/30 font-mono">
+            Debug Confidence: {Math.round(maxConfidence * 100)}%
+          </div>
+        )}
       </div>
     </div>
   );

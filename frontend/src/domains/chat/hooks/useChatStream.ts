@@ -44,7 +44,10 @@ export function useChatStream() {
             primary_citations: event.primary_citations || [],
             secondary_citations: event.secondary_citations || [],
             all_citations: event.all_citations || [],
-            hidden_sources_count: event.hidden_sources_count || 0
+            hidden_sources_count: event.hidden_sources_count || 0,
+            mode_used: event.mode_used || "rag",
+            max_confidence: event.max_confidence || 0,
+            what_i_found: event.what_i_found
           }),
           /* onError */
           (err: Error) => {
@@ -52,7 +55,9 @@ export function useChatStream() {
               primary_citations: [],
               secondary_citations: [],
               all_citations: [],
-              hidden_sources_count: 0
+              hidden_sources_count: 0,
+              mode_used: "rag",
+              max_confidence: 0
             });
             if (err.message.includes("429")) {
               setErrorType("rate-limit");

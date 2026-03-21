@@ -26,7 +26,7 @@ describe("useChatStore", () => {
 
   it("adds a complete assistant message", () => {
     useChatStore.getState().addAssistantMessage("Answer", [
-      { page_id: 1, page_title: "Test", page_url: "http://test.com", snippet: "..." },
+      { page_id: 1, page_title: "Test", source_url: "http://test.com", source_type: "bookstack", source_name: "Test Book", chunk_text: "...", score: 0.95 },
     ]);
     const state = useChatStore.getState();
     expect(state.messages).toHaveLength(1);

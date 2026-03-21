@@ -85,6 +85,9 @@ function SourceCard({ citation }: { citation: Citation }) {
 
   function handleClick() {
     if (ref.current) fireNeuralLink(ref.current);
+    if (citation.source_url) {
+      window.open(citation.source_url, "_blank", "noopener,noreferrer");
+    }
   }
 
   return (
@@ -102,13 +105,22 @@ function SourceCard({ citation }: { citation: Citation }) {
             {citation.page_title}
           </p>
           <p className="text-[9px] text-white/30 tracking-wider">
-            Page {citation.page_id}
+            {citation.source_name || `Page ${citation.page_id}`}
           </p>
         </div>
       </div>
-      <span className="material-symbols-outlined text-sm text-white/30 group-hover:translate-x-0.5 transition-transform">
-        chevron_right
-      </span>
+      <div className="flex items-center gap-2">
+        {/* Relevance score indicator */}
+        <div className="w-12 h-1 rounded-full bg-white/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-emerald-400/60"
+            style={{ width: `${Math.round(citation.score * 100)}%` }}
+          />
+        </div>
+        <span className="material-symbols-outlined text-sm text-white/30 group-hover:translate-x-0.5 transition-transform">
+          chevron_right
+        </span>
+      </div>
     </div>
   );
 }

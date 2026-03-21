@@ -9,8 +9,11 @@ export interface ChatRequest {
 export interface Citation {
   page_id: number;
   page_title: string;
-  page_url: string;
-  snippet: string;
+  source_url: string;
+  source_type: string;        // "bookstack" | "confluence" | "notion" | etc.
+  source_name: string;        // parent container: book title, space name, etc.
+  chunk_text: string;
+  score: number;
 }
 
 export interface ChatResponse {

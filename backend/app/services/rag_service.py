@@ -28,6 +28,13 @@ class RAGService:
         # 2. Similarity search in Pinecone
         results = await vector_store.query(vector=query_vector, top_k=self.top_k)
 
+        # E-002: Guard against empty knowledge base (no vectors ingested yet)
+        if not results:
+            logger.warning(f"Empty knowledge base — no vectors found for: '{question[:80]}...'")
+            raise NoContextFoundError(
+                detail="No knowledge base data found. Please run ingestion first."
+            )
+
         # 3. Confidence gate — reject if no relevant context
         relevant = self._filter_by_confidence(results)
         if not relevant:
@@ -56,6 +63,13 @@ class RAGService:
         # 1–3: Same retrieval + gating
         query_vector = await embedding_client.embed_text(question)
         results = await vector_store.query(vector=query_vector, top_k=self.top_k)
+
+        # E-002: Guard against empty knowledge base
+        if not results:
+            logger.warning(f"Empty knowledge base — no vectors found for: '{question[:80]}...'")
+            raise NoContextFoundError(
+                detail="No knowledge base data found. Please run ingestion first."
+            )
 
         relevant = self._filter_by_confidence(results)
         if not relevant:
@@ -91,9 +105,12 @@ class RAGService:
 
             citations.append(
                 Citation(
-                    source=r.page_title,
-                    content=r.text[:200] + "..." if len(r.text) > 200 else r.text,
-                    url=r.bookstack_url,
+                    page_id=r.page_id,
+                    page_title=r.page_title,
+                    source_url=r.bookstack_url,
+                    source_type="bookstack",
+                    source_name=getattr(r, "book_title", ""),
+                    chunk_text=r.text[:200] + "..." if len(r.text) > 200 else r.text,
                     score=round(r.score, 3),
                 )
             )

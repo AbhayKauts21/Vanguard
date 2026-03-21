@@ -69,14 +69,25 @@
 | F-041 | **Z-Index Hierarchy** — canvas:100 → avatar:101 → scanline:110 → neural:120 → header:150 | ✅ Done | `styles/globals.css`, multiple components |
 | F-042 | **HexGrid Removal** — removed HexGridBackground per design revision | ✅ Done | `components/effects/`, `components/layout/AppShell.tsx` |
 
+### v0.3.0 — Phase 1: Bug Fixes & Contract Alignment (2026-03-21)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-043 | **BUG-001: Exception Hierarchy Fix** — `VanguardError` → `CleoError` for Azure exceptions | ✅ Done | `core/exceptions.py` |
+| F-044 | **BUG-002: Citation Contract Alignment** — source-agnostic Citation type (`source_url`, `source_type`, `source_name`) across backend + frontend | ✅ Done | `domain/schemas.py`, `types/index.ts`, `MessageBubble.tsx`, `rag_service.py` |
+| F-045 | **E-002: Empty Knowledge Base Guard** — graceful error when Pinecone has no vectors | ✅ Done | `services/rag_service.py` |
+| F-046 | **E-013: Webhook Event Validation** — Pydantic validator rejects unknown webhook events | ✅ Done | `domain/schemas.py` |
+| F-047 | **ENV Templates Update** — Added `ADMIN_API_KEY`, `ALLOWED_ORIGINS`, HeyGen fields | ✅ Done | `.env.example` (both) |
+
 ---
 
 ## 🔮 Upcoming Features
 
 | # | Feature | Priority | Target |
 |---|---|---|---|
-| F-043 | Frontend ↔ Backend integration (RAG chat + Azure chat) | 🔴 P0 | v0.3.0 |
-| F-044 | Conversation memory (multi-turn) | 🟡 P1 | v0.3.0 |
-| F-045 | Health check endpoint (frontend wired) | 🟡 P1 | v0.3.0 |
-| F-046 | HeyGen Avatar integration | 🔴 P0 | v0.4.0 |
-| F-047 | OpenTelemetry distributed tracing | 🟢 P2 | v0.5.0 |
+| F-048 | RAG Chat End-to-End Hardening (Phase 2) | 🔴 P0 | v0.3.1 |
+| F-049 | Smart Routing with RAG Confidence (Phase 3) | 🔴 P0 | v0.3.1 |
+| F-050 | Conversation Memory & Persistence (Phase 4) | 🟡 P1 | v0.3.2 |
+| F-051 | HeyGen Avatar Integration (Phase 6) | 🔴 P0 | v0.4.0 |
+| F-052 | Admin Dashboard (Phase 5) | 🟡 P1 | v0.3.2 |
+

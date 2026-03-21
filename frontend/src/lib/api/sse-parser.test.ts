@@ -9,12 +9,12 @@ describe("parseSSELine", () => {
 
   it("parses a done event with citations", () => {
     const line =
-      'data: {"type":"done","citations":[{"page_id":1,"page_title":"Test","page_url":"http://example.com","snippet":"..."}]}';
+      'data: {"type":"done","citations":[{"page_id":1,"page_title":"Test","source_url":"http://example.com","source_type":"bookstack","source_name":"Test Book","chunk_text":"...","score":0.95}]}';
     const result = parseSSELine(line);
     expect(result).toEqual({
       type: "done",
       citations: [
-        { page_id: 1, page_title: "Test", page_url: "http://example.com", snippet: "..." },
+        { page_id: 1, page_title: "Test", source_url: "http://example.com", source_type: "bookstack", source_name: "Test Book", chunk_text: "...", score: 0.95 },
       ],
     });
   });

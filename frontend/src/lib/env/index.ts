@@ -8,4 +8,8 @@ export const env = {
   enableAvatar: process.env.NEXT_PUBLIC_ENABLE_AVATAR === "true",
   enableAmbientEffects: process.env.NEXT_PUBLIC_ENABLE_AMBIENT_EFFECTS === "true",
   enableStreaming: process.env.NEXT_PUBLIC_ENABLE_STREAMING === "true",
+  heygen: {
+    avatarId: process.env.NEXT_PUBLIC_HEYGEN_AVATAR_ID ?? "Bryan_Base_Light",
+    voiceId: process.env.NEXT_PUBLIC_HEYGEN_VOICE_ID ?? "Default_Voice",
+  }
 } as const;

@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from "react";
 import { useChatStore } from "@/domains/chat/model";
+import { useAvatarStore } from "@/domains/avatar/model/avatar-store";
 import { api, consumeSSEStream } from "@/lib/api";
 import { CHAT_STREAM_ENDPOINT } from "@/lib/constants";
 import type { ChatRequest, SSEDoneEvent } from "@/types";
@@ -53,15 +54,26 @@ export function useChatStream() {
           /* onToken */
           (token: string) => appendToken(token),
           /* onDone */
-          (event: SSEDoneEvent) => finishAssistantMessage({
-            primary_citations: event.primary_citations || [],
-            secondary_citations: event.secondary_citations || [],
-            all_citations: event.all_citations || [],
-            hidden_sources_count: event.hidden_sources_count || 0,
-            mode_used: event.mode_used || "rag",
-            max_confidence: event.max_confidence || 0,
-            what_i_found: event.what_i_found
-          }),
+          (event: SSEDoneEvent) => {
+            finishAssistantMessage({
+              primary_citations: event.primary_citations || [],
+              secondary_citations: event.secondary_citations || [],
+              all_citations: event.all_citations || [],
+              hidden_sources_count: event.hidden_sources_count || 0,
+              mode_used: event.mode_used || "rag",
+              max_confidence: event.max_confidence || 0,
+              what_i_found: event.what_i_found
+            });
+
+            // Trigger the HeyGen avatar speech once the text pipeline unloads
+            const store = useAvatarStore.getState();
+            if (store.isConnected && store.speakFn) {
+              const fullAnswer = useChatStore.getState().messages.slice(-1)[0]?.content;
+              if (fullAnswer) {
+                store.speakFn(fullAnswer);
+              }
+            }
+          },
           /* onError */
           (err: Error) => {
             finishAssistantMessage({

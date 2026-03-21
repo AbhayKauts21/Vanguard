@@ -1,5 +1,9 @@
 import uvicorn
 from contextlib import asynccontextmanager
+import time
+from datetime import datetime
+
+START_TIME = time.time()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -70,6 +74,64 @@ app = get_application()
 async def health():
     """Basic liveness probe."""
     return {"status": "ok", "project": settings.PROJECT_NAME}
+
+
+@app.get("/health/detailed")
+async def detailed_health():
+    """Detailed health check for all upstream services."""
+    from app.adapters.vector_store import vector_store
+    from app.adapters.bookstack_client import bookstack_client
+    from app.adapters.llm_client import llm_client
+    from app.adapters.azure_openai_client import azure_openai_client
+    
+    # Check Pinecone
+    try:
+        stats = await vector_store.get_index_stats()
+        pinecone_status = "online"
+        vector_count = stats.get("total_vectors", 0)
+    except Exception:
+        pinecone_status = "offline"
+        vector_count = 0
+
+    # Check BookStack
+    try:
+        books = await bookstack_client.get_books()
+        bookstack_status = "online"
+        book_count = len(books)
+    except Exception:
+        bookstack_status = "offline"
+        book_count = 0
+
+    # Check OpenAI
+    try:
+        llm_client._get_client()
+        openai_status = "online"
+    except Exception:
+        openai_status = "offline"
+
+    # Check Azure OpenAI
+    try:
+        azure_openai_client._get_client()
+        azure_status = "online"
+    except Exception:
+        azure_status = "offline"
+
+    all_online = all(s == "online" for s in [pinecone_status, bookstack_status, openai_status, azure_status])
+
+    return {
+        "status": "healthy" if all_online else "degraded",
+        "timestamp": datetime.utcnow().isoformat(),
+        "services": {
+            "pinecone": {"status": pinecone_status, "vectors": vector_count},
+            "bookstack": {"status": bookstack_status, "pages": book_count}, # pages mapped as books proxy
+            "openai": {"status": openai_status, "model": settings.OPENAI_MODEL},
+            "azure_openai": {"status": azure_status, "deployment": settings.AZURE_OPENAI_CHAT_DEPLOYMENT},
+        },
+        "metrics": {
+            "total_vectors": vector_count,
+            "uptime_seconds": time.time() - START_TIME,
+        }
+    }
 
 
 if __name__ == "__main__":

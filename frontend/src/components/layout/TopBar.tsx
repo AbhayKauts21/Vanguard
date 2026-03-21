@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { Link } from "@/i18n/navigation";
 
 /**
  * Header bar — exact match to original HTML.
@@ -24,15 +25,15 @@ export function TopBar() {
       <div className="flex flex-1 justify-end gap-10">
         {/* Nav links */}
         <div className="flex items-center gap-10">
-          {(["neuralLink", "archive", "nexus"] as const).map((key) => (
-            <a
-              key={key}
-              href="#"
-              className="text-white/40 hover:text-white transition-all text-[10px] font-medium tracking-[0.15em] uppercase"
-            >
-              {t(key)}
-            </a>
-          ))}
+          <Link href="/" className="text-white/40 hover:text-white transition-all text-[10px] font-medium tracking-[0.15em] uppercase">
+            {t('neuralLink')}
+          </Link>
+          <button disabled className="text-white/20 cursor-not-allowed text-[10px] font-medium tracking-[0.15em] uppercase" title="Coming soon">
+            {t('archive')}
+          </button>
+          <Link href="/admin" className="text-white/40 hover:text-white transition-all text-[10px] font-medium tracking-[0.15em] uppercase">
+            {t('system')}
+          </Link>
         </div>
 
         {/* Action buttons */}

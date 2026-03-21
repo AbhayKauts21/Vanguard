@@ -50,21 +50,21 @@ class EmbeddingError(CleoError):
         super().__init__(detail=detail, status_code=502)
 
 
-class AzureConfigurationError(VanguardError):
+class AzureConfigurationError(CleoError):
     """Raised when Azure OpenAI direct-chat configuration is incomplete."""
 
     def __init__(self, detail: str = "Azure OpenAI configuration is invalid."):
         super().__init__(detail=detail, status_code=500)
 
 
-class AzureOpenAIError(VanguardError):
+class AzureOpenAIError(CleoError):
     """Raised when an Azure OpenAI request fails."""
 
     def __init__(self, detail: str = "Azure OpenAI request failed."):
         super().__init__(detail=detail, status_code=502)
 
 
-class AzureOpenAITimeoutError(VanguardError):
+class AzureOpenAITimeoutError(CleoError):
     """Raised when an Azure OpenAI request times out."""
 
     def __init__(self, detail: str = "Azure OpenAI request timed out."):

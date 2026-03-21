@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Any, Dict, List, Optional
 from datetime import datetime
 from enum import Enum
@@ -68,10 +68,13 @@ class VectorSearchResult(BaseModel):
 # --- Chat DTOs ---
 
 class Citation(BaseModel):
-    """A source citation attached to a chat response."""
-    source: str
-    content: str
-    url: Optional[str] = None
+    """A source citation attached to a chat response (source-agnostic)."""
+    page_id: int = 0
+    page_title: str
+    source_url: str = ""
+    source_type: str = "bookstack"      # "bookstack", "confluence", "notion", etc.
+    source_name: str = ""               # parent container: book title, space name, etc.
+    chunk_text: str = ""
     score: float = 0.0
 
 
@@ -181,3 +184,14 @@ class BookStackWebhookPayload(BaseModel):
     triggered_at: str = ""
     url: str = ""
     related_item: Optional[WebhookRelatedItem] = None
+
+    @field_validator("event")
+    @classmethod
+    def event_must_be_valid(cls, v: str) -> str:
+        """E-013: Only allow known BookStack webhook event types."""
+        allowed = {e.value for e in WebhookEvent}
+        if v not in allowed:
+            raise ValueError(
+                f"Invalid webhook event '{v}'. Allowed: {', '.join(sorted(allowed))}"
+            )
+        return v

@@ -12,6 +12,9 @@ export interface ChatMessage {
   secondary_citations?: Citation[];
   all_citations?: Citation[];
   hidden_sources_count?: number;
+  modeUsed?: 'rag' | 'uncertain' | 'azure_fallback';
+  maxConfidence?: number;
+  whatIFound?: { page_title: string; score: number }[];
   isStreaming?: boolean;
 }
 
@@ -64,6 +67,9 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
           secondary_citations={msg.secondary_citations}
           all_citations={msg.all_citations}
           hidden_sources_count={msg.hidden_sources_count}
+          modeUsed={msg.modeUsed}
+          maxConfidence={msg.maxConfidence}
+          whatIFound={msg.whatIFound}
           isStreaming={msg.isStreaming}
           delay={i * 0.2}
         />

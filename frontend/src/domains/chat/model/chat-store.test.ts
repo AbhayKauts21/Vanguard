@@ -52,7 +52,9 @@ describe("useChatStore", () => {
       primary_citations: [],
       secondary_citations: [],
       all_citations: [],
-      hidden_sources_count: 0
+      hidden_sources_count: 0,
+      mode_used: "rag",
+      max_confidence: 0.95
     });
     state = useChatStore.getState();
     expect(state.messages[0].isStreaming).toBe(false);

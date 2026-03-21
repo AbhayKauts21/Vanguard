@@ -23,6 +23,9 @@ export interface ChatResponse {
   secondary_citations: Citation[];
   all_citations: Citation[];
   hidden_sources_count: number;
+  mode_used: 'rag' | 'uncertain' | 'azure_fallback';
+  max_confidence: number;
+  what_i_found?: { page_title: string; score: number }[];
   conversation_id?: string;
 }
 
@@ -38,6 +41,9 @@ export interface SSEDoneEvent {
   secondary_citations: Citation[];
   all_citations: Citation[];
   hidden_sources_count: number;
+  mode_used: 'rag' | 'uncertain' | 'azure_fallback';
+  max_confidence: number;
+  what_i_found?: { page_title: string; score: number }[];
 }
 
 export type SSEEvent = SSETokenEvent | SSEDoneEvent;

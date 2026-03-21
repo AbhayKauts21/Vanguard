@@ -12,6 +12,7 @@ from app.adapters.embedding_client import embedding_client
 from app.adapters.vector_store import vector_store
 from app.adapters.llm_client import llm_client
 from app.services.citation_ranker import citation_ranker
+from app.services.azure_chat_service import azure_chat_service
 
 
 class RAGService:
@@ -62,34 +63,103 @@ class RAGService:
             primary_citations=ranked_citations["primary"],
             secondary_citations=ranked_citations["secondary"],
             all_citations=ranked_citations["all_sources"],
-            hidden_sources_count=ranked_citations["hidden_count"]
+            hidden_sources_count=ranked_citations["hidden_count"],
+            mode_used="rag",
+            max_confidence=relevant[0].score if relevant else 0.0
         )
 
-    async def answer_query_stream(self, question: str):
-        """Streaming RAG pipeline — yields tokens + returns citations."""
-        # 1–3: Same retrieval + gating
+    async def answer_query_stream(self, question: str) -> AsyncGenerator[dict, None]:
+        """Streaming RAG pipeline — yields tokens + final summary dict based on confidence routing."""
+        # 1. Embed and query
         query_vector = await embedding_client.embed_text(question)
         results = await vector_store.query(vector=query_vector, top_k=self.top_k)
 
-        # E-002: Guard against empty knowledge base
-        if not results:
-            logger.warning(f"Empty knowledge base — no vectors found for: '{question[:80]}...'")
-            raise NoContextFoundError(
-                detail="No knowledge base data found. Please run ingestion first."
+        max_confidence = max([r.score for r in results]) if results else 0.0
+        
+        # 2. Confidence Routing
+        if max_confidence >= 0.78:
+            # 🟢 TIER 1: High Confidence -> Strict RAG
+            relevant = self._filter_by_confidence(results)
+            context_chunks = [r.text for r in relevant]
+            ranked_citations = citation_ranker.rank_citations(relevant)
+
+            # Stream tokens
+            token_stream = llm_client.generate_stream(
+                question=question,
+                context_chunks=context_chunks,
             )
+            async for token in token_stream:
+                yield {"type": "token", "content": token}
+                
+            # Yield final done event with citations
+            yield {
+                "type": "done",
+                "primary_citations": [c.model_dump() for c in ranked_citations["primary"]],
+                "secondary_citations": [c.model_dump() for c in ranked_citations["secondary"]],
+                "all_citations": [c.model_dump() for c in ranked_citations["all_sources"]],
+                "hidden_sources_count": ranked_citations["hidden_count"],
+                "mode_used": "rag",
+                "max_confidence": max_confidence
+            }
 
-        relevant = self._filter_by_confidence(results)
-        if not relevant:
-            raise NoContextFoundError()
+        elif max_confidence >= 0.50:
+            # 🟡 TIER 2: Medium Confidence -> Honest Uncertainty Disclaimer
+            uncertainty_message = (
+                "I'm not fully confident in my answer to this question.\n\n"
+                "The question seems to be about our product or policies, "
+                "but I don't have clear documentation on it.\n\n"
+                "For accurate details, please contact: support@andino.com"
+            )
+            
+            yield {"type": "token", "content": uncertainty_message}
+            
+            what_i_found = [
+                {"page_title": r.page_title, "score": r.score} for r in results[:3]
+            ]
+            
+            yield {
+                "type": "done",
+                "primary_citations": [],
+                "secondary_citations": [],
+                "all_citations": [],
+                "hidden_sources_count": 0,
+                "mode_used": "uncertain",
+                "max_confidence": max_confidence,
+                "what_i_found": what_i_found
+            }
 
-        context_chunks = [r.text for r in relevant]
-        ranked_citations = citation_ranker.rank_citations(relevant)
+        else:
+            # 🔴 TIER 3: Low Confidence -> Azure General Knowledge
+            system_prompt = """You are CLEO, an AI assistant for Andino Global.
+            
+ABOUT ANDINO GLOBAL:
+- Product: BookStack - Enterprise Documentation Platform
+- Support: support@andino.com
+- Features: Page versioning, role-based access, webhooks
 
-        # 4. Stream tokens from LLM
-        return llm_client.generate_stream(
-            question=question,
-            context_chunks=context_chunks,
-        ), ranked_citations
+This is a GENERAL KNOWLEDGE question not covered in our knowledge base.
+Provide helpful, accurate information from your training data.
+Do NOT make up details about our product features or policies."""
+
+            token_stream = azure_chat_service.stream_chat(
+                system_prompt=system_prompt,
+                messages=[{"role": "user", "content": question}],
+                params=None
+            )
+            
+            async for chunk in token_stream:
+                # azure_chat_service.stream_chat returns string chunks
+                yield {"type": "token", "content": chunk}
+                
+            yield {
+                "type": "done",
+                "primary_citations": [],
+                "secondary_citations": [],
+                "all_citations": [],
+                "hidden_sources_count": 0,
+                "mode_used": "azure_fallback",
+                "max_confidence": max_confidence
+            }
 
     def _filter_by_confidence(
         self, results: List[VectorSearchResult]

@@ -25,7 +25,12 @@
     "citation": "Fuente",
     "citations": "Fuentes",
     "noContext": "No se encontró documentación relevante para tu pregunta.",
-    "streamError": "Transmisión interrumpida. Por favor, inténtalo de nuevo."
+    "streamError": "Transmisión interrumpida. Por favor, inténtalo de nuevo.",
+    "uncertainTitle": "No completamente seguro",
+    "uncertainDesc": "Encontré información pero no estoy seguro de que responda tu pregunta.",
+    "whatIFound": "Lo que encontré de todas formas:",
+    "contactSupport": "Contacta a soporte para detalles precisos →",
+    "azureMode": "Respuesta de conocimiento general (no específica de nuestro producto)"
   },
   "avatar": {
     "coreSync": "SINCRONIZACIÓN: ACTIVA",

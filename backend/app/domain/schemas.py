@@ -92,6 +92,9 @@ class ChatResponse(BaseModel):
     secondary_citations: List[Citation] = Field(default_factory=list)
     all_citations: List[Citation] = Field(default_factory=list)
     hidden_sources_count: int = 0
+    mode_used: str = "rag"
+    max_confidence: float = 0.0
+    what_i_found: Optional[List[Dict[str, Any]]] = None
     conversation_id: Optional[str] = None
 
 

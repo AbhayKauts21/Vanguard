@@ -27,30 +27,16 @@ async def chat(request: ChatRequest):
 
 @router.post("/stream")
 async def chat_stream(request: ChatRequest):
-    """Streaming chat — SSE with token-by-token delivery + final citations."""
+    """Streaming chat — SSE with token-by-token delivery + final citations mapping."""
     logger.info(f"Streaming query: '{request.message[:80]}...'")
 
-    try:
-        token_stream, ranked_citations = await rag_service.answer_query_stream(request.message)
-    except NoContextFoundError:
-        # Return graceful decline as SSE
-        async def no_context_stream():
-            yield f"data: {json.dumps({'type': 'token', 'content': NO_CONTEXT_RESPONSE})}\n\n"
-            yield f"data: {json.dumps({'type': 'done', 'primary_citations': [], 'secondary_citations': [], 'all_citations': [], 'hidden_sources_count': 0})}\n\n"
-        return StreamingResponse(no_context_stream(), media_type="text/event-stream")
-
     async def event_stream():
-        """Yields SSE events: tokens first, then citations at the end."""
-        async for token in token_stream:
-            yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
-
-        # Send citations as final event
-        yield f"data: {json.dumps({
-            'type': 'done', 
-            'primary_citations': [c.model_dump() for c in ranked_citations['primary']],
-            'secondary_citations': [c.model_dump() for c in ranked_citations['secondary']],
-            'all_citations': [c.model_dump() for c in ranked_citations['all_sources']],
-            'hidden_sources_count': ranked_citations['hidden_count']
-        })}\n\n"
+        try:
+            async for chunk in rag_service.answer_query_stream(request.message):
+                yield f"data: {json.dumps(chunk)}\n\n"
+        except NoContextFoundError:
+            # Graceful decline as SSE if knowledge base is totally empty (E-002)
+            yield f"data: {json.dumps({'type': 'token', 'content': NO_CONTEXT_RESPONSE})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'primary_citations': [], 'secondary_citations': [], 'all_citations': [], 'hidden_sources_count': 0, 'mode_used': 'rag', 'max_confidence': 0.0})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

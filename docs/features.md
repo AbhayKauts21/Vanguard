@@ -161,9 +161,19 @@
 
 ---
 
-## 🔮 Upcoming Features
+### v0.7.0 — Phase 10: Deployment & Infrastructure (2026-03-22)
 
-| # | Feature | Priority | Target |
+| # | Feature | Status | Module |
 |---|---|---|---|
-| F-091 | Deployment & Infrastructure (Phase 10) | 🟢 P2 | v0.7.0 |
+| F-091 | **Backend Dockerfile** — Python 3.12-slim, pip install, uvicorn production CMD, curl for healthcheck | ✅ Done | `backend/Dockerfile` |
+| F-092 | **Frontend Dockerfile** — Multi-stage build (node:20-alpine), `next build` → standalone output, optimized runner | ✅ Done | `frontend/Dockerfile` |
+| F-093 | **Docker Compose** — Orchestrates backend + frontend, healthcheck dependency, port mapping, restart policy | ✅ Done | `docker-compose.yml` |
+| F-094 | **GitHub Actions CI** — 4-job pipeline: backend tests, frontend tests + build, lint, Docker build verification | ✅ Done | `.github/workflows/ci.yml` |
+| F-095 | **Next.js Standalone Output** — `output: "standalone"` in next.config.ts for Docker-optimized builds | ✅ Done | `frontend/next.config.ts` |
+| F-096 | **Docker Ignore Files** — `.dockerignore` for backend + frontend to keep images lean | ✅ Done | `backend/.dockerignore`, `frontend/.dockerignore` |
 
+---
+
+## ✅ All 10 Phases Complete
+
+> CLEO v0.7.0 — Full-stack AI assistant with RAG pipeline, HeyGen avatar, structured observability, security hardening, and containerized deployment.

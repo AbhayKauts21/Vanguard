@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # HeyGen avatar (future use)
     HEYGEN_API_KEY: str = ""
 
+    # Security — Phase 7
+    ADMIN_API_KEY: str = "change-me-in-production"
+    ALLOWED_ORIGINS: str = "http://localhost:3000"
+    RATE_LIMIT_PER_MINUTE: int = 30
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,

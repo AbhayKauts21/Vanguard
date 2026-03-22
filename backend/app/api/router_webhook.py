@@ -1,8 +1,16 @@
-"""Webhook router — receives real-time events from BookStack."""
+"""Webhook router — receives real-time events from BookStack.
 
-from fastapi import APIRouter, BackgroundTasks, Request
+Phase 7: validates HMAC-SHA256 signature via X-BookStack-Signature
+header before accepting any event.
+"""
+
+import json
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from loguru import logger
 
+from app.core.config import settings
+from app.core.security import verify_webhook_signature
 from app.domain.schemas import BookStackWebhookPayload, WebhookEvent
 from app.services.ingestion_service import ingestion_service
 
@@ -43,13 +51,27 @@ async def _process_webhook(payload: BookStackWebhookPayload) -> None:
 
 @router.post("/bookstack")
 async def receive_bookstack_webhook(
-    payload: BookStackWebhookPayload,
+    request: Request,
     background_tasks: BackgroundTasks,
 ):
     """
     Receives BookStack webhook POST.
-    Processes ingestion/deletion asynchronously to return 200 fast.
+
+    1. Reads the raw body and verifies the HMAC-SHA256 signature.
+    2. Parses the validated body into a BookStackWebhookPayload.
+    3. Processes ingestion/deletion asynchronously to return 200 fast.
     """
-    logger.info(f"Webhook received: {payload.event}")
+    body = await request.body()
+    signature = request.headers.get("X-BookStack-Signature", "")
+
+    if not verify_webhook_signature(body, signature, settings.BOOKSTACK_WEBHOOK_SECRET):
+        logger.warning("Webhook rejected: invalid HMAC signature")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid webhook signature.",
+        )
+
+    payload = BookStackWebhookPayload(**json.loads(body))
+    logger.info(f"Webhook received (verified): {payload.event}")
     background_tasks.add_task(_process_webhook, payload)
     return {"status": "accepted", "event": payload.event}

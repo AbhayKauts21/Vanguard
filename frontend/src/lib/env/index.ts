@@ -12,5 +12,6 @@ export const env = {
     avatarId: process.env.NEXT_PUBLIC_HEYGEN_AVATAR_ID ?? "Bryan_Base_Light",
     voiceId: process.env.NEXT_PUBLIC_HEYGEN_VOICE_ID ?? "Default_Voice",
     voiceIdEs: process.env.NEXT_PUBLIC_HEYGEN_VOICE_ID_ES ?? process.env.NEXT_PUBLIC_HEYGEN_VOICE_ID ?? "Default_Voice",
-  }
+  },
+  adminApiKey: process.env.NEXT_PUBLIC_ADMIN_API_KEY ?? "",
 } as const;

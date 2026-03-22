@@ -1,20 +1,32 @@
-"""Direct Azure OpenAI chat router."""
+"""Direct Azure OpenAI chat router.
 
-from fastapi import APIRouter
+Phase 7: rate-limited to ``RATE_LIMIT_PER_MINUTE`` requests per client IP.
+"""
+
+from fastapi import APIRouter, Request
 from loguru import logger
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+from app.core.config import settings
 from app.domain.schemas import AzureChatRequest, AzureChatResponse
 from app.services.azure_chat_service import azure_chat_service
 
+limiter = Limiter(key_func=get_remote_address)
+
 router = APIRouter(prefix="/azure-chat", tags=["azure-chat"])
+
+_rate = f"{settings.RATE_LIMIT_PER_MINUTE}/minute"
 
 
 @router.post("/", response_model=AzureChatResponse)
-async def create_azure_chat(request: AzureChatRequest) -> AzureChatResponse:
+@limiter.limit(_rate)
+async def create_azure_chat(request: Request, body: AzureChatRequest) -> AzureChatResponse:
     """Create a direct synchronous Azure OpenAI chat response."""
     logger.info(
         "Azure direct chat request received: conversation_id={}".format(
-            request.conversation_id or "none"
+            body.conversation_id or "none"
         )
     )
-    return await azure_chat_service.create_chat(request)
+    return await azure_chat_service.create_chat(body)

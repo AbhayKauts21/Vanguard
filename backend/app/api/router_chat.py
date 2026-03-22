@@ -1,43 +1,56 @@
-"""Chat router — RAG-powered conversational endpoint."""
+"""Chat router — RAG-powered conversational endpoint.
+
+Phase 7: rate-limited to ``RATE_LIMIT_PER_MINUTE`` requests per client IP.
+"""
 
 import json
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 from app.domain.schemas import ChatRequest, ChatResponse
+from app.core.config import settings
 from app.core.exceptions import NoContextFoundError
 from app.core.prompts import NO_CONTEXT_RESPONSE
 from app.services.rag_service import rag_service
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(
     prefix="/chat",
     tags=["chat"],
 )
 
+_rate = f"{settings.RATE_LIMIT_PER_MINUTE}/minute"
+
 
 @router.post("/", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+@limiter.limit(_rate)
+async def chat(request: Request, body: ChatRequest):
     """Handle user query via the RAG pipeline. Returns answer + citations."""
-    logger.info(f"Chat query: '{request.message[:80]}...'")
+    logger.info(f"Chat query: '{body.message[:80]}...'")
     response = await rag_service.answer_query(
-        request.message,
-        history=request.conversation_history[-request.max_history:] if request.conversation_history else None
+        body.message,
+        history=body.conversation_history[-body.max_history:] if body.conversation_history else None
     )
-    response.conversation_id = request.conversation_id
+    response.conversation_id = body.conversation_id
     return response
 
 
 @router.post("/stream")
-async def chat_stream(request: ChatRequest):
+@limiter.limit(_rate)
+async def chat_stream(request: Request, body: ChatRequest):
     """Streaming chat — SSE with token-by-token delivery + final citations mapping."""
-    logger.info(f"Streaming query: '{request.message[:80]}...'")
+    logger.info(f"Streaming query: '{body.message[:80]}...'")
 
     async def event_stream():
         try:
             async for chunk in rag_service.answer_query_stream(
-                request.message,
-                history=request.conversation_history[-request.max_history:] if request.conversation_history else None
+                body.message,
+                history=body.conversation_history[-body.max_history:] if body.conversation_history else None
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except NoContextFoundError:

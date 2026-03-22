@@ -1,0 +1,11 @@
+# Frontend Docker ignore — keep image lean
+node_modules/
+.next/
+.git/
+.gitignore
+coverage/
+tests/
+*.md
+.env
+.env.*
+!.env.demo

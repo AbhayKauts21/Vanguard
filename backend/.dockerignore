@@ -1,0 +1,14 @@
+# Backend Docker ignore — keep image lean
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+!.env.demo
+.venv/
+venv/
+.git/
+.gitignore
+tests/
+scripts/
+*.md

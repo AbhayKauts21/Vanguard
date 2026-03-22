@@ -64,5 +64,9 @@ async def chat_stream(request: Request, body: ChatRequest):
             # Graceful decline as SSE if knowledge base is totally empty (E-002)
             yield f"data: {json.dumps({'type': 'token', 'content': NO_CONTEXT_RESPONSE})}\n\n"
             yield f"data: {json.dumps({'type': 'done', 'primary_citations': [], 'secondary_citations': [], 'all_citations': [], 'hidden_sources_count': 0, 'mode_used': 'rag', 'max_confidence': 0.0})}\n\n"
+        except Exception as exc:
+            rlog.exception("request.stream_failed", endpoint="/chat/stream", error=str(exc))
+            yield f"data: {json.dumps({'type': 'token', 'content': 'I ran into a temporary response issue. Please try again.'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'primary_citations': [], 'secondary_citations': [], 'all_citations': [], 'hidden_sources_count': 0, 'mode_used': 'rag', 'max_confidence': 0.0})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

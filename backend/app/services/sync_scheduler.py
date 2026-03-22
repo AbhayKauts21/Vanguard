@@ -10,8 +10,23 @@ from app.core.config import settings
 _scheduler: AsyncIOScheduler | None = None
 
 
+def _is_bookstack_configured() -> bool:
+    """Only run scheduled sync when BookStack connectivity is configured."""
+    return all(
+        [
+            settings.BOOKSTACK_URL,
+            settings.BOOKSTACK_TOKEN_ID,
+            settings.BOOKSTACK_TOKEN_SECRET,
+        ]
+    )
+
+
 async def _run_delta_sync() -> None:
     """Job callback: runs incremental sync from BookStack → Pinecone."""
+    if not _is_bookstack_configured():
+        logger.info("Skipping scheduled sync because BookStack is not configured")
+        return
+
     # Import here to avoid circular dependency
     from app.services.ingestion_service import ingestion_service
 
@@ -28,6 +43,10 @@ def start_scheduler() -> None:
 
     if _scheduler is not None:
         logger.warning("Scheduler already running")
+        return
+
+    if not _is_bookstack_configured():
+        logger.info("Auto-sync scheduler not started because BookStack is not configured")
         return
 
     interval = settings.SYNC_INTERVAL_MINUTES

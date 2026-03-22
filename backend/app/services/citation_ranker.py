@@ -59,8 +59,8 @@ class CitationRanker:
             page_id=r.page_id,
             page_title=r.page_title,
             source_url=r.bookstack_url,
-            source_type="bookstack",
-            source_name=getattr(r, "book_title", ""),
+            source_type=r.source_type,
+            source_name=r.source_name,
             chunk_text=r.text[:200] + "..." if len(r.text) > 200 else r.text,
             score=round(r.score, 3),
             tier=tier.value

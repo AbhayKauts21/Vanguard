@@ -10,20 +10,34 @@ from loguru import logger
 
 from app.core.config import settings
 from app.core.exceptions import NoContextFoundError
-from app.core.logging import get_request_logger
-from app.core.prompts import NO_CONTEXT_RESPONSE
-from app.domain.schemas import ChatResponse, Citation, VectorSearchResult, ConversationMessage
-from app.adapters.embedding_client import embedding_client
-from app.adapters.vector_store import vector_store
-from app.adapters.llm_client import llm_client
-from app.services.citation_ranker import citation_ranker
-from app.services.azure_chat_service import azure_chat_service
+from app.domain.schemas import ChatResponse, VectorSearchResult, ConversationMessage
+from app.adapters.embedding_client import (
+    EmbeddingClient,
+    embedding_client as default_embedding_client,
+)
+from app.adapters.vector_store import vector_store as default_vector_store
+from app.adapters.llm_client import llm_client as default_llm_client
+from app.services.citation_ranker import citation_ranker as default_citation_ranker
+from app.services.azure_chat_service import azure_chat_service as default_azure_chat_service
 
 
 class RAGService:
     """Orchestrates the full RAG pipeline: embed → search → gate → generate (SRP)."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        embedding_client: EmbeddingClient = default_embedding_client,
+        vector_store=default_vector_store,
+        llm_client=default_llm_client,
+        citation_ranker=default_citation_ranker,
+        azure_chat_service=default_azure_chat_service,
+    ) -> None:
+        self.embedding_client = embedding_client
+        self.vector_store = vector_store
+        self.llm_client = llm_client
+        self.citation_ranker = citation_ranker
+        self.azure_chat_service = azure_chat_service
         self.min_score = settings.MIN_SIMILARITY_SCORE
         self.top_k = settings.TOP_K_RESULTS
 
@@ -36,12 +50,12 @@ class RAGService:
 
         # 1. Embed the user's question
         t0 = time.perf_counter()
-        query_vector = await embedding_client.embed_text(question)
+        query_vector = await self.embedding_client.embed_text(question)
         rlog.info("rag.embed_query", query_length=len(question), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
 
         # 2. Similarity search in Pinecone
         t0 = time.perf_counter()
-        results = await vector_store.query(vector=query_vector, top_k=self.top_k)
+        results = await self.vector_store.query(vector=query_vector, top_k=self.top_k)
         max_score = max((r.score for r in results), default=0.0)
         rlog.info("rag.vector_search", top_k=self.top_k, results=len(results), max_score=round(max_score, 3), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
 
@@ -62,11 +76,11 @@ class RAGService:
 
         # 4. Build context from top chunks
         context_chunks = [r.text for r in relevant]
-        ranked_citations = citation_ranker.rank_citations(relevant)
+        ranked_citations = self.citation_ranker.rank_citations(relevant)
 
         # 5. Generate answer using LLM
         t0 = time.perf_counter()
-        answer = await llm_client.generate(
+        answer = await self.llm_client.generate(
             question=question,
             context_chunks=context_chunks,
             history=history,
@@ -76,7 +90,7 @@ class RAGService:
 
         rlog.info(
             "rag.generate_done",
-            model=settings.OPENAI_MODEL,
+            model=settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
             chunks_used=len(relevant),
             top_score=round(relevant[0].score, 3),
             generation_ms=gen_ms,
@@ -102,26 +116,31 @@ class RAGService:
 
         # 1. Embed and query
         t0 = time.perf_counter()
-        query_vector = await embedding_client.embed_text(question)
+        query_vector = await self.embedding_client.embed_text(question)
         rlog.info("rag.embed_query", query_length=len(question), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
 
         t0 = time.perf_counter()
-        results = await vector_store.query(vector=query_vector, top_k=self.top_k)
+        results = await self.vector_store.query(vector=query_vector, top_k=self.top_k)
         max_confidence = max([r.score for r in results]) if results else 0.0
         rlog.info("rag.vector_search", top_k=self.top_k, results=len(results), max_score=round(max_confidence, 3), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
         
         # 2. Confidence Routing
-        if max_confidence >= 0.78:
+        if max_confidence >= self._high_confidence_threshold():
             # 🟢 TIER 1: High Confidence -> Strict RAG
-            rlog.info("rag.confidence_route", tier="high", max_confidence=round(max_confidence, 3), threshold=0.78)
+            rlog.info(
+                "rag.confidence_route",
+                tier="high",
+                max_confidence=round(max_confidence, 3),
+                threshold=round(self._high_confidence_threshold(), 3),
+            )
             relevant = self._filter_by_confidence(results)
             context_chunks = [r.text for r in relevant]
-            ranked_citations = citation_ranker.rank_citations(relevant)
+            ranked_citations = self.citation_ranker.rank_citations(relevant)
 
             # Stream tokens
             t0 = time.perf_counter()
             token_count = 0
-            token_stream = llm_client.generate_stream(
+            token_stream = self.llm_client.generate_stream(
                 question=question,
                 context_chunks=context_chunks,
                 history=history,
@@ -145,9 +164,14 @@ class RAGService:
                 "max_confidence": max_confidence
             }
 
-        elif max_confidence >= 0.50:
+        elif max_confidence >= self._medium_confidence_threshold():
             # 🟡 TIER 2: Medium Confidence -> Honest Uncertainty Disclaimer
-            rlog.info("rag.confidence_route", tier="medium", max_confidence=round(max_confidence, 3), threshold=0.50)
+            rlog.info(
+                "rag.confidence_route",
+                tier="medium",
+                max_confidence=round(max_confidence, 3),
+                threshold=round(self._medium_confidence_threshold(), 3),
+            )
             uncertainty_message = (
                 "I'm not fully confident in my answer to this question.\n\n"
                 "The question seems to be about our product or policies, "
@@ -186,7 +210,7 @@ This is a GENERAL KNOWLEDGE question not covered in our knowledge base.
 Provide helpful, accurate information from your training data.
 Do NOT make up details about our product features or policies."""
 
-            token_stream = azure_chat_service.stream_chat(
+            token_stream = self.azure_chat_service.stream_chat(
                 system_prompt=system_prompt,
                 messages=[{"role": "user", "content": question}],
                 params=None,
@@ -212,6 +236,14 @@ Do NOT make up details about our product features or policies."""
     ) -> List[VectorSearchResult]:
         """Only keep results above the minimum similarity threshold."""
         return [r for r in results if r.score >= self.min_score]
+
+    def _high_confidence_threshold(self) -> float:
+        """Primary docs-grounding threshold, configurable per environment."""
+        return self.min_score
+
+    def _medium_confidence_threshold(self) -> float:
+        """Fallback threshold for uncertain-but-related questions."""
+        return max(0.0, min(0.5, self.min_score - 0.1))
 
 
 # Singleton instance

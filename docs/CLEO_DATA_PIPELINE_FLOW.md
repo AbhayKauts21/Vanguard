@@ -41,7 +41,7 @@
 │  ├─ Parse Markdown files                                              │
 │  ├─ Split by `## ` headers (600-token chunks)                         │
 │  ├─ Extract metadata (project_name, category, type)                   │
-│  ├─ Embed with OpenAI text-embedding-3-small (1536 dims)             │
+│  ├─ Embed with Azure text-embedding-3-large (3072 dims)              │
 │  ├─ Store vectors with metadata in Pinecone index                    │
 │  └─ Index name: "cleo-docs"                                          │
 │                                                                          │
@@ -58,7 +58,7 @@
 │  User asks: "How do I authenticate in Project A?"                      │
 │                                                                          │
 │  Process:                                                              │
-│  1. Embed question with same model (text-embedding-3-small)           │
+│  1. Embed question with same model (text-embedding-3-large)           │
 │  2. Search Pinecone for top-5 similar chunks (cosine similarity)      │
 │  3. Retrieve: Project A authentication doc with code example          │
 │  4. Pass to LLM (gpt-4o-mini) with question + context                │
@@ -135,7 +135,7 @@
 **Process:** 
 1. Parse each Markdown file
 2. Split by `## ` headers
-3. Embed chunks with OpenAI text-embedding-3-small
+3. Embed chunks with Azure OpenAI text-embedding-3-large
 4. Store in Pinecone with metadata
 
 **Output:** 400 searchable vectors in "cleo-docs" index  
@@ -292,4 +292,3 @@ Result: Judges impressed with:
 - ⚡ Result → <800ms latency, 85%+ accuracy, perfect demo
 
 **Follow the pattern in AGENT_PROMPT_BOOKSTACK_DOCS.md exactly, and you'll have a production-grade RAG system.**
-

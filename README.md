@@ -72,7 +72,7 @@ sequenceDiagram
     User->>Frontend: "How do I reset my password?"
     Frontend->>Backend: POST /api/chat
     Backend->>LLM: 1. Generate Embeddings
-    LLM-->>Backend: Vector[1536]
+    LLM-->>Backend: Vector[3072]
     Backend->>VDB: 2. Semantic Search
     VDB-->>Backend: Top K Chunks + Scores
     
@@ -99,8 +99,8 @@ sequenceDiagram
 | **UI Library** | Radix UI, Framer Motion, CVA | Accessible components & animation |
 | **i18n** | next-intl v4 | English / Spanish locale routing |
 | **Backend** | Python 3.13, FastAPI | API Gateway & RAG Orchestration |
-| **AI Generation** | OpenAI `gpt-4o-mini` | Conversational Intelligence |
-| **Embeddings** | `text-embedding-3-small` | Semantic Vectorization |
+| **AI Generation** | Azure OpenAI `gpt-4o-mini` | Conversational Intelligence |
+| **Embeddings** | Azure OpenAI `text-embedding-3-large` | Semantic Vectorization |
 | **Vector Store** | Pinecone (Serverless) | Knowledge Storage & Similarity Search |
 | **AV Avatar** | HeyGen Interactive API | Life-like Visual Interaction |
 | **Testing** | Vitest, Istanbul, Testing Library | Unit & integration coverage |
@@ -121,7 +121,7 @@ We follow production-grade standards inspired by the **Checkingmate** ecosystem:
 The backend currently exposes two different chat paths:
 
 - `POST /api/v1/chat/` and `POST /api/v1/chat/stream`
-  RAG-backed chat using BookStack context from Pinecone plus the existing OpenAI generation path.
+  RAG-backed chat using BookStack context from Pinecone plus the Azure OpenAI generation path.
 - `POST /api/v1/azure-chat/`
   Direct Azure OpenAI Foundry chat for stateless prompt + context requests.
 
@@ -194,9 +194,12 @@ cd frontend && npx vitest --coverage # with istanbul coverage
 
 | Variable | Where | Description |
 | :--- | :--- | :--- |
-| `OPENAI_API_KEY` | Backend | OpenAI API key |
+| `AZURE_OPENAI_API_KEY` | Backend | Azure OpenAI API key for generation and embeddings |
+| `EMBEDDING_DIMENSIONS` | Backend | Embedding/vector size (default `3072`) |
+| `AZURE_OPENAI_CHAT_DEPLOYMENT` | Backend | Azure deployment name for generation |
+| `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | Backend | Azure deployment name for embeddings |
 | `PINECONE_API_KEY` | Backend | Pinecone API key |
-| `BOOKSTACK_BASE_URL` | Backend | BookStack instance URL |
+| `BOOKSTACK_URL` | Backend | BookStack instance URL |
 | `BOOKSTACK_TOKEN_ID` | Backend | BookStack API token ID |
 | `BOOKSTACK_TOKEN_SECRET` | Backend | BookStack API token secret |
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend | Backend URL (default `http://localhost:8000`) |

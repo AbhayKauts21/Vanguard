@@ -38,7 +38,7 @@ erDiagram
     VECTOR_CHUNK {
         string chunk_id PK "doc_id + chunk_index"
         string doc_id FK
-        float[] vector_embedding "1536 dims (text-embedding-3-small)"
+        float[] vector_embedding "3072 dims (text-embedding-3-large)"
         text chunk_text "Raw chunk string"
         int char_length
     }

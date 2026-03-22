@@ -19,7 +19,7 @@ sequenceDiagram
         APIGateway->>RAGSvc: Call `answer_query(query)`
         
         Note over RAGSvc, LLM: 1. Vectorization
-        RAGSvc->>LLM: `create_embedding("text-embedding-3-small", query)`
+        RAGSvc->>LLM: `create_embedding("text-embedding-3-large", query)`
         LLM-->>RAGSvc: Returns [Vector]
         
         Note over RAGSvc, VDB: 2. Semantic Search

@@ -171,3 +171,49 @@ async def test_azure_client_builds_sdk_request_with_base_url_and_deployment(monk
     assert captured["client_kwargs"]["default_query"] == {"api-version": "2024-10-21"}
     assert captured["payload"]["model"] == "chat-prod"
     assert captured["payload"]["max_tokens"] == 120
+
+
+@pytest.mark.asyncio
+async def test_azure_client_stream_ignores_chunks_without_choices(monkeypatch):
+    class FakeChunk:
+        def __init__(self, choices):
+            self.choices = choices
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            return iter(
+                [
+                    FakeChunk([]),
+                    FakeChunk([SimpleNamespace(delta=SimpleNamespace(content="hello"))]),
+                    FakeChunk([SimpleNamespace(delta=SimpleNamespace(content=None))]),
+                    FakeChunk([SimpleNamespace(delta=SimpleNamespace(content=" world"))]),
+                ]
+            )
+
+    class FakeChat:
+        def __init__(self):
+            self.completions = FakeCompletions()
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            self.chat = FakeChat()
+
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAI))
+    monkeypatch.setattr(settings, "AZURE_OPENAI_ENDPOINT", "https://demo.openai.azure.com/")
+    monkeypatch.setattr(settings, "AZURE_OPENAI_API_KEY", "secret")
+    monkeypatch.setattr(settings, "AZURE_OPENAI_CHAT_DEPLOYMENT", "chat-prod")
+
+    client = AzureOpenAIClient()
+    messages = build_azure_chat_messages(
+        AzureChatRequest(prompt="Hello", context={"a": 1})
+    )
+
+    tokens = []
+    async for token in client.stream_chat_completion(
+        messages,
+        temperature=0.2,
+        max_tokens=None,
+    ):
+        tokens.append(token)
+
+    assert tokens == ["hello", " world"]

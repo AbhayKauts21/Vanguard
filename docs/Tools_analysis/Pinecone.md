@@ -7,7 +7,7 @@ For a rapid prototype, infrastructure management is a massive time sink. We sele
 1. **Account Creation:** Go to [Pinecone.io](https://www.pinecone.io/) and sign up.
 2. **Create an Index:** An "Index" is like a table in a SQL database. 
    * **Name:** `vanguard-docs`
-   * **Dimensions:** `1536` *(CRITICAL: This number must exactly match the output of our embedding model, text-embedding-3-small).*
+   * **Dimensions:** `3072` *(CRITICAL: This number must exactly match the output of our embedding model, Azure `text-embedding-3-large`).*
    * **Metric:** `Cosine` (This calculates the angle between vectors to find similarity).
    * **Pod Type:** Select `Serverless` and choose `AWS` as the cloud provider.
 3. **API Keys:** Navigate to the "API Keys" tab. Copy your key and place it in the backend `.env` file as `PINECONE_API_KEY`. 

@@ -108,10 +108,10 @@ async def health():
 @app.get("/health/detailed")
 async def detailed_health():
     """Detailed health check for all upstream services."""
+    from app.adapters.embedding_client import embedding_client
     from app.adapters.vector_store import vector_store
     from app.adapters.bookstack_client import bookstack_client
     from app.adapters.llm_client import llm_client
-    from app.adapters.azure_openai_client import azure_openai_client
     from app.db.session import check_database_health
     
     # Check Pinecone
@@ -123,6 +123,21 @@ async def detailed_health():
         pinecone_status = "offline"
         vector_count = 0
 
+    # Check embedding provider
+    try:
+        embedding_metadata = embedding_client.describe()
+        provider = embedding_client.provider
+        if hasattr(provider, "_get_client"):
+            provider._get_client()
+        embedding_status = "online"
+    except Exception:
+        embedding_status = "offline"
+        embedding_metadata = {
+            "provider": "azure",
+            "model": settings.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+            "dimensions": settings.EMBEDDING_DIMENSIONS,
+        }
+
     # Check BookStack
     try:
         books = await bookstack_client.get_books()
@@ -132,19 +147,12 @@ async def detailed_health():
         bookstack_status = "offline"
         book_count = 0
 
-    # Check OpenAI
+    # Check Azure generation
     try:
         llm_client._get_client()
-        openai_status = "online"
+        azure_generation_status = "online"
     except Exception:
-        openai_status = "offline"
-
-    # Check Azure OpenAI
-    try:
-        azure_openai_client._get_client()
-        azure_status = "online"
-    except Exception:
-        azure_status = "offline"
+        azure_generation_status = "offline"
 
     # Check Postgres
     try:
@@ -155,7 +163,13 @@ async def detailed_health():
 
     all_online = all(
         s == "online"
-        for s in [pinecone_status, bookstack_status, openai_status, azure_status, database_status]
+        for s in [
+            pinecone_status,
+            bookstack_status,
+            embedding_status,
+            azure_generation_status,
+            database_status,
+        ]
     )
 
     return {
@@ -164,8 +178,12 @@ async def detailed_health():
         "services": {
             "pinecone": {"status": pinecone_status, "vectors": vector_count},
             "bookstack": {"status": bookstack_status, "pages": book_count}, # pages mapped as books proxy
-            "openai": {"status": openai_status, "model": settings.OPENAI_MODEL},
-            "azure_openai": {"status": azure_status, "deployment": settings.AZURE_OPENAI_CHAT_DEPLOYMENT},
+            "embeddings": {"status": embedding_status, **embedding_metadata},
+            "azure_openai": {
+                "status": azure_generation_status,
+                "chat_deployment": settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
+                "embedding_deployment": settings.AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+            },
             "postgres": {"status": database_status, "database": settings.POSTGRES_DB},
         },
         "metrics": {

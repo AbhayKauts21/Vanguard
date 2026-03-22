@@ -10,8 +10,8 @@ When a user interacts with your AI Avatar, a highly orchestrated sequence of eve
 
 ### Step 2: Vectorization 🧮
 1. Your FastAPI server receives the text. It cannot search BookStack directly with text efficiently.
-2. It sends the question to the **OpenAI API** using the `text-embedding-3-small` model.
-3. OpenAI translates the English sentence into a **Vector** (a massive array of numbers that represents the meaning of the question) and sends it back to FastAPI.
+2. It sends the question to the configured embedding provider, which defaults to **Azure OpenAI** using the `text-embedding-3-large` deployment.
+3. Azure OpenAI translates the English sentence into a **Vector** (a massive array of numbers that represents the meaning of the question) and sends it back to FastAPI.
 
 ### Step 3: Similarity Search 🔍
 1. FastAPI takes this new vector and sends a query to **Pinecone** (your Vector Database).

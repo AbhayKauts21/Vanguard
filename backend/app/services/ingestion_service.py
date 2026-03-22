@@ -14,16 +14,30 @@ from app.domain.schemas import (
     SyncStatus,
     SyncStatusResponse,
 )
-from app.adapters.bookstack_client import bookstack_client
-from app.adapters.embedding_client import embedding_client
-from app.adapters.vector_store import vector_store
-from app.services.text_processor import text_processor
+from app.adapters.bookstack_client import bookstack_client as default_bookstack_client
+from app.adapters.embedding_client import (
+    EmbeddingClient,
+    embedding_client as default_embedding_client,
+)
+from app.adapters.vector_store import vector_store as default_vector_store
+from app.services.text_processor import text_processor as default_text_processor
 
 
 class IngestionService:
     """Orchestrates: fetch → clean → chunk → embed → upsert (SRP)."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        bookstack_client=default_bookstack_client,
+        embedding_client: EmbeddingClient = default_embedding_client,
+        vector_store=default_vector_store,
+        text_processor=default_text_processor,
+    ) -> None:
+        self.bookstack_client = bookstack_client
+        self.embedding_client = embedding_client
+        self.vector_store = vector_store
+        self.text_processor = text_processor
         self.status: SyncStatus = SyncStatus.IDLE
         self.last_sync_at: Optional[datetime] = None
 
@@ -33,16 +47,16 @@ class IngestionService:
 
         try:
             # 1. Fetch full page from BookStack
-            page = await bookstack_client.get_page(page_id)
+            page = await self.bookstack_client.get_page(page_id)
 
             # 2. Delete existing vectors for this page (idempotent re-ingestion)
-            await vector_store.delete_by_page_id(page_id)
+            await self.vector_store.delete_by_page_id(page_id)
 
             # 3. Build BookStack URL for citations
             page_url = f"{settings.BOOKSTACK_URL}{page.url_path}"
 
             # 4. Process: clean HTML → chunk text
-            chunks = text_processor.process_page(
+            chunks = self.text_processor.process_page(
                 page_id=page.id,
                 html_content=page.html,
                 page_title=page.name,
@@ -59,12 +73,12 @@ class IngestionService:
 
             # 5. Generate embeddings for all chunks
             chunk_texts = [c.text for c in chunks]
-            vectors = await embedding_client.embed_texts(chunk_texts)
+            vectors = await self.embedding_client.embed_texts(chunk_texts)
 
             # 6. Upsert to Pinecone
             ids = [c.chunk_id for c in chunks]
             metadatas = [c.metadata for c in chunks]
-            await vector_store.upsert_vectors(ids=ids, vectors=vectors, metadatas=metadatas)
+            await self.vector_store.upsert_vectors(ids=ids, vectors=vectors, metadatas=metadatas)
 
             logger.info(f"Page {page_id} '{page.name}': {len(chunks)} chunks ingested")
             return IngestionResult(
@@ -85,10 +99,10 @@ class IngestionService:
 
         try:
             # 1. Wipe existing vectors for clean re-index
-            await vector_store.delete_all()
+            await self.vector_store.delete_all()
 
             # 2. Fetch all page stubs from BookStack
-            pages = await bookstack_client.get_all_pages()
+            pages = await self.bookstack_client.get_all_pages()
             total_chunks = 0
             failed: List[int] = []
 
@@ -136,7 +150,7 @@ class IngestionService:
         logger.info(f"Delta sync: fetching pages updated after {timestamp}")
 
         try:
-            updated_pages = await bookstack_client.get_pages_updated_after(timestamp)
+            updated_pages = await self.bookstack_client.get_pages_updated_after(timestamp)
 
             if not updated_pages:
                 logger.info("Delta sync: no updates found")
@@ -165,7 +179,7 @@ class IngestionService:
     async def delete_page(self, page_id: int) -> None:
         """Remove all vectors for a deleted BookStack page."""
         logger.info(f"Deleting vectors for page {page_id}")
-        await vector_store.delete_by_page_id(page_id)
+        await self.vector_store.delete_by_page_id(page_id)
 
     def get_status(self) -> SyncStatusResponse:
         """Return current sync status for admin dashboard."""

@@ -6,6 +6,8 @@ import { AvatarTelemetry } from "./AvatarTelemetry";
 import { AvatarBadge } from "./AvatarBadge";
 import { AvatarSphere } from "./AvatarSphere";
 import { AvatarVideo } from "./AvatarVideo";
+import { useDetailedHealth } from "@/domains/system/hooks/useDetailedHealth";
+import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
 import { env } from "@/lib/env";
 
 /**
@@ -16,6 +18,26 @@ import { env } from "@/lib/env";
 export function AvatarPanel() {
   const t = useTranslations("avatar");
   const panelRef = useRef<HTMLDivElement>(null);
+
+  /* Phase 8: poll /health/detailed for real metrics */
+  useDetailedHealth();
+  const lastLatencyMs = useTelemetryStore((s) => s.lastLatencyMs);
+  const vectorCount = useTelemetryStore((s) => s.vectorCount);
+  const backendStatus = useTelemetryStore((s) => s.backendStatus);
+
+  /* Format latency for badge display */
+  const latencyDisplay = lastLatencyMs !== null
+    ? lastLatencyMs < 1000
+      ? `${lastLatencyMs}ms`
+      : `${(lastLatencyMs / 1000).toFixed(1)}s`
+    : "—";
+
+  /* Format vector count compactly */
+  const vectorDisplay = vectorCount !== null
+    ? vectorCount >= 1000
+      ? `${(vectorCount / 1000).toFixed(1)}k`
+      : `${vectorCount}`
+    : "—";
 
   /* Parallax: badges + sphere drift slightly with mouse for depth */
   useEffect(() => {
@@ -63,18 +85,18 @@ export function AvatarPanel() {
         {/* Sphere / Context Avatar Video overlay */}
         {env.enableAvatar ? <AvatarVideo /> : <AvatarSphere />}
 
-        {/* Floating Synapse badge — top right, outside sphere */}
+        {/* Floating Latency badge — real TTFT from last message */}
         <AvatarBadge
-          label="Synapse"
-          value="98.4%"
+          label="Latency"
+          value={latencyDisplay}
           className="absolute top-[12%] right-[8%]"
           animationDelay="-1.5s"
         />
 
-        {/* Floating Latency badge — mid left, outside sphere */}
+        {/* Floating Vectors badge — real Pinecone vector count */}
         <AvatarBadge
-          label="Latency"
-          value="2ms"
+          label="Vectors"
+          value={vectorDisplay}
           className="absolute bottom-[25%] left-[5%]"
           animationDelay="-4s"
         />

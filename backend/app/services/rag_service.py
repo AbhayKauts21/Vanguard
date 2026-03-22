@@ -1,11 +1,16 @@
-"""RAG service — query orchestrator with confidence gating."""
+"""RAG service — query orchestrator with confidence gating.
 
+Phase 8: structured logging at every pipeline step with request-id correlation.
+"""
+
+import time
 from typing import List, AsyncGenerator
 
 from loguru import logger
 
 from app.core.config import settings
 from app.core.exceptions import NoContextFoundError
+from app.core.logging import get_request_logger
 from app.core.prompts import NO_CONTEXT_RESPONSE
 from app.domain.schemas import ChatResponse, Citation, VectorSearchResult, ConversationMessage
 from app.adapters.embedding_client import embedding_client
@@ -26,23 +31,33 @@ class RAGService:
         self, question: str, history: List[ConversationMessage] | None = None
     ) -> ChatResponse:
         """Full RAG pipeline — returns answer with citations."""
+        rlog = logger.bind(request_id="sync")
+        t_start = time.perf_counter()
+
         # 1. Embed the user's question
+        t0 = time.perf_counter()
         query_vector = await embedding_client.embed_text(question)
+        rlog.info("rag.embed_query", query_length=len(question), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
 
         # 2. Similarity search in Pinecone
+        t0 = time.perf_counter()
         results = await vector_store.query(vector=query_vector, top_k=self.top_k)
+        max_score = max((r.score for r in results), default=0.0)
+        rlog.info("rag.vector_search", top_k=self.top_k, results=len(results), max_score=round(max_score, 3), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
 
         # E-002: Guard against empty knowledge base (no vectors ingested yet)
         if not results:
-            logger.warning(f"Empty knowledge base — no vectors found for: '{question[:80]}...'")
+            rlog.warning("rag.empty_knowledge_base", query=question[:80])
             raise NoContextFoundError(
                 detail="No knowledge base data found. Please run ingestion first."
             )
 
         # 3. Confidence gate — reject if no relevant context
         relevant = self._filter_by_confidence(results)
+        rlog.info("rag.confidence_gate", passed=bool(relevant), threshold=self.min_score, top_score=round(max_score, 3))
+
         if not relevant:
-            logger.info(f"No context found for: '{question[:80]}...'")
+            rlog.info("rag.no_context", query=question[:80])
             raise NoContextFoundError()
 
         # 4. Build context from top chunks
@@ -50,15 +65,22 @@ class RAGService:
         ranked_citations = citation_ranker.rank_citations(relevant)
 
         # 5. Generate answer using LLM
+        t0 = time.perf_counter()
         answer = await llm_client.generate(
             question=question,
             context_chunks=context_chunks,
             history=history,
         )
+        gen_ms = round((time.perf_counter() - t0) * 1000, 1)
+        total_ms = round((time.perf_counter() - t_start) * 1000, 1)
 
-        logger.info(
-            f"RAG response: {len(relevant)} chunks, "
-            f"top_score={relevant[0].score:.3f}"
+        rlog.info(
+            "rag.generate_done",
+            model=settings.OPENAI_MODEL,
+            chunks_used=len(relevant),
+            top_score=round(relevant[0].score, 3),
+            generation_ms=gen_ms,
+            total_ms=total_ms,
         )
 
         return ChatResponse(
@@ -75,28 +97,43 @@ class RAGService:
         self, question: str, history: List[ConversationMessage] | None = None
     ) -> AsyncGenerator[dict, None]:
         """Streaming RAG pipeline — yields tokens + final summary dict based on confidence routing."""
-        # 1. Embed and query
-        query_vector = await embedding_client.embed_text(question)
-        results = await vector_store.query(vector=query_vector, top_k=self.top_k)
+        rlog = logger.bind(request_id="stream")
+        t_start = time.perf_counter()
 
+        # 1. Embed and query
+        t0 = time.perf_counter()
+        query_vector = await embedding_client.embed_text(question)
+        rlog.info("rag.embed_query", query_length=len(question), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
+
+        t0 = time.perf_counter()
+        results = await vector_store.query(vector=query_vector, top_k=self.top_k)
         max_confidence = max([r.score for r in results]) if results else 0.0
+        rlog.info("rag.vector_search", top_k=self.top_k, results=len(results), max_score=round(max_confidence, 3), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
         
         # 2. Confidence Routing
         if max_confidence >= 0.78:
             # 🟢 TIER 1: High Confidence -> Strict RAG
+            rlog.info("rag.confidence_route", tier="high", max_confidence=round(max_confidence, 3), threshold=0.78)
             relevant = self._filter_by_confidence(results)
             context_chunks = [r.text for r in relevant]
             ranked_citations = citation_ranker.rank_citations(relevant)
 
             # Stream tokens
+            t0 = time.perf_counter()
+            token_count = 0
             token_stream = llm_client.generate_stream(
                 question=question,
                 context_chunks=context_chunks,
                 history=history,
             )
             async for token in token_stream:
+                token_count += 1
                 yield {"type": "token", "content": token}
-                
+
+            gen_ms = round((time.perf_counter() - t0) * 1000, 1)
+            total_ms = round((time.perf_counter() - t_start) * 1000, 1)
+            rlog.info("rag.stream_done", mode="rag", tokens=token_count, chunks_used=len(relevant), generation_ms=gen_ms, total_ms=total_ms)
+
             # Yield final done event with citations
             yield {
                 "type": "done",
@@ -110,6 +147,7 @@ class RAGService:
 
         elif max_confidence >= 0.50:
             # 🟡 TIER 2: Medium Confidence -> Honest Uncertainty Disclaimer
+            rlog.info("rag.confidence_route", tier="medium", max_confidence=round(max_confidence, 3), threshold=0.50)
             uncertainty_message = (
                 "I'm not fully confident in my answer to this question.\n\n"
                 "The question seems to be about our product or policies, "
@@ -136,6 +174,7 @@ class RAGService:
 
         else:
             # 🔴 TIER 3: Low Confidence -> Azure General Knowledge
+            rlog.info("rag.confidence_route", tier="low", max_confidence=round(max_confidence, 3), mode="azure_fallback")
             system_prompt = """You are CLEO, an AI assistant for Andino Global.
             
 ABOUT ANDINO GLOBAL:

@@ -130,11 +130,26 @@
 
 ---
 
+### v0.5.1 — Phase 8: Observability & Telemetry (2026-03-22)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-074 | **Structured JSON Logging** — loguru-based logging with JSON serialization, dev-mode color output, `log_pipeline_step` context manager | ✅ Done | `backend/app/core/logging.py` |
+| F-075 | **RAG Pipeline Telemetry** — Structured log points at every pipeline step (embed, search, gate, generate) with timing + metadata | ✅ Done | `backend/app/services/rag_service.py` |
+| F-076 | **Request-Level Logging** — `request.received` / `request.completed` with `duration_ms` on chat endpoints | ✅ Done | `backend/app/api/router_chat.py` |
+| F-077 | **Client Telemetry Store** — Zustand store tracking TTFT latency (rolling avg), vector count, backend status | ✅ Done | `frontend/src/domains/system/model/telemetry-store.ts` |
+| F-078 | **Detailed Health Hook** — Polls `/health/detailed` every 60s, syncs vector count + status to telemetry store | ✅ Done | `frontend/src/domains/system/hooks/useDetailedHealth.ts` |
+| F-079 | **Time-to-First-Token Measurement** — `performance.now()` around SSE stream, records TTFT in telemetry store | ✅ Done | `frontend/src/domains/chat/hooks/useChatStream.ts` |
+| F-080 | **Live Telemetry Badges** — AvatarPanel badges show real latency (ms) and Pinecone vector count | ✅ Done | `frontend/src/components/avatar/AvatarPanel.tsx` |
+| F-081 | **Live Sync Status Telemetry** — AvatarTelemetry shows real-time sync/backend status with visual feedback | ✅ Done | `frontend/src/components/avatar/AvatarTelemetry.tsx` |
+| F-082 | **Frontend Request-ID Correlation** — API client logs `X-Request-Id` from response headers for debugging | ✅ Done | `frontend/src/lib/api/client.ts` |
+
+---
+
 ## 🔮 Upcoming Features
 
 | # | Feature | Priority | Target |
 |---|---|---|---|
-| F-074 | Observability & Telemetry (Phase 8) | 🟢 P2 | v0.5.1 |
-| F-075 | Performance, Polish & Demo Readiness (Phase 9) | 🟡 P1 | v0.6.0 |
-| F-076 | Deployment & Infrastructure (Phase 10) | 🟢 P2 | v0.7.0 |
+| F-083 | Performance, Polish & Demo Readiness (Phase 9) | 🟡 P1 | v0.6.0 |
+| F-084 | Deployment & Infrastructure (Phase 10) | 🟢 P2 | v0.7.0 |
 

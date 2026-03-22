@@ -24,6 +24,7 @@ from app.core.exceptions import (
     http_exception_handler,
     cleo_exception_handler,
 )
+from app.core.logging import get_request_logger  # noqa: F401 — triggers _setup_logger() early
 from app.core.middleware import RequestIdMiddleware
 from app.services.sync_scheduler import start_scheduler, stop_scheduler
 

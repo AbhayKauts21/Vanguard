@@ -1,18 +1,19 @@
 """Chat router — RAG-powered conversational endpoint.
 
-Phase 7: rate-limited to ``RATE_LIMIT_PER_MINUTE`` requests per client IP.
+Phase 7: rate-limited. Phase 8: structured request logging.
 """
 
 import json
+import time
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
-from loguru import logger
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from app.domain.schemas import ChatRequest, ChatResponse
 from app.core.config import settings
+from app.core.logging import get_request_logger
+from app.domain.schemas import ChatRequest, ChatResponse
 from app.core.exceptions import NoContextFoundError
 from app.core.prompts import NO_CONTEXT_RESPONSE
 from app.services.rag_service import rag_service
@@ -31,12 +32,17 @@ _rate = f"{settings.RATE_LIMIT_PER_MINUTE}/minute"
 @limiter.limit(_rate)
 async def chat(request: Request, body: ChatRequest):
     """Handle user query via the RAG pipeline. Returns answer + citations."""
-    logger.info(f"Chat query: '{body.message[:80]}...'")
+    rlog = get_request_logger(request)
+    rlog.info("request.received", endpoint="/chat", method="POST", query_length=len(body.message))
+    t0 = time.perf_counter()
+
     response = await rag_service.answer_query(
         body.message,
         history=body.conversation_history[-body.max_history:] if body.conversation_history else None
     )
     response.conversation_id = body.conversation_id
+
+    rlog.info("request.completed", endpoint="/chat", status=200, duration_ms=round((time.perf_counter() - t0) * 1000, 1))
     return response
 
 
@@ -44,7 +50,8 @@ async def chat(request: Request, body: ChatRequest):
 @limiter.limit(_rate)
 async def chat_stream(request: Request, body: ChatRequest):
     """Streaming chat — SSE with token-by-token delivery + final citations mapping."""
-    logger.info(f"Streaming query: '{body.message[:80]}...'")
+    rlog = get_request_logger(request)
+    rlog.info("request.received", endpoint="/chat/stream", method="POST", query_length=len(body.message))
 
     async def event_stream():
         try:

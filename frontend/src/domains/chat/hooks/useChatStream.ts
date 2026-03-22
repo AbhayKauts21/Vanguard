@@ -3,6 +3,7 @@
 import { useCallback, useRef } from "react";
 import { useChatStore } from "@/domains/chat/model";
 import { useAvatarStore } from "@/domains/avatar/model/avatar-store";
+import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
 import { api, consumeSSEStream } from "@/lib/api";
 import { CHAT_STREAM_ENDPOINT } from "@/lib/constants";
 import type { ChatRequest, SSEDoneEvent } from "@/types";
@@ -45,6 +46,10 @@ export function useChatStream() {
         useAvatarStore.getState().setState("listening");
       }
 
+      /* Phase 8: record time-to-first-token latency */
+      const sendTimestamp = performance.now();
+      let firstTokenRecorded = false;
+
       try {
         const body: ChatRequest = { 
           message,
@@ -58,7 +63,15 @@ export function useChatStream() {
         await consumeSSEStream(
           response,
           /* onToken */
-          (token: string) => appendToken(token),
+          (token: string) => {
+            /* Measure TTFT on the very first token */
+            if (!firstTokenRecorded) {
+              firstTokenRecorded = true;
+              const ttft = performance.now() - sendTimestamp;
+              useTelemetryStore.getState().recordLatency(ttft);
+            }
+            appendToken(token);
+          },
           /* onDone */
           (event: SSEDoneEvent) => {
             finishAssistantMessage({

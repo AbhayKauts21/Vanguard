@@ -7,9 +7,25 @@
   --cleo-bg-light: #f5f5f5;
   --cleo-bg-dark: #050505;
   --cleo-atmosphere: #0a0a14;
+  --cleo-cyan: #eef4ff;
+  --cleo-green: #7df0c4;
+
+  /* Text */
+  --cleo-text-primary: rgba(255, 255, 255, 0.96);
+  --cleo-text-secondary: rgba(255, 255, 255, 0.72);
+  --cleo-text-muted: rgba(255, 255, 255, 0.5);
+
+  /* Glass surfaces */
+  --cleo-bg-glass: rgba(255, 255, 255, 0.06);
+  --cleo-bg-glass-hover: rgba(255, 255, 255, 0.1);
+  --cleo-border: rgba(255, 255, 255, 0.12);
+  --cleo-border-hover: rgba(255, 255, 255, 0.22);
+  --cleo-glass-blur: 24px;
 
   /* Radius — from original config */
   --cleo-radius: 1rem;
+  --cleo-radius-sm: 0.75rem;
+  --cleo-radius-md: 1rem;
   --cleo-radius-lg: 2rem;
   --cleo-radius-xl: 3rem;
   --cleo-radius-full: 9999px;

@@ -1,10 +1,4 @@
 import { api } from "@/lib/api/client";
-import { env } from "@/lib/env";
-
-/** Header sent with every admin request for Phase 7 auth. */
-const adminHeaders: Record<string, string> = env.adminApiKey
-  ? { "X-API-Key": env.adminApiKey }
-  : {};
 
 export interface SyncStatusResponse {
   is_syncing: boolean;
@@ -43,13 +37,13 @@ export interface DetailedHealthResponse {
 
 export const adminApi = {
   getSyncStatus: () =>
-    api.get<SyncStatusResponse>("/api/v1/admin/sync/status", adminHeaders),
+    api.get<SyncStatusResponse>("/api/v1/admin/sync/status"),
 
   triggerFullSync: () =>
-    api.post<SyncTriggerResponse>("/api/v1/admin/ingest", undefined, adminHeaders),
+    api.post<SyncTriggerResponse>("/api/v1/admin/ingest"),
 
   triggerPageSync: (pageId: number) =>
-    api.post<SyncTriggerResponse>(`/api/v1/admin/ingest/${pageId}`, undefined, adminHeaders),
+    api.post<SyncTriggerResponse>(`/api/v1/admin/ingest/${pageId}`),
 
   getDetailedHealth: () => api.get<DetailedHealthResponse>("/health/detailed"),
 };

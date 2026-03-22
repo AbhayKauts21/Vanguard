@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { AUTH_STORAGE_KEY } from "@/domains/auth/model";
 import { api, ApiError } from "@/lib/api/client";
 
 /* Mock global fetch. */
@@ -8,6 +9,7 @@ vi.stubGlobal("fetch", mockFetch);
 describe("api client", () => {
   beforeEach(() => {
     mockFetch.mockReset();
+    sessionStorage.clear();
   });
 
   it("api.get sends GET and parses JSON", async () => {
@@ -82,6 +84,28 @@ describe("api client", () => {
 
     const result = await api.stream("/api/v1/chat/stream", { message: "hi" });
     expect(result).toBe(fakeResponse);
+  });
+
+  it("attaches bearer token when an auth session is present", async () => {
+    sessionStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({ state: { accessToken: "token-123" } }),
+    );
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ status: "ok" }),
+    });
+
+    await api.get("/health");
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer token-123",
+        }),
+      }),
+    );
   });
 
   it("api.post with no body sends undefined body", async () => {

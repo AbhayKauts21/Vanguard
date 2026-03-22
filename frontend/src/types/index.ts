@@ -63,6 +63,51 @@ export interface HealthResponse {
   project: string;
 }
 
+/* --- Auth / RBAC --- */
+export interface Permission {
+  id: string;
+  code: string;
+  description?: string | null;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string | null;
+  permissions: Permission[];
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  is_active: boolean;
+  created_at: string;
+  last_login_at?: string | null;
+  roles: Role[];
+  permissions: Permission[];
+}
+
+export interface AuthSessionResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: "bearer";
+  access_token_expires_in: number;
+  refresh_token_expires_in: number;
+  user: AuthUser;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  full_name?: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
 /* --- RFC 7807 error --- */
 export interface ProblemDetail {
   type: string;

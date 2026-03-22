@@ -120,12 +120,12 @@
 | # | Feature | Status | Module |
 |---|---|---|---|
 | F-066 | **Webhook HMAC-SHA256 Verification** — Validates `X-BookStack-Signature` header before processing events | ✅ Done | `backend/app/core/security.py`, `backend/app/api/router_webhook.py` |
-| F-067 | **Admin API Key Auth** — `X-API-Key` header dependency on all `/admin` routes (403 on mismatch) | ✅ Done | `backend/app/core/auth.py`, `backend/app/api/router_admin.py` |
+| F-067 | **Admin RBAC Protection** — `/admin` routes require bearer auth plus `sync:manage` permission | ✅ Done | `backend/app/api/deps.py`, `backend/app/api/router_admin.py` |
 | F-068 | **CORS Hardening** — Restricts `allow_origins` to `ALLOWED_ORIGINS` env var (no more `*`) | ✅ Done | `backend/main.py`, `backend/app/core/config.py` |
 | F-069 | **Rate Limiting** — `slowapi` decorator on chat + azure-chat endpoints (`RATE_LIMIT_PER_MINUTE/min`) | ✅ Done | `backend/app/api/router_chat.py`, `backend/app/api/router_azure_chat.py` |
 | F-070 | **Request-ID Middleware** — UUID `X-Request-Id` header on every request/response for log correlation | ✅ Done | `backend/app/core/middleware.py`, `backend/main.py` |
 | F-071 | **Security Config** — `ADMIN_API_KEY`, `ALLOWED_ORIGINS`, `RATE_LIMIT_PER_MINUTE` settings | ✅ Done | `backend/app/core/config.py` |
-| F-072 | **Frontend Admin Auth** — Admin API client sends `X-API-Key` from `NEXT_PUBLIC_ADMIN_API_KEY` | ✅ Done | `frontend/src/domains/system/api/adminApi.ts`, `frontend/src/lib/env/index.ts` |
+| F-072 | **Frontend Bearer Auth Integration** — Shared API client injects the persisted JWT access token for protected routes | ✅ Done | `frontend/src/lib/api/client.ts`, `frontend/src/domains/system/api/adminApi.ts` |
 | F-073 | **API Client Headers Support** — `api.get()` / `api.post()` accept optional headers parameter | ✅ Done | `frontend/src/lib/api/client.ts` |
 
 ---
@@ -174,6 +174,24 @@
 
 ---
 
-## ✅ All 10 Phases Complete
+### v0.8.0 — Auth, RBAC & Access UX (2026-03-22)
 
-> CLEO v0.7.0 — Full-stack AI assistant with RAG pipeline, HeyGen avatar, structured observability, security hardening, and containerized deployment.
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-097 | **Postgres Auth Persistence** — Async SQLAlchemy session management, declarative auth models, and Alembic migrations | ✅ Done | `backend/app/db/`, `backend/alembic/` |
+| F-098 | **JWT Authentication API** — `register`, `login`, `refresh`, `logout`, and `me` endpoints with refresh-token revocation | ✅ Done | `backend/app/api/router_auth.py`, `backend/app/services/auth_service.py` |
+| F-099 | **RBAC Domain Model** — Users, roles, permissions, join tables, seeded defaults, and identity mapping | ✅ Done | `backend/app/db/models.py`, `backend/app/services/identity_mapper.py` |
+| F-100 | **RBAC Management API** — Role listing/creation, permission listing/creation, role-permission assignment, and user-role assignment | ✅ Done | `backend/app/api/router_rbac.py`, `backend/app/services/rbac_service.py` |
+| F-101 | **Auth UI Routes** — Localized login, register, and informational forgot-password pages on the CLEO shell | ✅ Done | `frontend/src/app/[locale]/login/`, `frontend/src/app/[locale]/register/`, `frontend/src/app/[locale]/forgot-password/` |
+| F-102 | **Auth Session Store** — Persisted auth state with user profile, tokens, and logout clearing | ✅ Done | `frontend/src/domains/auth/model/`, `frontend/src/domains/auth/api/` |
+| F-103 | **Account Status Menu** — Top-bar session menu with role badge, permission count, navigation, and logout action | ✅ Done | `frontend/src/domains/auth/components/AuthStatusMenu.tsx`, `frontend/src/components/layout/TopBar.tsx` |
+| F-104 | **Local Auth UX Hardening** — 127.0.0.1 CORS/dev-origin support, frontend local API base URL, and user-facing auth copy | ✅ Done | `backend/app/core/config.py`, `frontend/.env.local`, `frontend/src/messages/` |
+| F-105 | **Auth Theme Cleanup** — Missing shared token definitions fixed and redundant right-side auth panel removed | ✅ Done | `frontend/src/styles/tokens.css`, `frontend/src/domains/auth/components/AuthPageShell.tsx` |
+| F-106 | **Hydration-Safe Session Label** — Stable SSR fallback for session status, then client-side session ID reveal after mount | ✅ Done | `frontend/src/components/chat/SessionStatus.tsx` |
+| F-107 | **Auth Verification Suite** — Backend auth/RBAC tests, frontend auth component tests, session hydration test, and smoke script | ✅ Done | `backend/tests/integration/test_auth_rbac_router.py`, `backend/tests/unit/test_auth_security.py`, `frontend/src/domains/auth/`, `frontend/src/components/chat/SessionStatus.test.tsx`, `backend/scripts/test_auth_rbac.py` |
+
+---
+
+## ✅ CLEO v0.8.0 Snapshot
+
+> CLEO v0.8.0 — Full-stack AI assistant with RAG pipeline, auth/RBAC, localized access UX, structured observability, security hardening, and containerized deployment.

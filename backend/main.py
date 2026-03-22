@@ -17,6 +17,8 @@ from slowapi.util import get_remote_address
 from app.api.router_chat import router as chat_router
 from app.api.router_azure_chat import router as azure_chat_router
 from app.api.router_admin import router as admin_router
+from app.api.router_auth import router as auth_router
+from app.api.router_rbac import router as rbac_router
 from app.api.router_webhook import router as webhook_router
 from app.core.config import settings
 from app.core.exceptions import (
@@ -45,7 +47,9 @@ async def lifespan(app: FastAPI):
 
     # Close adapter HTTP clients
     from app.adapters.bookstack_client import bookstack_client
+    from app.db.session import dispose_engine
     await bookstack_client.close()
+    await dispose_engine()
 
 
 def get_application() -> FastAPI:
@@ -84,6 +88,8 @@ def get_application() -> FastAPI:
     # Routers
     _app.include_router(chat_router, prefix=settings.API_V1_STR)
     _app.include_router(azure_chat_router, prefix=settings.API_V1_STR)
+    _app.include_router(auth_router, prefix=settings.API_V1_STR)
+    _app.include_router(rbac_router, prefix=settings.API_V1_STR)
     _app.include_router(admin_router, prefix=settings.API_V1_STR)
     _app.include_router(webhook_router, prefix=settings.API_V1_STR)
 
@@ -106,6 +112,7 @@ async def detailed_health():
     from app.adapters.bookstack_client import bookstack_client
     from app.adapters.llm_client import llm_client
     from app.adapters.azure_openai_client import azure_openai_client
+    from app.db.session import check_database_health
     
     # Check Pinecone
     try:
@@ -139,7 +146,17 @@ async def detailed_health():
     except Exception:
         azure_status = "offline"
 
-    all_online = all(s == "online" for s in [pinecone_status, bookstack_status, openai_status, azure_status])
+    # Check Postgres
+    try:
+        database_online = await check_database_health()
+        database_status = "online" if database_online else "offline"
+    except Exception:
+        database_status = "offline"
+
+    all_online = all(
+        s == "online"
+        for s in [pinecone_status, bookstack_status, openai_status, azure_status, database_status]
+    )
 
     return {
         "status": "healthy" if all_online else "degraded",
@@ -149,6 +166,7 @@ async def detailed_health():
             "bookstack": {"status": bookstack_status, "pages": book_count}, # pages mapped as books proxy
             "openai": {"status": openai_status, "model": settings.OPENAI_MODEL},
             "azure_openai": {"status": azure_status, "deployment": settings.AZURE_OPENAI_CHAT_DEPLOYMENT},
+            "postgres": {"status": database_status, "database": settings.POSTGRES_DB},
         },
         "metrics": {
             "total_vectors": vector_count,

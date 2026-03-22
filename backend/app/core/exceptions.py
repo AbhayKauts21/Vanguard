@@ -50,6 +50,41 @@ class EmbeddingError(CleoError):
         super().__init__(detail=detail, status_code=502)
 
 
+class AuthenticationError(CleoError):
+    """Raised when credentials or tokens are invalid."""
+
+    def __init__(self, detail: str = "Authentication failed."):
+        super().__init__(detail=detail, status_code=401)
+
+
+class AuthorizationError(CleoError):
+    """Raised when the current user lacks required permissions."""
+
+    def __init__(self, detail: str = "You do not have permission to perform this action."):
+        super().__init__(detail=detail, status_code=403)
+
+
+class ConflictError(CleoError):
+    """Raised when a resource already exists or cannot be created due to state conflicts."""
+
+    def __init__(self, detail: str = "The requested operation conflicts with an existing resource."):
+        super().__init__(detail=detail, status_code=409)
+
+
+class DatabaseConfigurationError(CleoError):
+    """Raised when Postgres/JWT configuration needed for auth is incomplete."""
+
+    def __init__(self, detail: str = "Database configuration is invalid."):
+        super().__init__(detail=detail, status_code=500)
+
+
+class ResourceNotFoundError(CleoError):
+    """Raised when a requested resource cannot be found."""
+
+    def __init__(self, detail: str = "The requested resource was not found."):
+        super().__init__(detail=detail, status_code=404)
+
+
 class AzureConfigurationError(CleoError):
     """Raised when Azure OpenAI direct-chat configuration is incomplete."""
 

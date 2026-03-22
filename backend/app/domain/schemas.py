@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, ConfigDict, EmailStr
 from typing import Any, Dict, List, Optional, Literal
 from datetime import datetime
 from enum import Enum
+from uuid import UUID
 
 
 # --- Enums ---
@@ -150,6 +151,105 @@ class AzureChatMessage(BaseModel):
 
     role: str
     content: str
+
+
+# --- Auth & RBAC DTOs ---
+
+class PermissionResponse(BaseModel):
+    id: UUID
+    code: str
+    description: Optional[str] = None
+
+
+class RoleResponse(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    permissions: List[PermissionResponse] = Field(default_factory=list)
+
+
+class UserResponse(BaseModel):
+    id: UUID
+    email: EmailStr
+    full_name: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    last_login_at: Optional[datetime] = None
+    roles: List[RoleResponse] = Field(default_factory=list)
+    permissions: List[PermissionResponse] = Field(default_factory=list)
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+    full_name: Optional[str] = Field(default=None, max_length=255)
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=32)
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=32)
+
+
+class AuthSessionResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    access_token_expires_in: int
+    refresh_token_expires_in: int
+    user: UserResponse
+
+
+class LogoutResponse(BaseModel):
+    status: str = "success"
+    detail: str = "Refresh token revoked."
+
+
+class RoleCreateRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=64)
+    description: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_role_name(cls, value: str) -> str:
+        return value.strip().lower()
+
+
+class PermissionCreateRequest(BaseModel):
+    code: str = Field(..., min_length=3, max_length=128)
+    description: Optional[str] = Field(default=None, max_length=500)
+
+    @field_validator("code")
+    @classmethod
+    def normalize_permission_code(cls, value: str) -> str:
+        return value.strip().lower()
+
+
+class RolePermissionAssignmentRequest(BaseModel):
+    permission_ids: List[UUID] = Field(..., min_length=1)
+
+
+class UserRoleAssignmentRequest(BaseModel):
+    role_ids: List[UUID] = Field(..., min_length=1)
+
+
+class UserListResponse(BaseModel):
+    items: List[UserResponse] = Field(default_factory=list)
+
+
+class RoleListResponse(BaseModel):
+    items: List[RoleResponse] = Field(default_factory=list)
+
+
+class PermissionListResponse(BaseModel):
+    items: List[PermissionResponse] = Field(default_factory=list)
 
 
 # --- Ingestion DTOs ---

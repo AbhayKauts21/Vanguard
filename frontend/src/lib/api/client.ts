@@ -25,6 +25,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
 
+  /* Phase 8: log X-Request-Id from backend for cross-service correlation */
+  const requestId = res.headers.get("X-Request-Id");
+  if (requestId && typeof window !== "undefined") {
+    console.debug(`[CLEO] X-Request-Id: ${requestId} — ${init?.method ?? "GET"} ${path} ${res.status}`);
+  }
+
   if (!res.ok) {
     const problem: ProblemDetail = await res.json().catch(() => ({
       type: `https://httpstatuses.com/${res.status}`,

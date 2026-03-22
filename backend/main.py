@@ -5,10 +5,14 @@ from datetime import datetime
 
 START_TIME = time.time()
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.api.router_chat import router as chat_router
 from app.api.router_azure_chat import router as azure_chat_router
@@ -20,7 +24,13 @@ from app.core.exceptions import (
     http_exception_handler,
     cleo_exception_handler,
 )
+from app.core.middleware import RequestIdMiddleware
 from app.services.sync_scheduler import start_scheduler, stop_scheduler
+
+# ---------------------------------------------------------------------------
+# Rate limiter (slowapi) — keyed by client IP
+# ---------------------------------------------------------------------------
+limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -45,12 +55,24 @@ def get_application() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS
+    # Rate-limiter state
+    _app.state.limiter = limiter
+    _app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # Request-ID tracing middleware
+    _app.add_middleware(RequestIdMiddleware)
+
+    # CORS — restrict origins in production; fallback to localhost for dev
+    allowed_origins = [
+        origin.strip()
+        for origin in settings.ALLOWED_ORIGINS.split(",")
+        if origin.strip()
+    ]
     _app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
 

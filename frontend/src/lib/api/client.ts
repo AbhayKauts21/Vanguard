@@ -21,7 +21,7 @@ function url(path: string): string {
 /* Generic JSON request helper. */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url(path), {
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     ...init,
   });
 
@@ -38,12 +38,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, headers?: Record<string, string>) =>
+    request<T>(path, { headers }),
 
-  post: <T>(path: string, body?: unknown) =>
+  post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
     request<T>(path, {
       method: "POST",
       body: body ? JSON.stringify(body) : undefined,
+      headers,
     }),
 
   /* Return raw Response for SSE streaming. */

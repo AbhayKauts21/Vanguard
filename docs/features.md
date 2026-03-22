@@ -115,12 +115,26 @@
 
 ---
 
+### v0.5.0 — Phase 7: Security, Auth & Webhook Verification (2026-03-22)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-066 | **Webhook HMAC-SHA256 Verification** — Validates `X-BookStack-Signature` header before processing events | ✅ Done | `backend/app/core/security.py`, `backend/app/api/router_webhook.py` |
+| F-067 | **Admin API Key Auth** — `X-API-Key` header dependency on all `/admin` routes (403 on mismatch) | ✅ Done | `backend/app/core/auth.py`, `backend/app/api/router_admin.py` |
+| F-068 | **CORS Hardening** — Restricts `allow_origins` to `ALLOWED_ORIGINS` env var (no more `*`) | ✅ Done | `backend/main.py`, `backend/app/core/config.py` |
+| F-069 | **Rate Limiting** — `slowapi` decorator on chat + azure-chat endpoints (`RATE_LIMIT_PER_MINUTE/min`) | ✅ Done | `backend/app/api/router_chat.py`, `backend/app/api/router_azure_chat.py` |
+| F-070 | **Request-ID Middleware** — UUID `X-Request-Id` header on every request/response for log correlation | ✅ Done | `backend/app/core/middleware.py`, `backend/main.py` |
+| F-071 | **Security Config** — `ADMIN_API_KEY`, `ALLOWED_ORIGINS`, `RATE_LIMIT_PER_MINUTE` settings | ✅ Done | `backend/app/core/config.py` |
+| F-072 | **Frontend Admin Auth** — Admin API client sends `X-API-Key` from `NEXT_PUBLIC_ADMIN_API_KEY` | ✅ Done | `frontend/src/domains/system/api/adminApi.ts`, `frontend/src/lib/env/index.ts` |
+| F-073 | **API Client Headers Support** — `api.get()` / `api.post()` accept optional headers parameter | ✅ Done | `frontend/src/lib/api/client.ts` |
+
+---
+
 ## 🔮 Upcoming Features
 
 | # | Feature | Priority | Target |
 |---|---|---|---|
-| F-066 | Security: Webhook Verification & Admin Auth (Phase 7) | 🟡 P1 | v0.5.0 |
-| F-067 | Observability & Telemetry (Phase 8) | 🟢 P2 | v0.5.1 |
-| F-068 | Performance, Polish & Demo Readiness (Phase 9) | 🟡 P1 | v0.6.0 |
-| F-069 | Deployment & Infrastructure (Phase 10) | 🟢 P2 | v0.7.0 |
+| F-074 | Observability & Telemetry (Phase 8) | 🟢 P2 | v0.5.1 |
+| F-075 | Performance, Polish & Demo Readiness (Phase 9) | 🟡 P1 | v0.6.0 |
+| F-076 | Deployment & Infrastructure (Phase 10) | 🟢 P2 | v0.7.0 |
 

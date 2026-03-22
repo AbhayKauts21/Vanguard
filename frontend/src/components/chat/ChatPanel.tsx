@@ -5,6 +5,7 @@ import { MessageList, type ChatMessage } from "./MessageList";
 import { EmptyState } from "./EmptyState";
 import { TypingIndicator } from "./TypingIndicator";
 import { Composer } from "./Composer";
+import { OfflineBanner } from "./OfflineBanner";
 import { useChatStore } from "@/domains/chat/model";
 
 interface ChatPanelProps {
@@ -63,6 +64,7 @@ export function ChatPanel({ messages, isThinking, onSend, disabled }: ChatPanelP
         <SessionStatus />
         
         <ErrorBanner />
+        <OfflineBanner />
 
         {hasMessages ? <MessageList messages={messages} /> : <EmptyState />}
 

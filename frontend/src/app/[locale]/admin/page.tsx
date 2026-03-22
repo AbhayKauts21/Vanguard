@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { AdminPanel } from "@/domains/system/components/AdminPanel";
+import { AdminPanelSkeleton } from "@/domains/system/components/AdminPanelSkeleton";
 import { TopBar } from "@/components/layout";
 
 export default function AdminPage() {
@@ -13,7 +15,9 @@ export default function AdminPage() {
       </div>
       
       <div className="relative z-10 w-full rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-3xl shadow-2xl p-6 md:p-12 overflow-y-auto max-h-[calc(100vh-8rem)]">
-         <AdminPanel />
+        <Suspense fallback={<AdminPanelSkeleton />}>
+          <AdminPanel />
+        </Suspense>
       </div>
     </main>
   );

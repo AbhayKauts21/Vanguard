@@ -26,6 +26,8 @@
     "citations": "Sources",
     "noContext": "No relevant documentation found for your question.",
     "streamError": "Stream interrupted. Please try again.",
+    "offlineTitle": "CLEO is offline",
+    "offlineHint": "Attempting to reconnect... Check your backend connection.",
     "uncertainTitle": "Not fully confident",
     "uncertainDesc": "I found some information but I'm not confident it answers your question.",
     "whatIFound": "What I found anyway:",

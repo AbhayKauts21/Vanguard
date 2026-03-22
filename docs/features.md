@@ -95,14 +95,32 @@
 | F-051 | **CitationList Component** — Expandable sources list depending on primary/secondary tiers | ✅ Done | `frontend/components/chat/CitationList.tsx` |
 | F-052 | **Smart Auto-Scroll Logic** — Pauses when scrolled up, floating indicator button | ✅ Done | `frontend/components/chat/MessageList.tsx` |
 
+### v0.4.0 — Phase 6: HeyGen Interactive Avatar Integration (2026-03-22)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-053 | **HeyGen Streaming Avatar SDK** — WebRTC session management with `@heygen/streaming-avatar` | ✅ Done | `frontend/domains/avatar/hooks/useHeyGenAvatar.ts` |
+| F-054 | **Avatar Zustand Store** — Connection, loading, muted, visual state machine (disconnected→idle→listening→speaking) | ✅ Done | `frontend/domains/avatar/model/avatar-store.ts` |
+| F-055 | **Avatar Type Definitions** — `AvatarVisualState`, `AvatarConfig`, `AvatarVoiceMapping`, `HeyGenTokenResponse` | ✅ Done | `frontend/domains/avatar/model/types.ts` |
+| F-056 | **Avatar API Client** — Server-side token proxy client (`fetchHeyGenToken`) | ✅ Done | `frontend/domains/avatar/api/avatarApi.ts` |
+| F-057 | **Avatar State Machine Hook** — `useAvatarState` with derived booleans (isSpeaking, isListening, isIdle, etc.) | ✅ Done | `frontend/domains/avatar/hooks/useAvatarState.ts` |
+| F-058 | **AvatarVideo Component** — `<video>` mount for WebRTC stream with loading/error/listening overlays | ✅ Done | `frontend/components/avatar/AvatarVideo.tsx` |
+| F-059 | **AvatarControls Component** — Mute/unmute button, connection dot, state label overlay | ✅ Done | `frontend/components/avatar/AvatarControls.tsx` |
+| F-060 | **AvatarPanel Feature Flag** — Swaps AvatarSphere ↔ AvatarVideo via `NEXT_PUBLIC_ENABLE_AVATAR` | ✅ Done | `frontend/components/avatar/AvatarPanel.tsx` |
+| F-061 | **HeyGen Token Route** — Next.js API route keeps `HEYGEN_API_KEY` server-side | ✅ Done | `frontend/app/api/heygen/token/route.ts` |
+| F-062 | **Chat→Avatar Bridge** — Triggers `speak()` on stream done + sets "listening" on send | ✅ Done | `frontend/domains/chat/hooks/useChatStream.ts` |
+| F-063 | **Locale-Aware Voice** — Per-locale HeyGen voice mapping (en/es) via env vars | ✅ Done | `frontend/lib/env/index.ts`, `useHeyGenAvatar.ts` |
+| F-064 | **WebRTC Leak Prevention** — `beforeunload` event handler + useEffect cleanup on unmount | ✅ Done | `frontend/domains/avatar/hooks/useHeyGenAvatar.ts` |
+| F-065 | **Avatar i18n** — Mute/unmute, speaking/listening/idle, state labels in en + es | ✅ Done | `frontend/messages/en.json`, `es.json` |
+
 ---
 
 ## 🔮 Upcoming Features
 
 | # | Feature | Priority | Target |
 |---|---|---|---|
-| F-053 | Smart Routing with RAG Confidence (Phase 3) | 🔴 P0 | v0.3.1 |
-| F-054 | Conversation Memory & Persistence (Phase 4) | 🟡 P1 | v0.3.2 |
-| F-055 | HeyGen Avatar Integration (Phase 6) | 🔴 P0 | v0.4.0 |
-| F-056 | Admin Dashboard (Phase 5) | 🟡 P1 | v0.3.2 |
+| F-066 | Security: Webhook Verification & Admin Auth (Phase 7) | 🟡 P1 | v0.5.0 |
+| F-067 | Observability & Telemetry (Phase 8) | 🟢 P2 | v0.5.1 |
+| F-068 | Performance, Polish & Demo Readiness (Phase 9) | 🟡 P1 | v0.6.0 |
+| F-069 | Deployment & Infrastructure (Phase 10) | 🟢 P2 | v0.7.0 |
 

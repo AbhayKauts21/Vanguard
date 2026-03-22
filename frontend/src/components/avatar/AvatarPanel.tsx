@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { AvatarTelemetry } from "./AvatarTelemetry";
 import { AvatarBadge } from "./AvatarBadge";
 import { AvatarSphere } from "./AvatarSphere";
+import { AvatarVideo } from "./AvatarVideo";
+import { env } from "@/lib/env";
 
 /**
  * Avatar panel — right-side container.
@@ -58,8 +60,8 @@ export function AvatarPanel() {
 
       {/* Sphere + badges section — flex-1 to take available space above title */}
       <div className="relative z-10 flex-1 w-full flex items-center justify-center">
-        {/* Sphere */}
-        <AvatarSphere />
+        {/* Sphere / Context Avatar Video overlay */}
+        {env.enableAvatar ? <AvatarVideo /> : <AvatarSphere />}
 
         {/* Floating Synapse badge — top right, outside sphere */}
         <AvatarBadge

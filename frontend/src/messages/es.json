@@ -36,7 +36,20 @@
     "coreSync": "SINCRONIZACIÓN: ACTIVA",
     "meshEngaged": "RED_NEURAL: CONECTADA",
     "systemReady": "SISTEMA: LISTO",
-    "awaiting": "Esperando Entrada"
+    "awaiting": "Esperando Entrada",
+    "mute": "Silenciar avatar",
+    "unmute": "Activar audio del avatar",
+    "speaking": "Hablando",
+    "listening": "Escuchando",
+    "idle": "Inactivo",
+    "state_disconnected": "Desconectado",
+    "state_idle": "Inactivo",
+    "state_listening": "Escuchando",
+    "state_speaking": "Hablando",
+    "state_error": "Error",
+    "connecting": "Estableciendo conexión...",
+    "connectionFailed": "Conexión del avatar fallida",
+    "fallbackSphere": "Volviendo a la esfera ambiental..."
   },
   "status": {
     "online": "En línea",

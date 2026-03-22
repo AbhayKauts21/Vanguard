@@ -23,8 +23,8 @@ Instead of trying to train or fine-tune an AI model (which takes weeks and massi
 To search text based on its *meaning* rather than exact keyword matches, we must translate human language into mathematics. A vector (or embedding) is an array of floating-point numbers that represents the semantic concept of a sentence. In this mathematical space, the phrase "password reset" is placed very close to "account recovery," even though they share no words.
 
 ### How Team Vanguard Uses Them:
-We will use OpenAI's `text-embedding-3-small` model. 
-* **During Setup:** Our Python script will download BookStack pages, split them into small paragraphs (chunks), and send them to OpenAI. OpenAI will return a vector (a list of 1,536 numbers) for each paragraph.
+We will use Azure OpenAI's `text-embedding-3-large` deployment through a provider-backed embedding adapter. 
+* **During Setup:** Our Python script will download BookStack pages, split them into small paragraphs (chunks), and send them to Azure OpenAI. Azure OpenAI will return a vector (a list of 3,072 numbers) for each paragraph.
 * **During Chat:** When a user types a question into our Next.js UI, the FastAPI backend will instantly convert their question into a new vector.
 
 ---

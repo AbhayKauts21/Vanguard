@@ -1,27 +1,53 @@
-"""OpenAI LLM client — chat completion with streaming support."""
+"""Azure-backed LLM client used by the core RAG generation path."""
 
-from typing import AsyncGenerator, List, Dict, Optional
-from app.domain.schemas import ConversationMessage
+from typing import AsyncGenerator, List, Optional
 
 from loguru import logger
 
+from app.adapters.azure_openai_client import azure_openai_client
 from app.core.config import settings
 from app.core.prompts import RAG_SYSTEM_PROMPT, RAG_USER_PROMPT
+from app.domain.schemas import AzureChatMessage, ConversationMessage
 
 
 class LLMClient:
-    """Wraps OpenAI chat completions (Interface Segregation — generation only)."""
+    """Wrap Azure OpenAI chat completions behind the stable generation interface."""
 
     def __init__(self) -> None:
-        self.model = settings.OPENAI_MODEL
-        self._client = None
+        self.model = settings.AZURE_OPENAI_CHAT_DEPLOYMENT
+        self._azure_client = azure_openai_client
 
     def _get_client(self):
-        """Lazy-init OpenAI client."""
-        if self._client is None:
-            from openai import OpenAI
-            self._client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        return self._client
+        """Expose the underlying Azure client for health checks."""
+        return self._azure_client._get_client()
+
+    def _build_messages(
+        self,
+        *,
+        question: str,
+        context_chunks: List[str],
+        history: Optional[List[ConversationMessage]],
+    ) -> List[AzureChatMessage]:
+        """Build Azure-compatible messages for constrained RAG generation."""
+        context = "\n\n---\n\n".join(context_chunks)
+        history = history or []
+
+        messages = [
+            AzureChatMessage(
+                role="system",
+                content=RAG_SYSTEM_PROMPT.format(context=context),
+            )
+        ]
+        for msg in history:
+            messages.append(AzureChatMessage(role=msg.role, content=msg.content))
+
+        messages.append(
+            AzureChatMessage(
+                role="user",
+                content=RAG_USER_PROMPT.format(question=question),
+            )
+        )
+        return messages
 
     async def generate(
         self,
@@ -30,27 +56,23 @@ class LLMClient:
         temperature: float = 0.2,
         history: Optional[List[ConversationMessage]] = None,
     ) -> str:
-        """Generate a non-streaming response (used for simple calls)."""
-        client = self._get_client()
-        context = "\n\n---\n\n".join(context_chunks)
-        history = history or []
-
-        messages = [{"role": "system", "content": RAG_SYSTEM_PROMPT.format(context=context)}]
-        for msg in history:
-            messages.append({"role": msg.role, "content": msg.content})
-            
-        messages.append({"role": "user", "content": RAG_USER_PROMPT.format(question=question)})
+        """Generate a non-streaming response for the RAG answer path."""
+        messages = self._build_messages(
+            question=question,
+            context_chunks=context_chunks,
+            history=history,
+        )
 
         try:
-            response = client.chat.completions.create(
-                model=self.model,
+            response = await self._azure_client.create_chat_completion(
+                messages,
                 temperature=temperature,
-                messages=messages,
+                max_tokens=None,
             )
             return response.choices[0].message.content or ""
 
-        except Exception as e:
-            logger.error(f"LLM generation failed: {e}")
+        except Exception as exc:
+            logger.error(f"Azure LLM generation failed: {exc}")
             raise
 
     async def generate_stream(
@@ -61,31 +83,23 @@ class LLMClient:
         history: Optional[List[ConversationMessage]] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream tokens for real-time UI response."""
-        client = self._get_client()
-        context = "\n\n---\n\n".join(context_chunks)
-        history = history or []
-
-        messages = [{"role": "system", "content": RAG_SYSTEM_PROMPT.format(context=context)}]
-        for msg in history:
-            messages.append({"role": msg.role, "content": msg.content})
-            
-        messages.append({"role": "user", "content": RAG_USER_PROMPT.format(question=question)})
+        messages = self._build_messages(
+            question=question,
+            context_chunks=context_chunks,
+            history=history,
+        )
 
         try:
-            stream = client.chat.completions.create(
-                model=self.model,
+            stream = self._azure_client.stream_chat_completion(
+                messages,
                 temperature=temperature,
-                stream=True,
-                messages=messages,
+                max_tokens=None,
             )
+            async for token in stream:
+                yield token
 
-            for chunk in stream:
-                delta = chunk.choices[0].delta
-                if delta.content:
-                    yield delta.content
-
-        except Exception as e:
-            logger.error(f"LLM streaming failed: {e}")
+        except Exception as exc:
+            logger.error(f"Azure LLM streaming failed: {exc}")
             raise
 
 

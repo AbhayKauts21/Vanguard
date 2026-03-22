@@ -37,7 +37,7 @@
 #### Backend (v0.2.0) — ✅ Fully Implemented
 | Layer | Components | Status |
 |---|---|---|
-| **Adapters** | `BookStackClient`, `EmbeddingClient`, `LLMClient`, `VectorStore`, `AzureOpenAIClient` | ✅ All operational |
+| **Adapters** | `BookStackClient`, `EmbeddingClient` (provider-backed), `LLMClient`, `VectorStore`, `AzureOpenAIClient` | ✅ All operational |
 | **Services** | `RAGService`, `AzureChatService`, `IngestionService`, `TextProcessor`, `SyncScheduler` | ✅ All operational |
 | **API** | `/chat/`, `/chat/stream`, `/azure-chat/`, `/admin/*`, `/webhook/bookstack`, `/health` | ✅ All 8 endpoints live |
 | **Domain** | Full Pydantic schema set — BookStack, Vector, RAG, Azure, Admin, Webhook DTOs | ✅ Complete |
@@ -159,7 +159,7 @@ User types question in Composer
 ┌─ Backend ──────────────────────────────────────────────────────┐
 │  1. router_chat.py receives ChatRequest                        │
 │  2. rag_service.stream_answer():                               │
-│     a. embedding_client.embed_query(question) → vector         │
+│     a. embedding_client.embed_text(question) → vector          │
 │     b. vector_store.query(vector, top_k=5) → chunks           │
 │     c. Confidence gate: max(scores) >= 0.78?                   │
 │        NO  → yield {"I don't have enough information..."}      │
@@ -355,15 +355,18 @@ Add response model aliases so backend sends both formats. More work, less recomm
 PROJECT_NAME=CLEO
 DEBUG=true
 
-# === OpenAI (RAG Pipeline) ===
+# === OpenAI (RAG Generation) ===
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxx
 OPENAI_MODEL=gpt-4o-mini
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_PROVIDER=azure
+EMBEDDING_MODEL=text-embedding-3-large
+EMBEDDING_DIMENSIONS=3072
 
 # === Azure OpenAI (Direct Chat) ===
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
 AZURE_OPENAI_API_KEY=your-azure-api-key
 AZURE_OPENAI_CHAT_DEPLOYMENT=your-deployment-name
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=your-embedding-deployment
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
 
 # === Pinecone ===

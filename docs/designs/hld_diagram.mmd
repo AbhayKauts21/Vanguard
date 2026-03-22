@@ -22,7 +22,7 @@ graph TD
     end
     
     subgraph Infrastructure [Data & External APIs]
-        Adapters -->|text-embedding-3-small \n gpt-4o| OpenAI[OpenAI API]
+        Adapters -->|text-embedding-3-large \n gpt-4o| AzureOpenAI[Azure OpenAI]
         Adapters -->|Similarity Search| VectorDB[(Pinecone / Qdrant)]
         Adapters -->|Video Stream| HeyGen[HeyGen Avatar API]
         Adapters -->|Knowledge Base| BookStack[BookStack API]

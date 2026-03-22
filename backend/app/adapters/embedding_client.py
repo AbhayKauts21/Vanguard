@@ -1,55 +1,55 @@
-"""OpenAI embedding client — converts text to 1536-dim vectors."""
+"""Embedding facade that resolves the configured provider at runtime."""
 
-from typing import List
+from typing import Any, Dict, List
 
-from loguru import logger
-
-from app.core.config import settings
-from app.core.exceptions import EmbeddingError
+from app.adapters.embeddings.base import EmbeddingProvider
+from app.adapters.embeddings.factory import (
+    get_embedding_provider,
+    reset_embedding_provider,
+)
 
 
 class EmbeddingClient:
-    """Wraps OpenAI embeddings API (Interface Segregation — embedding only)."""
+    """Thin facade over the active embedding provider strategy."""
 
-    def __init__(self) -> None:
-        self.model = settings.OPENAI_EMBEDDING_MODEL
-        self._client = None
+    def __init__(self, provider: EmbeddingProvider | None = None) -> None:
+        self._provider = provider
 
-    def _get_client(self):
-        """Lazy-init OpenAI client to avoid import-time API calls."""
-        if self._client is None:
-            from openai import OpenAI
-            self._client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        return self._client
+    @property
+    def provider(self) -> EmbeddingProvider:
+        """Resolve the injected provider or the configured singleton."""
+        return self._provider or get_embedding_provider()
+
+    @property
+    def model(self) -> str:
+        return self.provider.model_name
+
+    @property
+    def dimensions(self) -> int:
+        return self.provider.dimensions
+
+    @property
+    def provider_name(self) -> str:
+        return self.provider.provider_name
 
     async def embed_text(self, text: str) -> List[float]:
         """Embed a single text string into a vector."""
-        return (await self.embed_texts([text]))[0]
+        return await self.provider.embed_text(text)
 
     async def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        """Batch-embed multiple texts. OpenAI supports up to 2048 per call."""
-        if not texts:
-            return []
+        """Batch-embed multiple texts."""
+        return await self.provider.embed_texts(texts)
 
-        client = self._get_client()
-        try:
-            # Process in batches of 2048 (OpenAI limit)
-            all_embeddings: List[List[float]] = []
-            for i in range(0, len(texts), 2048):
-                batch = texts[i : i + 2048]
-                response = client.embeddings.create(
-                    model=self.model,
-                    input=batch,
-                )
-                batch_embeddings = [item.embedding for item in response.data]
-                all_embeddings.extend(batch_embeddings)
+    def describe(self) -> Dict[str, Any]:
+        """Surface provider metadata for health and diagnostics."""
+        return self.provider.describe()
 
-            logger.debug(f"Embedded {len(texts)} texts using {self.model}")
-            return all_embeddings
-
-        except Exception as e:
-            logger.error(f"Embedding failed: {e}")
-            raise EmbeddingError(detail=f"OpenAI embedding failed: {e}")
+    def reset(self) -> None:
+        """Reset cached provider state."""
+        if self._provider is not None:
+            self._provider.reset_client()
+            return
+        reset_embedding_provider()
 
 
 # Singleton instance

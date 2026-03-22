@@ -64,17 +64,17 @@ Your approach is **strong for a hackathon**. Here's why:
 
 **Decision:** Stick with your current plan. `gpt-4o-mini` for dev (30x cheaper), flip one env var to `gpt-4o` for demo day. The OpenAI ecosystem keeps everything consistent (embeddings + generation = 1 API key).
 
-### 🧮 Embedding Model — Final Recommendation: **text-embedding-3-small**
+### 🧮 Embedding Model — Final Recommendation: **Azure text-embedding-3-large**
 
 | Model | Dimensions | Cost/1M tokens | Quality (MTEB) | Vendor Lock-in | Verdict |
 |---|---|---|---|---|---|
-| **text-embedding-3-small** | 1536 | $0.020 | 62.3% | OpenAI | 🏆 **Best value** |
-| text-embedding-3-large | 3072 | $0.130 | 64.6% | OpenAI | ❌ 6x cost, 2% gain |
+| text-embedding-3-small | 1536 | $0.020 | 62.3% | OpenAI | 🟡 Lower-cost fallback |
+| **text-embedding-3-large** | 3072 | $0.130 | 64.6% | Azure/OpenAI | 🏆 **Current project default** |
 | Cohere embed-v3 | 1024 | $0.100 | 64.5% | Cohere | ❌ Second vendor key |
 | all-MiniLM-L6-v2 | 384 | Free | 56.3% | None (local) | ❌ Much lower quality |
 | Voyage AI voyage-3 | 1024 | $0.060 | 67.1% | Voyage | 🟡 Best quality but another vendor |
 
-**Decision:** `text-embedding-3-small` is correct. It shares the same API key as your LLM, costs <$0.02 for your entire corpus, and 1536 dimensions is more than enough for support docs.
+**Decision:** `text-embedding-3-large` is the project default. We are standardizing on Azure OpenAI embeddings and planning Pinecone around 3072-dimensional vectors.
 
 ### 🎥 Avatar — Final Recommendation: **HeyGen Interactive Avatar**
 
@@ -178,9 +178,9 @@ BookStack Page Created/Updated
          │
          ▼
 ┌─────────────────────┐
-│  4. GENERATE         │  OpenAI text-embedding-3-small
+│  4. GENERATE         │  Azure text-embedding-3-large
 │     EMBEDDINGS       │  Batch: up to 2048 texts per API call
-│                      │  Returns: [1536-dim vector per chunk]
+│                      │  Returns: [3072-dim vector per chunk]
 └────────┬────────────┘
          │
          ▼
@@ -207,12 +207,12 @@ Pinecone: delete(filter={"page_id": deleted_page_id})
 ### Phase 1: Foundation (Day 1-2) 🔴 DO FIRST
 | # | Task | Details |
 |---|---|---|
-| 1.1 | **Create Pinecone Index** | Go to pinecone.io → Create index `vanguard-docs`, dimensions=1536, metric=cosine, serverless (AWS) |
+| 1.1 | **Create Pinecone Index** | Go to pinecone.io → Create index `vanguard-docs`, dimensions=3072, metric=cosine, serverless (AWS) |
 | 1.2 | **Set up `.env`** | Add `OPENAI_API_KEY`, `PINECONE_API_KEY`, `BOOKSTACK_URL`, `BOOKSTACK_TOKEN_ID`, `BOOKSTACK_TOKEN_SECRET` |
 | 1.3 | **Update `requirements.txt`** | Add `langchain-openai`, `langchain-pinecone`, `langchain-text-splitters`, `apscheduler` |
 | 1.4 | **Build BookStack Adapter** | `adapters/bookstack_client.py` — Fetch pages, books, chapters via REST API |
 | 1.5 | **Build Pinecone Adapter** | `adapters/vector_store.py` — Initialize index, upsert vectors, query, delete |
-| 1.6 | **Build Embedding Adapter** | `adapters/embedding_client.py` — Wrap OpenAI embeddings via LangChain |
+| 1.6 | **Build Embedding Adapter** | `adapters/embedding_client.py` — Resolve Azure/OpenAI embedding providers behind one interface |
 
 ### Phase 2: Ingestion Pipeline (Day 2-3) 🔴 CRITICAL
 | # | Task | Details |
@@ -298,7 +298,9 @@ DEBUG=true
 # === OpenAI ===
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxx
 OPENAI_MODEL=gpt-4o-mini           # Switch to gpt-4o for demo day
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_PROVIDER=azure
+EMBEDDING_MODEL=text-embedding-3-large
+EMBEDDING_DIMENSIONS=3072
 
 # === Pinecone ===
 PINECONE_API_KEY=pcsk_xxxxxxxxxxxx
@@ -331,7 +333,7 @@ All the above should be added to the existing `Settings` class in `config.py`.
 
 ### Right Now (Prerequisites)
 - [ ] **1. Create a Pinecone account** → [pinecone.io](https://www.pinecone.io)
-  - Create index: name=`vanguard-docs`, dimensions=`1536`, metric=`cosine`, type=`serverless` (AWS)
+  - Create index: name=`vanguard-docs`, dimensions=`3072`, metric=`cosine`, type=`serverless` (AWS)
   - Copy your API key
 - [ ] **2. Get your OpenAI API key** → [platform.openai.com](https://platform.openai.com)
   - Ensure you have credits (even $5 is enough for weeks of dev)

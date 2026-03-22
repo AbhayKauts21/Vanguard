@@ -1,5 +1,6 @@
 """Azure OpenAI Foundry client for direct synchronous chat."""
 
+from collections.abc import Iterator
 from typing import Any, Dict, List, Optional, Sequence
 
 import httpx
@@ -106,12 +107,40 @@ class AzureOpenAIClient:
         try:
             stream = client.chat.completions.create(**payload)
             for chunk in stream:
-                delta = chunk.choices[0].delta
-                if hasattr(delta, "content") and delta.content:
-                    yield delta.content
+                for text_delta in self._iter_text_deltas(chunk):
+                    yield text_delta
         except Exception as exc:
             logger.error(f"Azure OpenAI stream failed: {exc}")
             raise AzureOpenAIError(detail=f"Azure stream failed: {exc}") from exc
+
+    def _iter_text_deltas(self, chunk: Any) -> Iterator[str]:
+        """Yield text deltas from an Azure stream chunk, tolerating empty choices."""
+        choices = getattr(chunk, "choices", None) or []
+        if not choices:
+            return
+
+        delta = getattr(choices[0], "delta", None)
+        if delta is None:
+            return
+
+        content = getattr(delta, "content", None)
+        if not content:
+            return
+
+        if isinstance(content, str):
+            yield content
+            return
+
+        if isinstance(content, list):
+            for part in content:
+                text = getattr(part, "text", None)
+                if text:
+                    yield text
+                    continue
+                if isinstance(part, dict):
+                    dict_text = part.get("text")
+                    if dict_text:
+                        yield dict_text
 
 
 azure_openai_client = AzureOpenAIClient()

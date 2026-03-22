@@ -64,6 +64,8 @@ class VectorSearchResult(BaseModel):
     page_title: str = ""
     bookstack_url: str = ""
     book_id: int = 0
+    source_type: str = "bookstack"
+    source_name: str = ""
 
 
 # --- Chat DTOs ---

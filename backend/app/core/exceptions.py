@@ -44,10 +44,17 @@ class VectorStoreError(CleoError):
 
 
 class EmbeddingError(CleoError):
-    """Raised when OpenAI embedding API call fails."""
+    """Raised when an embedding provider request fails."""
 
     def __init__(self, detail: str = "Failed to generate embeddings."):
         super().__init__(detail=detail, status_code=502)
+
+
+class EmbeddingConfigurationError(CleoError):
+    """Raised when embedding provider configuration is incomplete or invalid."""
+
+    def __init__(self, detail: str = "Embedding configuration is invalid."):
+        super().__init__(detail=detail, status_code=500)
 
 
 class AuthenticationError(CleoError):

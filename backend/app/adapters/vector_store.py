@@ -16,6 +16,7 @@ class VectorStore:
 
     def __init__(self) -> None:
         self._index = None
+        self.expected_dimensions = settings.EMBEDDING_DIMENSIONS
 
     def _get_index(self):
         """Lazy-init Pinecone index connection."""
@@ -36,6 +37,7 @@ class VectorStore:
         """Upsert vectors with metadata into Pinecone. Returns upserted count."""
         index = self._get_index()
         try:
+            self._validate_batch_dimensions(vectors)
             # Pinecone accepts list of (id, vector, metadata) tuples
             records = [
                 {"id": vid, "values": vec, "metadata": meta}
@@ -65,6 +67,7 @@ class VectorStore:
         """Similarity search — returns top_k closest chunks with scores."""
         index = self._get_index()
         try:
+            self._validate_vector_dimension(vector, context="query")
             query_params = {
                 "vector": vector,
                 "top_k": top_k,
@@ -85,6 +88,8 @@ class VectorStore:
                     page_title=match.get("metadata", {}).get("page_title", ""),
                     bookstack_url=match.get("metadata", {}).get("bookstack_url", ""),
                     book_id=match.get("metadata", {}).get("book_id", 0),
+                    source_type=match.get("metadata", {}).get("source_type", "bookstack"),
+                    source_name=match.get("metadata", {}).get("source_name", ""),
                 )
                 for match in results.get("matches", [])
             ]
@@ -103,6 +108,13 @@ class VectorStore:
             )
             logger.info(f"Deleted vectors for page_id={page_id}")
         except Exception as e:
+            if self._is_missing_namespace_error(e):
+                logger.info(
+                    "Pinecone namespace '{}' does not exist yet; delete_by_page_id is a no-op".format(
+                        self.NAMESPACE
+                    )
+                )
+                return
             logger.error(f"Pinecone delete failed for page {page_id}: {e}")
             raise VectorStoreError(detail=f"Failed to delete vectors for page {page_id}: {e}")
 
@@ -113,6 +125,13 @@ class VectorStore:
             index.delete(delete_all=True, namespace=self.NAMESPACE)
             logger.info("Deleted ALL vectors from Pinecone namespace")
         except Exception as e:
+            if self._is_missing_namespace_error(e):
+                logger.info(
+                    "Pinecone namespace '{}' does not exist yet; delete_all is a no-op".format(
+                        self.NAMESPACE
+                    )
+                )
+                return
             logger.error(f"Pinecone delete_all failed: {e}")
             raise VectorStoreError(detail=f"Failed to clear vector store: {e}")
 
@@ -124,10 +143,37 @@ class VectorStore:
             return {
                 "total_vectors": stats.get("total_vector_count", 0),
                 "namespaces": stats.get("namespaces", {}),
+                "expected_dimensions": self.expected_dimensions,
             }
         except Exception as e:
             logger.error(f"Pinecone stats failed: {e}")
-            return {"total_vectors": 0, "namespaces": {}}
+            return {
+                "total_vectors": 0,
+                "namespaces": {},
+                "expected_dimensions": self.expected_dimensions,
+            }
+
+    def _validate_batch_dimensions(self, vectors: List[List[float]]) -> None:
+        """Ensure all vectors match the configured embedding dimensions."""
+        for index, vector in enumerate(vectors):
+            self._validate_vector_dimension(vector, context=f"upsert[{index}]")
+
+    def _validate_vector_dimension(self, vector: List[float], *, context: str) -> None:
+        """Fail fast if vector length does not match the configured index contract."""
+        if not vector:
+            raise VectorStoreError(detail=f"Empty vector received during {context}.")
+        if len(vector) != self.expected_dimensions:
+            raise VectorStoreError(
+                detail=(
+                    f"Vector dimension mismatch during {context}: "
+                    f"got {len(vector)}, expected {self.expected_dimensions}."
+                )
+            )
+
+    def _is_missing_namespace_error(self, error: Exception) -> bool:
+        """Treat Pinecone's missing-namespace response as an idempotent empty state."""
+        message = str(error).lower()
+        return "namespace not found" in message
 
 
 # Singleton instance

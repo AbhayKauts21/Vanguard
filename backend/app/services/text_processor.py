@@ -41,6 +41,22 @@ class TextProcessor:
 
         return text.strip()
 
+    def clean_markdown(self, markdown_text: str) -> str:
+        """Normalize markdown/plain-text docs into chunkable text."""
+        if not markdown_text:
+            return ""
+
+        text = markdown_text.replace("\r\n", "\n")
+        text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)
+        text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
+        text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
+        text = re.sub(r"\[(?P<label>[^\]]+)\]\((?P<url>[^)]+)\)", r"\g<label>", text)
+        text = re.sub(r"`{1,3}", "", text)
+        text = re.sub(r"[*_~]{1,2}", "", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        text = re.sub(r"[ \t]{2,}", " ", text)
+        return text.strip()
+
     def chunk_text(
         self,
         text: str,
@@ -113,8 +129,36 @@ class TextProcessor:
             "book_title": book_title,
             "chapter_id": chapter_id,
             "bookstack_url": bookstack_url,
+            "source_type": "bookstack",
+            "source_name": book_title,
         }
 
+        return self.chunk_text(clean_text, page_id, metadata_base)
+
+    def process_document_text(
+        self,
+        *,
+        page_id: int,
+        text_content: str,
+        page_title: str,
+        source_url: str = "",
+        source_type: str = "local_markdown",
+        source_name: str = "",
+        collection_id: int = 0,
+        chapter_id: int = 0,
+    ) -> List[TextChunk]:
+        """Process plain text or markdown docs into chunks with generic metadata."""
+        clean_text = self.clean_markdown(text_content)
+        metadata_base = {
+            "page_id": page_id,
+            "page_title": page_title,
+            "book_id": collection_id,
+            "book_title": source_name,
+            "chapter_id": chapter_id,
+            "bookstack_url": source_url,
+            "source_type": source_type,
+            "source_name": source_name,
+        }
         return self.chunk_text(clean_text, page_id, metadata_base)
 
 

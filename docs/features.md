@@ -13,9 +13,9 @@
 |---|---|---|---|
 | F-001 | **Project Configuration** — Centralized env-based settings via Pydantic | ✅ Done | `core/config.py` |
 | F-002 | **BookStack API Client** — Async REST client for pages, books, chapters | ✅ Done | `adapters/bookstack_client.py` |
-| F-003 | **OpenAI Embedding Client** — text-embedding-3-small vectorization | ✅ Done | `adapters/embedding_client.py` |
+| F-003 | **Embedding Client Facade** — provider-backed semantic vectorization entrypoint | ✅ Done | `adapters/embedding_client.py` |
 | F-004 | **Pinecone Vector Store** — Serverless vector DB with metadata filtering | ✅ Done | `adapters/vector_store.py` |
-| F-005 | **OpenAI LLM Client** — gpt-4o/mini with streaming support | ✅ Done | `adapters/llm_client.py` |
+| F-005 | **Azure LLM Client** — Azure OpenAI generation with streaming support | ✅ Done | `adapters/llm_client.py` |
 | F-006 | **Text Processor** — HTML→text cleaning + semantic chunking | ✅ Done | `services/text_processor.py` |
 | F-007 | **Ingestion Service** — Full pipeline: fetch→clean→chunk→embed→upsert | ✅ Done | `services/ingestion_service.py` |
 | F-008 | **Auto-Sync Scheduler** — APScheduler polls BookStack every N minutes | ✅ Done | `services/sync_scheduler.py` |
@@ -195,3 +195,15 @@
 ## ✅ CLEO v0.8.0 Snapshot
 
 > CLEO v0.8.0 — Full-stack AI assistant with RAG pipeline, auth/RBAC, localized access UX, structured observability, security hardening, and containerized deployment.
+
+---
+
+### v0.8.1 — Azure Embedding Provider Upgrade (2026-03-22)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-108 | **Embedding Provider Strategy** — abstract embedding interface plus provider factory for Azure/OpenAI implementations | ✅ Done | `backend/app/adapters/embeddings/`, `backend/app/adapters/embedding_client.py` |
+| F-109 | **Azure Embedding Adapter** — Azure OpenAI `text-embedding-3-large` deployment support with provider metadata and config validation | ✅ Done | `backend/app/adapters/embeddings/azure_provider.py`, `backend/app/core/config.py` |
+| F-110 | **3072-Dimension Vector Contract** — Pinecone upsert/query validation aligned to `text-embedding-3-large` dimensions | ✅ Done | `backend/app/adapters/vector_store.py` |
+| F-111 | **Dependency-Inverted RAG Wiring** — ingestion and retrieval services depend on the embedding abstraction, not a concrete OpenAI client | ✅ Done | `backend/app/services/ingestion_service.py`, `backend/app/services/rag_service.py` |
+| F-112 | **Azure Embedding Test Coverage & Docs** — provider tests, env updates, and architecture/docs alignment for Azure `3-large` | ✅ Done | `backend/tests/unit/test_embedding_provider.py`, `backend/.env.example`, `README.md`, `docs/` |

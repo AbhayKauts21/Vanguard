@@ -1,4 +1,4 @@
-# 🧠 LLM Generation Strategy: gpt-4o & gpt-4o-mini
+# 🧠 LLM Generation Strategy: Azure OpenAI `gpt-4o` & `gpt-4o-mini`
 
 ## Why gpt-4o?
 The "o" stands for "omni." It is OpenAI's flagship model, uniquely optimized for incredible speed and multimodal reasoning. In a customer support scenario, speed is everything. If the Avatar takes 10 seconds to respond, the user will leave. `gpt-4o` combined with streaming provides near-instantaneous first-token responses.
@@ -12,7 +12,7 @@ While `gpt-4o` is the premium choice for the final presentation, Team Vanguard w
 * **gpt-4o-mini:** $0.150 per 1M input tokens / $0.600 per 1M output tokens. (Over 30x cheaper).
 
 ## Setup
-Handled entirely through the OpenAI API via LangChain's `ChatOpenAI(model="gpt-4o", streaming=True)`. Ensure the `OPENAI_API_KEY` is loaded in the environment variables.
+Handled through Azure OpenAI deployments using the shared Azure endpoint and deployment names. Ensure `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and `AZURE_OPENAI_CHAT_DEPLOYMENT` are loaded in the environment variables.
 
 ## Industry Alternatives
 | Model | Pros | Cons | Why we didn't choose it |

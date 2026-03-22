@@ -51,15 +51,14 @@ Edit `.env` and fill in your API keys:
 PROJECT_NAME=CLEO
 DEBUG=true
 
-# === OpenAI (RAG Pipeline) ===
-OPENAI_API_KEY=sk-proj-YOUR_KEY_HERE
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+# === Embeddings (Azure Recommended) ===
+EMBEDDING_DIMENSIONS=3072
 
-# === Azure OpenAI (Direct Chat) ===
+# === Azure OpenAI ===
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
 AZURE_OPENAI_API_KEY=your-azure-api-key
-AZURE_OPENAI_CHAT_DEPLOYMENT=your-deployment-name
+AZURE_OPENAI_CHAT_DEPLOYMENT=your-generation-deployment
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=your-embedding-deployment
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
 
 # === Pinecone ===
@@ -164,7 +163,7 @@ docker run -p 8000:8000 --env-file .env cleo-backend
 | Issue | Solution |
 |-------|----------|
 | `ModuleNotFoundError` | Run `pip install -r requirements.txt` |
-| `OPENAI_API_KEY not found` | Check `.env` file is in `backend/` directory |
+| `AZURE_OPENAI_API_KEY not found` | Check `.env` file is in `backend/` directory |
 | `Connection refused to Pinecone` | Verify `PINECONE_API_KEY` and network connectivity |
 | `BookStack connection failed` | Verify `BOOKSTACK_URL`, `BOOKSTACK_TOKEN_ID`, `BOOKSTACK_TOKEN_SECRET` |
 | Port 8000 already in use | Use different port: `python main.py --port 8001` |
@@ -195,4 +194,3 @@ npm run dev
 ```
 
 Frontend will be available at **http://localhost:3000**
-

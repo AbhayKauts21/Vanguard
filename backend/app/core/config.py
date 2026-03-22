@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.core.exceptions import AzureConfigurationError, DatabaseConfigurationError
+from app.core.exceptions import AzureConfigurationError, DatabaseConfigurationError, EmbeddingConfigurationError
 
 
 class Settings(BaseSettings):
@@ -22,16 +22,15 @@ class Settings(BaseSettings):
             return v
         return str(v).lower() in ("true", "1", "yes", "on")
 
-    # OpenAI — shared key for embeddings + generation
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    # Embeddings — Azure OpenAI configuration
+    EMBEDDING_DIMENSIONS: int = 3072
 
-    # Azure OpenAI Foundry — direct chat module
+    # Azure OpenAI Foundry — shared generation and embedding provider
     AZURE_OPENAI_ENDPOINT: str = ""
     AZURE_OPENAI_API_KEY: str = ""
     AZURE_OPENAI_API_VERSION: str = ""
     AZURE_OPENAI_CHAT_DEPLOYMENT: str = ""
+    AZURE_OPENAI_EMBEDDING_DEPLOYMENT: str = ""
     AZURE_OPENAI_AUTH_MODE: str = "api_key"
     AZURE_OPENAI_TIMEOUT_SECONDS: float = 30.0
     AZURE_OPENAI_MAX_RETRIES: int = 2
@@ -113,6 +112,34 @@ def validate_azure_openai_settings(cfg: Settings) -> None:
             detail=(
                 "Azure OpenAI is not fully configured. Missing settings: "
                 + ", ".join(missing)
+            )
+        )
+
+
+def validate_azure_embedding_settings(cfg: Settings) -> None:
+    """Fail fast when Azure embedding settings are incomplete or unsupported."""
+    missing = [
+        name
+        for name, value in (
+            ("AZURE_OPENAI_ENDPOINT", cfg.AZURE_OPENAI_ENDPOINT),
+            ("AZURE_OPENAI_API_KEY", cfg.AZURE_OPENAI_API_KEY),
+            ("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", cfg.AZURE_OPENAI_EMBEDDING_DEPLOYMENT),
+        )
+        if not value
+    ]
+    if missing:
+        raise EmbeddingConfigurationError(
+            detail=(
+                "Azure embeddings are not fully configured. Missing settings: "
+                + ", ".join(missing)
+            )
+        )
+
+    if cfg.AZURE_OPENAI_AUTH_MODE != "api_key":
+        raise AzureConfigurationError(
+            detail=(
+                "Unsupported AZURE_OPENAI_AUTH_MODE. "
+                "Only 'api_key' is supported in v1."
             )
         )
 

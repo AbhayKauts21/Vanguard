@@ -11,5 +11,6 @@ export const env = {
   heygen: {
     avatarId: process.env.NEXT_PUBLIC_HEYGEN_AVATAR_ID ?? "Bryan_Base_Light",
     voiceId: process.env.NEXT_PUBLIC_HEYGEN_VOICE_ID ?? "Default_Voice",
+    voiceIdEs: process.env.NEXT_PUBLIC_HEYGEN_VOICE_ID_ES ?? process.env.NEXT_PUBLIC_HEYGEN_VOICE_ID ?? "Default_Voice",
   }
 } as const;

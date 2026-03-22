@@ -36,7 +36,20 @@
     "coreSync": "CORE_SYNC: ACTIVE",
     "meshEngaged": "NEURAL_MESH: ENGAGED",
     "systemReady": "SYSTEM: READY",
-    "awaiting": "Awaiting Input"
+    "awaiting": "Awaiting Input",
+    "mute": "Mute avatar",
+    "unmute": "Unmute avatar",
+    "speaking": "Speaking",
+    "listening": "Listening",
+    "idle": "Idle",
+    "state_disconnected": "Disconnected",
+    "state_idle": "Idle",
+    "state_listening": "Listening",
+    "state_speaking": "Speaking",
+    "state_error": "Error",
+    "connecting": "Establishing connection...",
+    "connectionFailed": "Avatar connection failed",
+    "fallbackSphere": "Falling back to ambient sphere..."
   },
   "status": {
     "online": "Online",

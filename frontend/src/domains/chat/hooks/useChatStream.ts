@@ -39,6 +39,12 @@ export function useChatStream() {
       setThinking(true);
       setErrorType(null);
 
+      // Transition avatar to "listening" while waiting for the streamed answer
+      const avatarStore = useAvatarStore.getState();
+      if (avatarStore.isConnected) {
+        useAvatarStore.getState().setState("listening");
+      }
+
       try {
         const body: ChatRequest = { 
           message,

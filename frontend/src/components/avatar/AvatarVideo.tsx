@@ -1,12 +1,17 @@
 import { useEffect, useRef } from "react";
+import { useLocale } from "next-intl";
 import { useHeyGenAvatar } from "@/domains/avatar/hooks/useHeyGenAvatar";
 import { useAvatarStore } from "@/domains/avatar/model/avatar-store";
+import { useAvatarState } from "@/domains/avatar/hooks/useAvatarState";
 import { AvatarSphere } from "./AvatarSphere";
+import { AvatarControls } from "./AvatarControls";
 import { env } from "@/lib/env";
 
 export function AvatarVideo() {
-  const { stream, initAvatar } = useHeyGenAvatar();
+  const locale = useLocale();
+  const { stream, initAvatar } = useHeyGenAvatar(locale);
   const { isConnected, isLoading, error } = useAvatarStore();
+  const { isListening } = useAvatarState();
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -41,12 +46,17 @@ export function AvatarVideo() {
           }`}
         />
 
+        {/* Listening state visual feedback — subtle amber ring pulse */}
+        {isListening && (
+          <div className="absolute inset-0 rounded-3xl border-2 border-amber-400/40 animate-pulse pointer-events-none z-10" />
+        )}
+
         {/* Loading overlay gracefully sits while the WebRTC packet handshake occurs */}
         {isLoading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-10 transition-opacity">
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent"></div>
             <span className="mt-4 text-xs tracking-widest text-indigo-300 uppercase animate-pulse">
-              Establishing Connect...
+              Establishing Connection...
             </span>
           </div>
         )}
@@ -54,11 +64,14 @@ export function AvatarVideo() {
         {/* Failed network rendering logic */}
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/20 backdrop-blur-md p-6 text-center z-10 transition-opacity">
-            <span className="material-symbols-outlined text-red-500 text-3xl mb-2">error</span>
+            <span className="text-red-500 text-3xl mb-2">⚠</span>
             <span className="text-sm font-medium text-red-400">{error}</span>
             <span className="text-xs text-white/50 mt-2">Falling back to ambient sphere...</span>
           </div>
         )}
+
+        {/* Mute / connection controls */}
+        <AvatarControls />
       </div>
     </div>
   );

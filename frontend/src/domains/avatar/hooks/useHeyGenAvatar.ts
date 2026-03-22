@@ -1,23 +1,45 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import StreamingAvatar, { AvatarQuality, StreamingEvents, TaskType } from "@heygen/streaming-avatar";
 import { useAvatarStore } from "../model/avatar-store";
+import { fetchHeyGenToken } from "../api/avatarApi";
 import { env } from "@/lib/env";
 
-export function useHeyGenAvatar() {
+/**
+ * Locale → HeyGen voice-id mapping.
+ * Falls back to the env default when a locale is not mapped.
+ */
+const VOICE_MAP: Record<string, string> = {
+  en: env.heygen.voiceId,
+  es: env.heygen.voiceIdEs,
+};
+
+/**
+ * Resolve voice id for the given locale.
+ */
+function resolveVoice(locale: string): string {
+  return VOICE_MAP[locale] ?? env.heygen.voiceId;
+}
+
+export function useHeyGenAvatar(locale: string = "en") {
   const { setConnectionStatus, setLoading, setState, setError, setSpeakFn } = useAvatarStore();
   const avatarRef = useRef<StreamingAvatar | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
-  const fetchToken = async (): Promise<string> => {
-    const res = await fetch("/api/heygen/token", { method: "POST" });
-    if (!res.ok) {
-      throw new Error("Failed to fetch WebRTC token from internal API");
+  /** Gracefully tear down the WebRTC session. */
+  const endSession = useCallback(async () => {
+    if (avatarRef.current) {
+      try {
+        await avatarRef.current.stopAvatar();
+      } catch {
+        /* Best-effort — session may already be closed. */
+      }
+      avatarRef.current = null;
+      setStream(null);
+      setConnectionStatus(false);
     }
-    const data = await res.json();
-    return data.token;
-  };
+  }, [setConnectionStatus]);
 
-  const initAvatar = async () => {
+  const initAvatar = useCallback(async () => {
     if (!env.enableAvatar) return;
 
     try {
@@ -25,16 +47,16 @@ export function useHeyGenAvatar() {
       setError(null);
       setState("idle");
 
-      const token = await fetchToken();
-      
+      const token = await fetchHeyGenToken();
+
       const avatar = new StreamingAvatar({ token });
       avatarRef.current = avatar;
 
-      // Event Bindings
+      // Event bindings
       avatar.on(StreamingEvents.STREAM_READY, (event: any) => {
         setStream(event.detail);
       });
-      
+
       avatar.on(StreamingEvents.STREAM_DISCONNECTED, () => {
         setStream(null);
         setConnectionStatus(false);
@@ -43,12 +65,12 @@ export function useHeyGenAvatar() {
       avatar.on(StreamingEvents.AVATAR_START_TALKING, () => setState("speaking"));
       avatar.on(StreamingEvents.AVATAR_STOP_TALKING, () => setState("idle"));
 
-      // Boot stream
+      // Boot stream with locale-aware voice
       await avatar.createStartAvatar({
         quality: AvatarQuality.High,
         avatarName: env.heygen.avatarId,
         voice: {
-          voiceId: env.heygen.voiceId,
+          voiceId: resolveVoice(locale),
         },
       });
 
@@ -59,27 +81,22 @@ export function useHeyGenAvatar() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [locale, setConnectionStatus, setLoading, setState, setError]);
 
-  const endSession = async () => {
-    if (avatarRef.current) {
-      await avatarRef.current.stopAvatar();
-      avatarRef.current = null;
-      setStream(null);
-      setConnectionStatus(false);
-    }
-  };
-
-  const speak = async (text: string) => {
+  const speak = useCallback(async (text: string) => {
     if (!avatarRef.current || !useAvatarStore.getState().isConnected) return;
+
+    // Respect mute — skip speech but keep state transitions
+    if (useAvatarStore.getState().isMuted) return;
+
     try {
       await avatarRef.current.speak({ text, taskType: TaskType.REPEAT });
     } catch (e: any) {
       console.error("Avatar speech error:", e);
     }
-  };
+  }, []);
 
-  const interrupt = async () => {
+  const interrupt = useCallback(async () => {
     if (!avatarRef.current || !useAvatarStore.getState().isConnected) return;
     try {
       await avatarRef.current.interrupt();
@@ -87,16 +104,27 @@ export function useHeyGenAvatar() {
     } catch (e: any) {
       console.error("Failed to interrupt avatar", e);
     }
-  };
+  }, [setState]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount + beforeunload for tab close (prevents WebRTC leak)
   useEffect(() => {
     setSpeakFn(speak);
-    return () => { 
-      setSpeakFn(null);
-      endSession(); 
+
+    const handleBeforeUnload = () => {
+      if (avatarRef.current) {
+        avatarRef.current.stopAvatar().catch(() => {});
+        avatarRef.current = null;
+      }
     };
-  }, []);
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      setSpeakFn(null);
+      endSession();
+    };
+  }, [endSession, setSpeakFn, speak]);
 
   return { stream, initAvatar, endSession, speak, interrupt };
 }

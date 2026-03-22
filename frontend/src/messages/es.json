@@ -26,6 +26,8 @@
     "citations": "Fuentes",
     "noContext": "No se encontró documentación relevante para tu pregunta.",
     "streamError": "Transmisión interrumpida. Por favor, inténtalo de nuevo.",
+    "offlineTitle": "CLEO está desconectado",
+    "offlineHint": "Intentando reconectar... Verifica tu conexión al backend.",
     "uncertainTitle": "No completamente seguro",
     "uncertainDesc": "Encontré información pero no estoy seguro de que responda tu pregunta.",
     "whatIFound": "Lo que encontré de todas formas:",

@@ -146,10 +146,24 @@
 
 ---
 
+### v0.6.0 — Phase 9: Performance, Polish & Demo Readiness (2026-03-22)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-083 | **ChatPanel Skeleton** — Shimmer loading state mimicking message bubbles + composer for initial load | ✅ Done | `frontend/src/components/chat/ChatPanelSkeleton.tsx` |
+| F-084 | **AdminPanel Skeleton** — Full skeleton for SyncStatusCard, HealthGrid, SyncLog, and SyncControls | ✅ Done | `frontend/src/domains/system/components/AdminPanelSkeleton.tsx` |
+| F-085 | **Backend Offline Banner** — Amber pulse banner in ChatPanel when health check fails, auto-dismisses on reconnect | ✅ Done | `frontend/src/components/chat/OfflineBanner.tsx` |
+| F-086 | **Admin Empty State** — "No sync data available. Run your first sync." with icon when no data exists | ✅ Done | `frontend/src/domains/system/components/SyncStatusCard.tsx` |
+| F-087 | **Avatar Failure Fallback** — Falls back to AvatarSphere with error overlay + "Falling back to ambient sphere" label | ✅ Done | `frontend/src/components/avatar/AvatarVideo.tsx` |
+| F-088 | **Demo Environment Configs** — `.env.demo` for backend (gpt-4o, tuned thresholds) and frontend (all features enabled) | ✅ Done | `backend/.env.demo`, `frontend/.env.demo` |
+| F-089 | **Offline i18n Keys** — `offlineTitle` / `offlineHint` in en + es for offline banner localization | ✅ Done | `frontend/src/messages/en.json`, `es.json` |
+| F-090 | **Suspense Admin Page** — Admin page wrapped in `<Suspense>` with `AdminPanelSkeleton` fallback | ✅ Done | `frontend/src/app/[locale]/admin/page.tsx` |
+
+---
+
 ## 🔮 Upcoming Features
 
 | # | Feature | Priority | Target |
 |---|---|---|---|
-| F-083 | Performance, Polish & Demo Readiness (Phase 9) | 🟡 P1 | v0.6.0 |
-| F-084 | Deployment & Infrastructure (Phase 10) | 🟢 P2 | v0.7.0 |
+| F-091 | Deployment & Infrastructure (Phase 10) | 🟢 P2 | v0.7.0 |
 

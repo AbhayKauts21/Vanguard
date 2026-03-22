@@ -40,32 +40,45 @@ export function SyncStatusCard() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-xl bg-white/5 p-4 transition-colors hover:bg-white/10">
-            <div className="text-sm text-white/50">Indexed Pages</div>
-            <div className="mt-1 text-2xl font-light text-white">
-              {syncStatus?.total_pages_synced ?? "—"}
-            </div>
+        {/* Phase 9: Empty state when no sync has ever run */}
+        {!syncStatus && !error && !isRefreshing && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+            <span className="material-symbols-outlined text-3xl text-white/20">sync_disabled</span>
+            <p className="text-sm text-white/40">No sync data available.</p>
+            <p className="text-xs text-white/25">Run your first sync to index BookStack pages.</p>
           </div>
-          <div className="rounded-xl bg-white/5 p-4 transition-colors hover:bg-white/10">
-            <div className="text-sm text-white/50">Vector Chunks</div>
-            <div className="mt-1 text-2xl font-light text-white">
-              {syncStatus?.total_chunks_synced ?? "—"}
-            </div>
-          </div>
-        </div>
+        )}
 
-        <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-4 text-xs text-white/40">
-          <div>
-            Last Sync:{" "}
-            {syncStatus?.last_sync_at
-              ? formatDistanceToNow(new Date(syncStatus.last_sync_at), { addSuffix: true })
-              : "Never"}
+        {syncStatus && (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl bg-white/5 p-4 transition-colors hover:bg-white/10">
+              <div className="text-sm text-white/50">Indexed Pages</div>
+              <div className="mt-1 text-2xl font-light text-white">
+                {syncStatus?.total_pages_synced ?? "—"}
+              </div>
+            </div>
+            <div className="rounded-xl bg-white/5 p-4 transition-colors hover:bg-white/10">
+              <div className="text-sm text-white/50">Vector Chunks</div>
+              <div className="mt-1 text-2xl font-light text-white">
+                {syncStatus?.total_chunks_synced ?? "—"}
+              </div>
+            </div>
           </div>
-          <div>
-            {isRefreshing && <span className="animate-pulse">Refreshing...</span>}
+
+          <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-4 text-xs text-white/40">
+            <div>
+              Last Sync:{" "}
+              {syncStatus?.last_sync_at
+                ? formatDistanceToNow(new Date(syncStatus.last_sync_at), { addSuffix: true })
+                : "Never"}
+            </div>
+            <div>
+              {isRefreshing && <span className="animate-pulse">Refreshing...</span>}
+            </div>
           </div>
-        </div>
+        </>
+        )}
       </div>
     </div>
   );

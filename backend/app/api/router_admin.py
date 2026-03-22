@@ -1,13 +1,9 @@
-"""Admin router — ingestion management endpoints.
-
-Phase 7: all routes require ``X-API-Key`` header matching
-``ADMIN_API_KEY`` env var.
-"""
+"""Admin router — ingestion management endpoints protected by RBAC."""
 
 from fastapi import APIRouter, BackgroundTasks, Depends
 from loguru import logger
 
-from app.core.auth import verify_admin_key
+from app.api.deps import require_permissions
 from app.domain.schemas import (
     FullSyncResult,
     IngestionResult,
@@ -19,7 +15,7 @@ from app.services.sync_scheduler import get_next_run_time
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
-    dependencies=[Depends(verify_admin_key)],
+    dependencies=[Depends(require_permissions("sync:manage"))],
 )
 
 

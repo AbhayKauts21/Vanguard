@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { AuthStatusMenu } from "@/domains/auth/components";
 import { Link } from "@/i18n/navigation";
 
 /**
@@ -39,6 +40,7 @@ export function TopBar() {
         {/* Action buttons */}
         <div className="flex gap-4 items-center">
           <LanguageSwitcher />
+          <AuthStatusMenu />
           <button className="flex items-center justify-center rounded-full h-9 w-9 bg-white/5 text-white/70 border border-white/10 transition-all hover:bg-white/10">
             <span className="material-symbols-outlined text-[18px]">settings</span>
           </button>

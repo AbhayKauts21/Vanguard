@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useChatStore } from "@/domains/chat/model";
 
@@ -11,6 +12,16 @@ export function SessionStatus() {
   const t = useTranslations("chat");
   const newConversation = useChatStore((s) => s.newConversation);
   const conversationId = useChatStore((s) => s.conversationId);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  const sessionLabel =
+    isMounted && conversationId
+      ? `SESSION_${conversationId.split("-")[0].toUpperCase()}`
+      : "SESSION_CLEO";
 
   return (
     <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
@@ -23,7 +34,7 @@ export function SessionStatus() {
       <div className="flex items-center gap-4">
         <button
           onClick={newConversation}
-          title="Start a new conversion"
+          title="Start a new conversation"
           className="flex items-center gap-1.5 px-3 py-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded transition-colors border border-white/5 text-[10px] font-medium tracking-wide uppercase group cursor-pointer"
         >
           <span className="material-symbols-outlined text-[14px]">add_circle</span>
@@ -33,7 +44,7 @@ export function SessionStatus() {
           Ctrl+K: Terminal
         </span>
         <span className="text-[9px] text-white/30 font-mono tracking-widest hidden md:inline">
-          {conversationId ? `SESSION_${conversationId.split('-')[0].toUpperCase()}` : "SESSION_CLEO"}
+          {sessionLabel}
         </span>
       </div>
     </div>

@@ -1,7 +1,6 @@
 variable "subscription_id" {
   description = "Azure Subscription ID"
   type        = string
-  default     = "0d5505db-c5a0-4a2d-8e52-1ff49cd01a36"
 }
 
 variable "tenant_id" {

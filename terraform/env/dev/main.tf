@@ -65,6 +65,7 @@ module "vm" {
   nsg_id              = module.security_group.nsg_id
   public_ip_name      = var.public_ip_name
   nic_name            = var.nic_name
+  postgres_password   = var.postgres_password
   tags                = var.tags
 
   depends_on = [

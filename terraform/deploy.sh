@@ -19,6 +19,24 @@ echo -e "${BLUE}  Vanguard Azure Infrastructure Deployment${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
+# Configure Service Principal Authentication
+echo -e "${BLUE}Configuring Service Principal authentication...${NC}"
+export ARM_CLIENT_ID="799e7cea-c318-4d79-86ab-08e6e2218e12"
+export ARM_CLIENT_SECRET="2sD8Q~_K29P.dEzQ3oe8RfkmxrAvPi5CzcCKEcu6"
+export ARM_SUBSCRIPTION_ID="0d5505db-c5a0-4a2d-8e52-1ff49cd01a36"
+export ARM_TENANT_ID="690e5f38-513b-4d9b-af89-1fff026133ac"
+echo -e "${GREEN}✓ Service Principal credentials configured${NC}"
+echo ""
+
+# Configure PostgreSQL Password
+if [ -z "$TF_VAR_postgres_password" ]; then
+    echo -e "${YELLOW}! PostgreSQL password not set, using default${NC}"
+    export TF_VAR_postgres_password="Postgres@123"
+else
+    echo -e "${GREEN}✓ PostgreSQL password configured from environment${NC}"
+fi
+echo ""
+
 # Check if Terraform is installed
 if ! command -v terraform &> /dev/null; then
     echo -e "${RED}✗ Terraform is not installed${NC}"
@@ -40,34 +58,6 @@ fi
 echo -e "${GREEN}✓ Azure CLI is installed${NC}"
 az version --output table 2>/dev/null || az --version
 echo ""
-
-# Check if logged into Azure
-if ! az account show &> /dev/null; then
-    echo -e "${YELLOW}! You are not logged into Azure${NC}"
-    echo "Please login using: az login"
-    exit 1
-fi
-
-echo -e "${GREEN}✓ Logged into Azure${NC}"
-echo "Subscription: $(az account show --query name -o tsv)"
-echo ""
-
-# Check for required environment variables
-echo -e "${BLUE}Checking environment variables...${NC}"
-
-if [ -z "$ARM_CLIENT_ID" ] || [ -z "$ARM_CLIENT_SECRET" ] || [ -z "$ARM_SUBSCRIPTION_ID" ] || [ -z "$ARM_TENANT_ID" ]; then
-    echo -e "${YELLOW}! Warning: Service Principal environment variables not set${NC}"
-    echo "Using Azure CLI authentication instead"
-    echo ""
-    echo "To use Service Principal authentication, set:"
-    echo "  export ARM_CLIENT_ID='your-client-id'"
-    echo "  export ARM_CLIENT_SECRET='your-client-secret'"
-    echo "  export ARM_SUBSCRIPTION_ID='your-subscription-id'"
-    echo "  export ARM_TENANT_ID='your-tenant-id'"
-    echo ""
-else
-    echo -e "${GREEN}✓ Service Principal credentials configured${NC}"
-fi
 
 # Navigate to dev environment
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -1,6 +1,31 @@
 # Terraform Azure VM with PostgreSQL
 
-This Terraform configuration deploys an Azure Virtual Machine with PostgreSQL installed and configured automatically via cloud-init.
+This Terraform configuration deploys an Azure Virtual Machine with Docker, PostgreSQL, and Grafana installed and configured automatically via cloud-init.
+
+## ⚡ Quick Reference
+
+```bash
+# Deploy infrastructure
+cd terraform && ./deploy.sh
+
+# SSH into VM (after deployment)
+ssh -i terraform/env/dev/vanguard_ssh_key.pem azureuser@<VM_IP>
+
+# Get VM IP address
+cd terraform/env/dev && terraform output -raw vm_public_ip
+
+# Destroy all resources
+cd terraform && ./destroy.sh
+```
+
+## 📦 What's Deployed
+
+- **VM**: Ubuntu 22.04 LTS (Standard_B2s)
+- **Docker**: Latest version with Docker Compose
+- **PostgreSQL**: Running in Docker container
+- **Grafana**: Monitoring dashboard (port 3000)
+- **Networking**: VNet, Subnet, NSG with SSH/HTTP/HTTPS/Grafana access
+- **Storage**: Terraform state stored in Azure Storage Account
 
 ## 🔐 Security Features
 
@@ -27,39 +52,109 @@ This Terraform configuration deploys an Azure Virtual Machine with PostgreSQL in
 
 ## 🚀 Quick Start
 
-### 1. Configure Variables
+### Option 1: Using Deploy Script (Recommended)
 
-Copy the example variables file and customize it:
+The easiest way to deploy is using the automated script:
 
 ```bash
-cp terraform.tfvars.example terraform.tfvars
+# From the terraform directory
+cd terraform
+./deploy.sh
 ```
 
-Edit `terraform.tfvars` to set your preferences:
-- Azure region
-- VM size
-- Database name and user
-- SSH key path
+The script will:
+- ✅ Check prerequisites (Terraform, Azure CLI)
+- ✅ Configure Service Principal authentication
+- ✅ Initialize Terraform
+- ✅ Validate configuration
+- ✅ Show deployment plan
+- ✅ Apply changes (after your confirmation)
+- ✅ Save SSH key to `terraform/env/dev/vanguard_ssh_key.pem`
 
-### 2. Initialize Terraform
+**Note:** The SSH private key is saved in `terraform/env/dev/vanguard_ssh_key.pem` with proper permissions (600).
+
+### 🔑 PostgreSQL Password Configuration
+
+The PostgreSQL password can be configured in three ways (in order of precedence):
+
+1. **GitHub Secret** (Recommended for CI/CD):
+   - Set `POSTGRES_PASSWORD` secret in GitHub repository
+   - Used automatically by GitHub Actions workflow
+
+2. **Environment Variable** (For local deployment):
+   ```bash
+   export TF_VAR_postgres_password="YourSecurePassword"
+   cd terraform && ./deploy.sh
+   ```
+
+3. **Default Password** (Fallback):
+   - If not set via GitHub secret or environment variable
+   - Default: `Postgres@123`
+
+**Security Note:** For production deployments, always use GitHub Secrets or environment variables instead of the default password.
+
+### 🗄️ Terraform State Backend
+
+The Terraform state file is stored remotely in Azure Storage:
+
+```hcl
+backend "azurerm" {
+  resource_group_name  = "vanguard"
+  storage_account_name = "vanguardtfstate"
+  container_name       = "tfstate"
+  key                  = "vanguard.terraform.tfstate"
+}
+```
+
+**Prerequisites:**
+The storage account `vanguardtfstate` must exist before running Terraform. Create it manually:
 
 ```bash
+# Create storage account for Terraform state
+az storage account create \
+  --name vanguardtfstate \
+  --resource-group vanguard \
+  --location "East US 2" \
+  --sku Standard_LRS \
+  --encryption-services blob
+
+# Create container
+az storage container create \
+  --name tfstate \
+  --account-name vanguardtfstate
+```
+
+**Benefits:**
+- ✅ Shared state for team collaboration
+- ✅ State locking prevents concurrent modifications
+- ✅ Automatic backup and versioning
+- ✅ Secure access via Azure RBAC
+
+### Option 2: Manual Terraform Commands
+
+If you prefer manual control:
+
+```bash
+# Navigate to dev environment
+cd terraform/env/dev
+
+# Initialize Terraform
 terraform init
-```
 
-### 3. Review the Plan
-
-```bash
+# Review the plan
 terraform plan
-```
 
-### 4. Deploy
-
-```bash
+# Deploy
 terraform apply
 ```
 
-Type `yes` when prompted to confirm.
+### 🔑 Service Principal Authentication
+
+The deploy script uses Service Principal credentials configured in the script:
+- Client ID: `799e7cea-c318-4d79-86ab-08e6e2218e12`
+- Subscription: `0d5505db-c5a0-4a2d-8e52-1ff49cd01a36`
+
+**Important:** These credentials are hardcoded for convenience. For production, use environment variables or Azure Key Vault.
 
 ## 📊 Outputs
 
@@ -67,8 +162,30 @@ After successful deployment, Terraform provides the following outputs:
 
 ### View All Outputs
 ```bash
+# From terraform/env/dev directory
+cd terraform/env/dev
 terraform output
 ```
+
+### 🖥️ SSH Access to VM
+
+**Using the saved SSH key:**
+```bash
+# From project root
+ssh -i terraform/env/dev/vanguard_ssh_key.pem azureuser@<VM_PUBLIC_IP>
+
+# Or navigate to the terraform directory first
+cd terraform/env/dev
+ssh -i vanguard_ssh_key.pem azureuser@$(terraform output -raw vm_public_ip)
+```
+
+**Get the SSH command:**
+```bash
+cd terraform/env/dev
+terraform output -raw ssh_command
+```
+
+The SSH private key is automatically saved to `terraform/env/dev/vanguard_ssh_key.pem` with secure permissions (600).
 
 ### PostgreSQL Connection Details
 
@@ -214,13 +331,51 @@ location = "westus2"
 
 ## 🧹 Cleanup
 
-To destroy all resources:
+### Option 1: Using Destroy Script (Recommended)
+
+The safest way to destroy all resources:
 
 ```bash
+# From the terraform directory
+cd terraform
+./destroy.sh
+```
+
+The script will:
+- ✅ Configure Service Principal authentication
+- ✅ Show current infrastructure state
+- ✅ Display resources to be destroyed
+- ✅ Ask for typed confirmation ("destroy")
+- ✅ Delete all infrastructure
+- ✅ Clean up local files (SSH keys, plan files)
+
+**What gets deleted:**
+- Virtual Machine
+- Public IP
+- Network Interface
+- Network Security Group
+- Virtual Network and Subnet
+
+**What stays:**
+- Resource Group `vanguard` (kept intentionally)
+- Storage account for Terraform state
+
+### Option 2: Manual Terraform Destroy
+
+```bash
+# Navigate to dev environment
+cd terraform/env/dev
+
+# Destroy all resources
 terraform destroy
 ```
 
 Type `yes` when prompted.
+
+**Clean up local files:**
+```bash
+rm -f vanguard_ssh_key.pem tfplan tfplan.binary tfplan.json
+```
 
 ## 📝 Verification
 
@@ -229,23 +384,35 @@ Type `yes` when prompted.
 SSH into the VM and check cloud-init logs:
 
 ```bash
-ssh azureuser@$(terraform output -raw postgres_host)
+# From project root
+ssh -i terraform/env/dev/vanguard_ssh_key.pem azureuser@<VM_PUBLIC_IP>
 
-# Check cloud-init status
+# Or from terraform/env/dev directory
+cd terraform/env/dev
+ssh -i vanguard_ssh_key.pem azureuser@$(terraform output -raw vm_public_ip)
+
+# Once connected, check cloud-init status
 sudo cloud-init status
 
-# View PostgreSQL setup log
-sudo cat /var/log/postgres_setup.log
+# Check if cloud-init completed
+cat /var/log/cloud-init-complete.log
 
-# Check PostgreSQL service
-sudo systemctl status postgresql
+# View Docker installation status
+docker --version
+docker compose version
+
+# Check PostgreSQL container
+docker ps | grep postgres
+
+# Check Grafana access
+curl -s http://localhost:3000 | head
 ```
 
-### Test Database Connection
+### Test PostgreSQL Connection
 
 ```bash
 # From the VM
-sudo -u postgres psql -d appdb -c "SELECT version();"
+docker exec -it $(docker ps -q -f name=postgres) psql -U postgres -d vanguard_db
 ```
 
 ## 🔒 Security Best Practices

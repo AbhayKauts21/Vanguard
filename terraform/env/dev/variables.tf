@@ -85,3 +85,11 @@ variable "tags" {
     Owner       = "DevOps Team"
   }
 }
+
+# PostgreSQL Variables
+variable "postgres_password" {
+  description = "PostgreSQL admin password"
+  type        = string
+  sensitive   = true
+  default     = "Postgres@123"
+}

@@ -19,6 +19,24 @@ echo -e "${RED}  Vanguard Infrastructure Destruction${NC}"
 echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
+# Configure Service Principal Authentication
+echo -e "${BLUE}Configuring Service Principal authentication...${NC}"
+export ARM_CLIENT_ID="799e7cea-c318-4d79-86ab-08e6e2218e12"
+export ARM_CLIENT_SECRET="2sD8Q~_K29P.dEzQ3oe8RfkmxrAvPi5CzcCKEcu6"
+export ARM_SUBSCRIPTION_ID="0d5505db-c5a0-4a2d-8e52-1ff49cd01a36"
+export ARM_TENANT_ID="690e5f38-513b-4d9b-af89-1fff026133ac"
+echo -e "${GREEN}✓ Service Principal credentials configured${NC}"
+echo ""
+
+# Configure PostgreSQL Password
+if [ -z "$TF_VAR_postgres_password" ]; then
+    echo -e "${YELLOW}! PostgreSQL password not set, using default${NC}"
+    export TF_VAR_postgres_password="Postgres@123"
+else
+    echo -e "${GREEN}✓ PostgreSQL password configured from environment${NC}"
+fi
+echo ""
+
 # Navigate to dev environment
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/env/dev"

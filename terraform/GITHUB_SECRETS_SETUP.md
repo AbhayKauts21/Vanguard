@@ -2,11 +2,25 @@
 
 This guide explains how to configure GitHub Secrets for the Terraform deployment workflow.
 
-## 🔐 Required Secret: AZURE_CREDENTIALS
+## 🔐 Required Secrets
+
+### 1. AZURE_CREDENTIALS (Required)
 
 The workflow uses Azure CLI login via the `azure/login@v2` action, which requires a single secret named `AZURE_CREDENTIALS`.
 
-### Secret Format
+### 2. POSTGRES_PASSWORD (Optional but Recommended)
+
+PostgreSQL admin password for database access.
+
+**Default if not set:** `Postgres@123`
+
+**Recommendation:** Set a strong password for production deployments.
+
+---
+
+## 📋 Secret Format
+
+### AZURE_CREDENTIALS
 
 The `AZURE_CREDENTIALS` secret must be a JSON object containing your Azure Service Principal credentials:
 
@@ -78,6 +92,25 @@ az role assignment list --assignee <client-id> -o table
 4. Name: `AZURE_CREDENTIALS`
 5. Value: Paste the entire JSON output from Step 1
 6. Click **Add secret**
+
+### Step 4: Add PostgreSQL Password Secret (Optional but Recommended)
+
+For better security, set a custom PostgreSQL password:
+
+1. In **Settings** → **Secrets and variables** → **Actions**
+2. Click **New repository secret**
+3. Name: `POSTGRES_PASSWORD`
+4. Value: Enter a strong password (e.g., `MyS3cur3P@ssw0rd!2024`)
+5. Click **Add secret**
+
+**Password Configuration Priority:**
+- ✅ If `POSTGRES_PASSWORD` secret is set → uses that value
+- ⚠️ If not set → uses default: `Postgres@123`
+
+**Password Requirements:**
+- Minimum 8 characters (recommended: 16+)
+- Mix of uppercase, lowercase, numbers, and symbols
+- Avoid common words or patterns
 
 ---
 

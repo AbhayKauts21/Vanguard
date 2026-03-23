@@ -63,6 +63,8 @@ jobs:
 
       - name: Terraform Plan to Binary
         id: plan
+        env:
+          TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
         run: terraform plan -out=tfplan.binary
 
       - name: Convert Plan to JSON
@@ -96,6 +98,8 @@ jobs:
       - name: Terraform Apply
         id: apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
         run: terraform apply -auto-approve tfplan.binary
 
       - name: Terraform Output

@@ -50,3 +50,10 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "postgres_password" {
+  description = "PostgreSQL admin password"
+  type        = string
+  sensitive   = true
+  default     = "Postgres@123"
+}

@@ -25,6 +25,11 @@ jobs:
     name: Scan & Deploy Terraform
     runs-on: ubuntu-latest
     
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIR }}

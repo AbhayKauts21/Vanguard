@@ -18,8 +18,9 @@ export function SyncControls() {
     try {
       const res = await triggerFullSync();
       showNotification(`Re-sync triggered: ${res.status}`, "success");
-    } catch (err: any) {
-      showNotification(err.message, "error");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showNotification(message, "error");
     }
   };
 
@@ -29,8 +30,9 @@ export function SyncControls() {
       const res = await triggerPageSync(parseInt(pageId));
       showNotification(`Page setup updated: ${res.status}`, "success");
       setPageId("");
-    } catch (err: any) {
-      showNotification(err.message, "error");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      showNotification(message, "error");
     }
   };
 

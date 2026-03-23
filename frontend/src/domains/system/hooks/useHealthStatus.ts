@@ -12,8 +12,9 @@ export function useHealthStatus() {
       const data = await adminApi.getDetailedHealth();
       setHealth(data);
       setError(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to check system health");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to check system health";
+      setError(message);
       setHealth({
         status: "offline",
         timestamp: new Date().toISOString(),

@@ -1,7 +1,7 @@
 """Manual smoke test for the Azure OpenAI direct-chat module.
 
 Run from the backend directory:
-    ./venv/bin/python scripts/test_azure_chat.py
+    ./venv/bin/python scripts/verify_azure_chat.py
 """
 
 import asyncio

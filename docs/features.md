@@ -34,7 +34,7 @@
 | F-016 | **Azure Chat Service** — stateless prompt + context orchestration with middleware hooks | ✅ Done | `services/azure_chat_service.py` |
 | F-017 | **Azure Chat API** — dedicated `POST /api/v1/azure-chat/` endpoint | ✅ Done | `api/router_azure_chat.py` |
 | F-018 | **Azure Prompt Builder** — deterministic context serialization for direct chat | ✅ Done | `core/azure_prompts.py` |
-| F-019 | **Azure Smoke Test Script** — manual validation against a live deployment | ✅ Done | `scripts/test_azure_chat.py` |
+| F-019 | **Azure Smoke Test Script** — manual validation against a live deployment | ✅ Done | `scripts/verify_azure_chat.py` |
 | F-020 | **Azure Direct Chat Tests** — unit + integration coverage for config, middleware, and routing | ✅ Done | `tests/unit/test_azure_chat_module.py` |
 
 ### v0.2.1 — CLEO Neural Interface Frontend (2026-03-16)
@@ -184,7 +184,7 @@
 | F-104 | **Local Auth UX Hardening** — 127.0.0.1 CORS/dev-origin support, frontend local API base URL, and user-facing auth copy | ✅ Done | `backend/app/core/config.py`, `frontend/.env.local`, `frontend/src/messages/` |
 | F-105 | **Auth Theme Cleanup** — Missing shared token definitions fixed and redundant right-side auth panel removed | ✅ Done | `frontend/src/styles/tokens.css`, `frontend/src/domains/auth/components/AuthPageShell.tsx` |
 | F-106 | **Hydration-Safe Session Label** — Stable SSR fallback for session status, then client-side session ID reveal after mount | ✅ Done | `frontend/src/components/chat/SessionStatus.tsx` |
-| F-107 | **Auth Verification Suite** — Backend auth/RBAC tests, frontend auth component tests, session hydration test, and smoke script | ✅ Done | `backend/tests/integration/test_auth_rbac_router.py`, `backend/tests/unit/test_auth_security.py`, `frontend/src/domains/auth/`, `frontend/src/components/chat/SessionStatus.test.tsx`, `backend/scripts/test_auth_rbac.py` |
+| F-107 | **Auth Verification Suite** — Backend auth/RBAC tests, frontend auth component tests, session hydration test, and smoke script | ✅ Done | `backend/tests/integration/test_auth_rbac_router.py`, `backend/tests/unit/test_auth_security.py`, `frontend/src/domains/auth/`, `frontend/src/components/chat/SessionStatus.test.tsx`, `backend/scripts/verify_auth_rbac.py` |
 
 ---
 
@@ -195,7 +195,7 @@
 | F-108 | **Azure OpenAI Text Embeddings** — `embedding_client.py` now supports Azure OpenAI embeddings (text-embedding-3-large) for document vectorization | ✅ Done | `backend/app/adapters/embedding_client.py` |
 | F-109 | **Azure Chat Completion Service** — Dedicated `azure_chat_service.py` for Azure OpenAI chat completions with system prompts and citation formatting | ✅ Done | `backend/app/services/azure_chat_service.py` |
 | F-110 | **Azure Chat Endpoint** — New `/chat/azure` endpoint exposes Azure OpenAI chat with RAG for frontend integration | ✅ Done | `backend/app/api/router_azure_chat.py` |
-| F-111 | **Azure Integration Tests** — E2E test script validates Azure OpenAI embeddings + chat flow | ✅ Done | `backend/scripts/test_azure_chat.py`, `backend/tests/integration/test_azure_chat_router.py` |
+| F-111 | **Azure Integration Tests** — E2E test script validates Azure OpenAI embeddings + chat flow | ✅ Done | `backend/scripts/verify_azure_chat.py`, `backend/tests/integration/test_azure_chat_router.py` |
 | F-112 | **Azure Prompts & Config** — System prompts and config variables for Azure OpenAI chat (model, temperature, max tokens) | ✅ Done | `backend/app/core/azure_prompts.py`, `backend/app/core/config.py` |
 
 ---

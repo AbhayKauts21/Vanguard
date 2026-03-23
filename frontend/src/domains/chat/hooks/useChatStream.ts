@@ -128,7 +128,6 @@ export function useChatStream() {
       startAssistantMessage,
       appendToken,
       finishAssistantMessage,
-      addAssistantMessage,
       setErrorType,
     ],
   );

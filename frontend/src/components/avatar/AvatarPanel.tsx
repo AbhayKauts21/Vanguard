@@ -16,14 +16,12 @@ import { env } from "@/lib/env";
  * CLEO-01 title positioned below the sphere (non-overlapping).
  */
 export function AvatarPanel() {
-  const t = useTranslations("avatar");
   const panelRef = useRef<HTMLDivElement>(null);
 
   /* Phase 8: poll /health/detailed for real metrics */
   useDetailedHealth();
   const lastLatencyMs = useTelemetryStore((s) => s.lastLatencyMs);
   const vectorCount = useTelemetryStore((s) => s.vectorCount);
-  const backendStatus = useTelemetryStore((s) => s.backendStatus);
 
   /* Format latency for badge display */
   const latencyDisplay = lastLatencyMs !== null

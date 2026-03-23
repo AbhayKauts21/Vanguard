@@ -53,7 +53,7 @@ export function useHeyGenAvatar(locale: string = "en") {
       avatarRef.current = avatar;
 
       // Event bindings
-      avatar.on(StreamingEvents.STREAM_READY, (event: any) => {
+      avatar.on(StreamingEvents.STREAM_READY, (event: { detail: MediaStream }) => {
         setStream(event.detail);
       });
 
@@ -75,8 +75,9 @@ export function useHeyGenAvatar(locale: string = "en") {
       });
 
       setConnectionStatus(true);
-    } catch (err: any) {
-      setError(err.message || "Failed to initialize HeyGen Stream");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to initialize HeyGen Stream";
+      setError(message);
       setConnectionStatus(false);
     } finally {
       setLoading(false);
@@ -91,7 +92,7 @@ export function useHeyGenAvatar(locale: string = "en") {
 
     try {
       await avatarRef.current.speak({ text, taskType: TaskType.REPEAT });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Avatar speech error:", e);
     }
   }, []);
@@ -101,7 +102,7 @@ export function useHeyGenAvatar(locale: string = "en") {
     try {
       await avatarRef.current.interrupt();
       setState("idle");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Failed to interrupt avatar", e);
     }
   }, [setState]);

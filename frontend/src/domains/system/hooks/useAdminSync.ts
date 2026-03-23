@@ -13,8 +13,9 @@ export function useAdminSync() {
       const data = await adminApi.getSyncStatus();
       setSyncStatus(data);
       setError(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch sync status");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to fetch sync status";
+      setError(message);
     } finally {
       setIsRefreshing(false);
     }
@@ -32,8 +33,9 @@ export function useAdminSync() {
       const res = await adminApi.triggerFullSync();
       fetchStatus();
       return res;
-    } catch (err: any) {
-      throw new Error(err.message || "Full sync failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Full sync failed";
+      throw new Error(message);
     } finally {
       setIsTriggering(false);
     }
@@ -45,8 +47,9 @@ export function useAdminSync() {
       const res = await adminApi.triggerPageSync(pageId);
       fetchStatus();
       return res;
-    } catch (err: any) {
-      throw new Error(err.message || `Sync for page ${pageId} failed`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : `Sync for page ${pageId} failed`;
+      throw new Error(message);
     } finally {
       setIsTriggering(false);
     }

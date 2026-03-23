@@ -1,20 +1,20 @@
 "use client";
 
 import { useHealthStatus } from "../hooks/useHealthStatus";
-import { cn } from "@/lib/utils/cn";
 
-export function HealthGrid() {
-  const { health, isChecking, error } = useHealthStatus();
-
-  const ServiceCard = ({ 
-    name, 
-    status, 
-    detail 
-  }: { 
-    name: string; 
-    status?: "online" | "offline"; 
-    detail?: string | number 
-  }) => (
+/**
+ * Service status card component
+ */
+function ServiceCard({ 
+  name, 
+  status, 
+  detail 
+}: { 
+  name: string; 
+  status?: "online" | "offline"; 
+  detail?: string | number 
+}) {
+  return (
     <div className="flex items-center justify-between rounded-xl bg-white/5 p-4 transition-colors hover:bg-white/10">
       <div className="flex items-center gap-3">
         <span className="relative flex h-2 w-2">
@@ -32,6 +32,10 @@ export function HealthGrid() {
       <span className="text-sm text-white/50">{detail ?? "—"}</span>
     </div>
   );
+}
+
+export function HealthGrid() {
+  const { health, isChecking, error } = useHealthStatus();
 
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/50 hover:border-white/20">

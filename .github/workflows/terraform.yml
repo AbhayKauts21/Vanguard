@@ -58,7 +58,7 @@ jobs:
           # Backend configuration is provided via ARM_ environment variables
           # These are automatically used by the azurerm backend
           terraform init \
-            -backend-config="resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP_NAME || 'vanguard-tfstate' }}" \
+            -backend-config="resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP_NAME || 'vanguard' }}" \
             -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT_NAME || 'vanguardtfstate' }}" \
             -backend-config="container_name=${{ secrets.TFSTATE_CONTAINER_NAME || 'tfstate' }}" \
             -backend-config="key=vanguard.terraform.tfstate"

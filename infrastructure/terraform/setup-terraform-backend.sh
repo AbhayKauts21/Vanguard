@@ -29,7 +29,7 @@ NC='\033[0m' # No Color
 # Configuration
 SUBSCRIPTION_ID="0d5505db-c5a0-4a2d-8e52-1ff49cd01a36"
 LOCATION="eastus"
-RESOURCE_GROUP="vanguard-tfstate"
+RESOURCE_GROUP="vanguard"  # Use existing resource group
 STORAGE_ACCOUNT="vanguardtfstate"
 CONTAINER_NAME="tfstate"
 
@@ -54,13 +54,14 @@ az account set --subscription "${SUBSCRIPTION_ID}"
 echo -e "${GREEN}✓ Subscription set to: ${SUBSCRIPTION_ID}${NC}"
 echo ""
 
-# Create resource group
-echo -e "${BLUE}→ Creating resource group '${RESOURCE_GROUP}'...${NC}"
+# Verify resource group exists
+echo -e "${BLUE}→ Verifying resource group '${RESOURCE_GROUP}' exists...${NC}"
 if az group show --name "${RESOURCE_GROUP}" &> /dev/null; then
-    echo -e "${YELLOW}  Resource group already exists, skipping creation${NC}"
+    echo -e "${GREEN}✓ Resource group '${RESOURCE_GROUP}' found${NC}"
 else
-    az group create --name "${RESOURCE_GROUP}" --location "${LOCATION}"
-    echo -e "${GREEN}✓ Resource group created${NC}"
+    echo -e "${RED}✗ Resource group '${RESOURCE_GROUP}' does not exist${NC}"
+    echo -e "${YELLOW}  Please create it first or check the name${NC}"
+    exit 1
 fi
 echo ""
 

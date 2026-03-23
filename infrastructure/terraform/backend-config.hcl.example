@@ -17,7 +17,7 @@
 #
 # ═══════════════════════════════════════════════════════════════════════
 
-resource_group_name  = "vanguard-tfstate"
+resource_group_name  = "vanguard"
 storage_account_name = "vanguardtfstate"
 container_name       = "tfstate"
 key                  = "vanguard.terraform.tfstate"

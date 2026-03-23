@@ -126,11 +126,12 @@ async def test_vector_store_upsert_batches_records_and_query_maps_results():
     store._index = FakeIndex()
 
     ids = [f"chunk-{index}" for index in range(205)]
-    vectors = [[float(index), float(index) + 1.0] for index in range(205)]
+    # Use 3072 dimensions to match Azure OpenAI text-embedding-3-large
+    vectors = [[float(index) for _ in range(3072)] for index in range(205)]
     metadatas = [{"page_id": 42, "chunk_text": f"chunk {index}"} for index in range(205)]
 
     upserted = await store.upsert_vectors(ids=ids, vectors=vectors, metadatas=metadatas)
-    results = await store.query(vector=[0.1, 0.2], top_k=3, filter_dict={"page_id": {"$eq": 42}})
+    results = await store.query(vector=[0.1] * 3072, top_k=3, filter_dict={"page_id": {"$eq": 42}})
 
     assert upserted == 205
     assert len(upsert_calls) == 3

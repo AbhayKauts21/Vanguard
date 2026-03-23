@@ -25,16 +25,20 @@ def _setup_logger() -> None:
     logger.remove()  # Remove default stderr handler
 
     if settings.DEBUG:
-        # Dev: pretty colored output
+        # Dev: pretty colored output with custom formatter that handles missing request_id
+        def format_record(record):
+            request_id = record["extra"].get("request_id", "system")
+            return (
+                "<green>{time:HH:mm:ss.SSS}</green> | "
+                "<level>{level: <7}</level> | "
+                f"<cyan>{request_id:>12}</cyan> | "
+                "<level>{message}</level>\n"
+            ).format_map(record)
+        
         logger.add(
             sys.stderr,
             level="DEBUG",
-            format=(
-                "<green>{time:HH:mm:ss.SSS}</green> | "
-                "<level>{level: <7}</level> | "
-                "<cyan>{extra[request_id]:>12}</cyan> | "
-                "<level>{message}</level>"
-            ),
+            format=format_record,
             colorize=True,
         )
     else:

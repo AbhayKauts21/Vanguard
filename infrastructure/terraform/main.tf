@@ -67,51 +67,51 @@ resource "azurerm_network_security_group" "vanguard_nsg" {
   tags                = var.tags
 
   security_rule {
-    name                       = "SSH"
-    priority                   = 1001
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
+    name                         = "SSH"
+    priority                     = 1001
+    direction                    = "Inbound"
+    access                       = "Allow"
+    protocol                     = "Tcp"
+    source_port_range            = "*"
+    destination_port_range       = "22"
+    source_address_prefixes      = var.allowed_ssh_cidrs
+    destination_address_prefix   = "*"
   }
 
   security_rule {
-    name                       = "HTTP"
-    priority                   = 1002
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
+    name                         = "HTTP"
+    priority                     = 1002
+    direction                    = "Inbound"
+    access                       = "Allow"
+    protocol                     = "Tcp"
+    source_port_range            = "*"
+    destination_port_range       = "80"
+    source_address_prefixes      = var.allowed_http_cidrs
+    destination_address_prefix   = "*"
   }
 
   security_rule {
-    name                       = "HTTPS"
-    priority                   = 1003
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
+    name                         = "HTTPS"
+    priority                     = 1003
+    direction                    = "Inbound"
+    access                       = "Allow"
+    protocol                     = "Tcp"
+    source_port_range            = "*"
+    destination_port_range       = "443"
+    source_address_prefixes      = var.allowed_https_cidrs
+    destination_address_prefix   = "*"
   }
 
   security_rule {
-    name                       = "Grafana"
-    priority                   = 1004
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "3000"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
+    name                         = "Grafana"
+    priority                     = 1004
+    direction                    = "Inbound"
+    access                       = "Allow"
+    protocol                     = "Tcp"
+    source_port_range            = "*"
+    destination_port_range       = "3000"
+    source_address_prefixes      = var.allowed_grafana_cidrs
+    destination_address_prefix   = "*"
   }
 }
 
@@ -170,7 +170,7 @@ resource "azurerm_linux_virtual_machine" "vanguard_vm" {
 
   admin_ssh_key {
     username   = var.admin_username
-    public_key = file(var.ssh_public_key_path)
+    public_key = file(pathexpand(var.ssh_public_key_path))
   }
 
   os_disk {
@@ -188,7 +188,11 @@ resource "azurerm_linux_virtual_machine" "vanguard_vm" {
   }
 
   # Custom data script to install Docker, PostgreSQL, and Grafana
-  custom_data = base64encode(file("${path.module}/init.sh"))
+  custom_data = base64encode(templatefile("${path.module}/init.sh", {
+    ADMIN_USERNAME            = var.admin_username
+    POSTGRESQL_REMOTE_ACCESS  = var.postgresql_remote_access
+    POSTGRESQL_ALLOWED_CIDR   = var.postgresql_allowed_cidr
+  }))
 
   # Disable password authentication
   disable_password_authentication = true

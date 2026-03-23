@@ -1,0 +1,23 @@
+# Terraform Remote State Backend Configuration
+# ═══════════════════════════════════════════════════════════════════════
+# 
+# This file provides configuration for storing Terraform state remotely
+# in Azure Storage. Remote state is REQUIRED for CI/CD workflows to prevent
+# state loss and enable team collaboration.
+#
+# Usage:
+#   1. Create Azure Storage Account for state:
+#      ./setup-terraform-backend.sh
+#
+#   2. Copy this file and configure it:
+#      cp backend-config.hcl.example backend-config.hcl
+#
+#   3. Initialize Terraform with backend configuration:
+#      terraform init -backend-config=backend-config.hcl
+#
+# ═══════════════════════════════════════════════════════════════════════
+
+resource_group_name  = "vanguard-tfstate"
+storage_account_name = "vanguardtfstate"
+container_name       = "tfstate"
+key                  = "vanguard.terraform.tfstate"

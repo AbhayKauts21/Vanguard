@@ -13,6 +13,11 @@ on:
     paths:
       - 'infrastructure/terraform/**'
       - '.github/workflows/terraform.yml'
+  schedule:
+    # Run drift detection daily at 6 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    # Allow manual workflow runs
 
 env:
   TERRAFORM_VERSION: '1.5.0'
@@ -48,7 +53,15 @@ jobs:
 
       - name: Terraform Init
         id: init
-        run: terraform init
+        run: |
+          # Initialize with Azure Storage backend for remote state
+          # Backend configuration is provided via ARM_ environment variables
+          # These are automatically used by the azurerm backend
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TFSTATE_RESOURCE_GROUP_NAME || 'vanguard-tfstate' }}" \
+            -backend-config="storage_account_name=${{ secrets.TFSTATE_STORAGE_ACCOUNT_NAME || 'vanguardtfstate' }}" \
+            -backend-config="container_name=${{ secrets.TFSTATE_CONTAINER_NAME || 'tfstate' }}" \
+            -backend-config="key=vanguard.terraform.tfstate"
 
       - name: Terraform Validate
         id: validate
@@ -58,15 +71,18 @@ jobs:
         id: plan
         run: |
           terraform plan -no-color -out=tfplan
+          # Generate text output for PR comments and artifact (doesn't contain secrets)
+          terraform show -no-color tfplan > tfplan.txt
         env:
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: terraform-plan
-          path: ${{ env.WORKING_DIR }}/tfplan
+          path: ${{ env.WORKING_DIR }}/tfplan.txt
           retention-days: 5
 
       - name: Comment PR with Plan

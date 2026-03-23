@@ -47,9 +47,15 @@ This Terraform project provisions Azure infrastructure for the Vanguard project,
 - **Authentication**: SSH key only (password disabled)
 
 ### Installed Software
-- **Docker** (latest stable)
+- **Docker** (latest stable from official repos)
+- **Docker Compose** (standalone v2.24.5)
 - **PostgreSQL** (from Ubuntu repos)
-- **� CI/CD Workflow (GitHub Actions)
+- **Grafana** (OSS version)
+- **Utilities**: git, vim, htop, jq, tree
+
+---
+
+## ⚙️ CI/CD Workflow (GitHub Actions)
 
 This project includes automated Terraform workflows via GitHub Actions:
 
@@ -119,15 +125,11 @@ The workflow file is located at [`.github/workflows/terraform.yml`](../.github/w
 - 📋 Plan generation with PR comments
 - 🚀 Auto-apply on merge to main
 - 🔒 Production environment protection
-- 📊 Drift detection (optional)
+- 📊 Drift detection (daily at 6 AM UTC)
 
 ---
 
-## 🚀 Quick Start (Local Development)test from official repos)
-- **Docker Compose** (standalone v2.24.5)
-- Utilities: git, vim, htop, jq, tree
-
-## 🚀 Quick Start
+## 🚀 Quick Start (Local Development)
 
 ### 1. Configure Variables
 
@@ -221,12 +223,16 @@ infrastructure/terraform/
    - Ensure your private key (`~/.ssh/id_rsa`) is protected (chmod 600)
 
 3. **Network Security Group**: 
-   - Ports 22, 80, 443, 3000, 5432 are open
-   - Consider restricting source IP ranges for production
+   - Ports 22, 80, 443, 3000 are open with configurable CIDR restrictions
+   - By default, all ports allow access from `0.0.0.0/0` (any IP)
+   - **IMPORTANT**: Restrict `allowed_ssh_cidrs` and `allowed_grafana_cidrs` for production
+   - Configure via variables: `allowed_ssh_cidrs`, `allowed_http_cidrs`, `allowed_https_cidrs`, `allowed_grafana_cidrs`
 
-4. **PostgreSQL**: Configured to accept remote connections
-   - Change default postgres password immediately after deployment
-   - Restrict access in production environments
+4. **PostgreSQL**: Remote access is DISABLED by default (recommended)
+   - PostgreSQL only accepts local connections by default
+   - To enable remote access, set `postgresql_remote_access = true` and configure `postgresql_allowed_cidr`
+   - If enabled, change default postgres password immediately after deployment
+   - Remote access should only be enabled from trusted networks (e.g., VNet CIDR)
 
 5. **Grafana**: Default credentials are admin/admin
    - Change on first login

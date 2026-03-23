@@ -1,6 +1,7 @@
 variable "subscription_id" {
   description = "Azure Subscription ID"
   type        = string
+  # No default - must be provided via TF_VAR_subscription_id or terraform.tfvars
 }
 
 variable "tenant_id" {
@@ -69,4 +70,40 @@ variable "tags" {
     project     = "vanguard"
     environment = "demo"
   }
+}
+
+variable "allowed_ssh_cidrs" {
+  description = "List of CIDR blocks allowed to SSH to the VM (use ['0.0.0.0/0'] for open access, not recommended for production)"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "allowed_http_cidrs" {
+  description = "List of CIDR blocks allowed to access HTTP (port 80)"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "allowed_https_cidrs" {
+  description = "List of CIDR blocks allowed to access HTTPS (port 443)"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "allowed_grafana_cidrs" {
+  description = "List of CIDR blocks allowed to access Grafana (port 3000)"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "postgresql_remote_access" {
+  description = "Enable PostgreSQL remote access (not recommended for production unless properly secured)"
+  type        = bool
+  default     = false
+}
+
+variable "postgresql_allowed_cidr" {
+  description = "CIDR block allowed to access PostgreSQL remotely (only used if postgresql_remote_access = true)"
+  type        = string
+  default     = "10.0.0.0/16"
 }

@@ -1,11 +1,20 @@
 # Terraform Variables Configuration
 # Copy this file to terraform.tfvars and fill in your values
 
+# =============================================================================
+# REQUIRED VARIABLES
+# =============================================================================
+
+# Required: Azure Subscription ID
+subscription_id = "YOUR_SUBSCRIPTION_ID_HERE"
+
 # Required: Azure Tenant ID for ANDINO GLOBAL TECH PRIVATE LIMITED
 tenant_id = "YOUR_TENANT_ID_HERE"
 
-# Optional: Override default values
-# subscription_id         = "0d5505db-c5a0-4a2d-8e52-1ff49cd01a36"
+# =============================================================================
+# OPTIONAL: BASIC CONFIGURATION
+# =============================================================================
+
 # resource_group_name     = "vanguard"
 # location                = "eastus"
 # project_name            = "vanguard"
@@ -14,11 +23,41 @@ tenant_id = "YOUR_TENANT_ID_HERE"
 # admin_username          = "azureadmin"
 # ssh_public_key_path     = "~/.ssh/id_rsa.pub"
 
-# Optional: Custom network settings
+# =============================================================================
+# OPTIONAL: NETWORK CONFIGURATION
+# =============================================================================
+
 # vnet_address_space      = ["10.0.0.0/16"]
 # subnet_address_prefix   = "10.0.1.0/24"
 
-# Optional: Custom tags
+# =============================================================================
+# OPTIONAL: SECURITY - CIDR RESTRICTIONS
+# =============================================================================
+# IMPORTANT: Restrict these for production! Default allows all (0.0.0.0/0)
+
+# SSH access (highly recommended to restrict!)
+# allowed_ssh_cidrs       = ["YOUR_IP/32"]  # Replace with your IP
+
+# HTTP/HTTPS access
+# allowed_http_cidrs      = ["0.0.0.0/0"]
+# allowed_https_cidrs     = ["0.0.0.0/0"]
+
+# Grafana dashboard access (recommended to restrict!)
+# allowed_grafana_cidrs   = ["YOUR_IP/32"]  # Replace with your IP
+
+# =============================================================================
+# OPTIONAL: POSTGRESQL REMOTE ACCESS
+# =============================================================================
+# IMPORTANT: Remote PostgreSQL access is DISABLED by default (recommended)
+# Only enable if you need to connect from outside the VM
+
+# postgresql_remote_access = false
+# postgresql_allowed_cidr  = "10.0.0.0/16"  # VNet CIDR if enabled
+
+# =============================================================================
+# OPTIONAL: CUSTOM TAGS
+# =============================================================================
+
 # tags = {
 #   project     = "vanguard"
 #   environment = "demo"

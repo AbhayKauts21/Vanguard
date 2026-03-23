@@ -48,8 +48,8 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin do
 systemctl start docker
 systemctl enable docker
 
-# Add default user to docker group
-usermod -aG docker ${SUDO_USER:-azureadmin}
+# Add admin user to docker group (using templated variable from Terraform)
+usermod -aG docker ${ADMIN_USERNAME}
 
 log "Docker installed successfully. Version: $(docker --version)"
 
@@ -78,11 +78,14 @@ PG_HBA="/etc/postgresql/${PG_VERSION}/main/pg_hba.conf"
 cp "${PG_CONF}" "${PG_CONF}.backup"
 cp "${PG_HBA}" "${PG_HBA}.backup"
 
-# Allow connections from all addresses (adjust as needed for security)
-echo "listen_addresses = '*'" >> "${PG_CONF}"
-
-# Add host-based authentication entry
-echo "host    all             all             0.0.0.0/0               md5" >> "${PG_HBA}"
+# Configure PostgreSQL remote access (only if explicitly enabled)
+if [ "${POSTGRESQL_REMOTE_ACCESS}" = "true" ]; then
+  log "Enabling PostgreSQL remote access from CIDR: ${POSTGRESQL_ALLOWED_CIDR}"
+  echo "listen_addresses = '*'" >> "${PG_CONF}"
+  echo "host    all             all             ${POSTGRESQL_ALLOWED_CIDR}               scram-sha-256" >> "${PG_HBA}"
+else
+  log "PostgreSQL remote access is disabled (recommended for security)"
+fi
 
 # Restart PostgreSQL to apply changes
 systemctl restart postgresql
@@ -161,8 +164,13 @@ ufw allow 443/tcp
 # Allow Grafana
 ufw allow 3000/tcp
 
-# Allow PostgreSQL (if needed for external access)
-ufw allow 5432/tcp
+# Optionally allow PostgreSQL for remote access (only if enabled by Terraform variable)
+if [ "${POSTGRESQL_REMOTE_ACCESS}" = "true" ] && [ -n "${POSTGRESQL_ALLOWED_CIDR}" ]; then
+    log "Enabling remote PostgreSQL access in firewall from CIDR: ${POSTGRESQL_ALLOWED_CIDR}"
+    ufw allow from ${POSTGRESQL_ALLOWED_CIDR} to any port 5432 proto tcp
+else
+    log "Remote PostgreSQL access is disabled; port 5432 will not be opened in UFW"
+fi
 
 # Enable firewall (in permissive mode)
 ufw --force enable
@@ -176,7 +184,7 @@ log "Firewall configured."
 log "Creating service directories..."
 
 mkdir -p /opt/vanguard/{docker,postgresql,grafana}
-chown -R ${SUDO_USER:-azureadmin}:${SUDO_USER:-azureadmin} /opt/vanguard
+chown -R ${ADMIN_USERNAME}:${ADMIN_USERNAME} /opt/vanguard
 
 # ========================================
 # System Information

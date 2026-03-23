@@ -34,11 +34,11 @@ NC='\033[0m' # No Color
 # Configuration
 SUBSCRIPTION_ID="0d5505db-c5a0-4a2d-8e52-1ff49cd01a36"
 RESOURCE_GROUP="vanguard"
-SP_NAME="sp-cleo-terraform"
+SP_NAME="vanguard-terraform-sp"
 ROLE="Contributor"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║    Azure Service Principal Setup for CLEO Infrastructure  ║${NC}"
+echo -e "${BLUE}║  Azure Service Principal Setup for Vanguard Infrastructure║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -50,6 +50,19 @@ if ! command -v az &> /dev/null; then
 fi
 
 echo -e "${GREEN}✓ Azure CLI is installed${NC}"
+
+# Check if jq is installed
+if ! command -v jq &> /dev/null; then
+    echo -e "${RED}❌ jq is not installed. Please install it first.${NC}"
+    echo -e "   Install via:"
+    echo -e "     macOS:   brew install jq"
+    echo -e "     Ubuntu:  sudo apt-get install jq"
+    echo -e "     Windows: choco install jq"
+    echo -e "   Or visit: https://stedolan.github.io/jq/download/"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ jq is installed${NC}"
 
 # Check if logged in
 if ! az account show &> /dev/null; then
@@ -169,10 +182,10 @@ echo -e "   ${GREEN}client_id     = \"$CLIENT_ID\"${NC}"
 echo -e "   ${GREEN}client_secret = \"$CLIENT_SECRET\"${NC}"
 echo ""
 echo -e "3. Generate SSH key pair (if not exists):"
-echo -e "   ${GREEN}ssh-keygen -t rsa -b 4096 -f ~/.ssh/cleo-azure${NC}"
+echo -e "   ${GREEN}ssh-keygen -t rsa -b 4096 -f ~/.ssh/vanguard-azure${NC}"
 echo ""
 echo -e "4. Add your SSH public key to ${BLUE}terraform.tfvars${NC}:"
-echo -e "   ${GREEN}cat ~/.ssh/cleo-azure.pub${NC}"
+echo -e "   ${GREEN}cat ~/.ssh/vanguard-azure.pub${NC}"
 echo ""
 echo -e "5. Set a strong PostgreSQL password in ${BLUE}terraform.tfvars${NC}"
 echo ""

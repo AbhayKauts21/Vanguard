@@ -1,0 +1,27 @@
+# Terraform Variables Configuration
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required: Azure Tenant ID for ANDINO GLOBAL TECH PRIVATE LIMITED
+tenant_id = "YOUR_TENANT_ID_HERE"
+
+# Optional: Override default values
+# subscription_id         = "0d5505db-c5a0-4a2d-8e52-1ff49cd01a36"
+# resource_group_name     = "vanguard"
+# location                = "eastus"
+# project_name            = "vanguard"
+# environment             = "demo"
+# vm_size                 = "Standard_B4ms"
+# admin_username          = "azureadmin"
+# ssh_public_key_path     = "~/.ssh/id_rsa.pub"
+
+# Optional: Custom network settings
+# vnet_address_space      = ["10.0.0.0/16"]
+# subnet_address_prefix   = "10.0.1.0/24"
+
+# Optional: Custom tags
+# tags = {
+#   project     = "vanguard"
+#   environment = "demo"
+#   department  = "engineering"
+#   cost_center = "engineering-ops"
+# }

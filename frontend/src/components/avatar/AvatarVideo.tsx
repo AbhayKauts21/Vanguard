@@ -19,7 +19,7 @@ export function AvatarVideo() {
     if (env.enableAvatar) {
       initAvatar();
     }
-  }, []);
+  }, [initAvatar]);
 
   useEffect(() => {
     // Pipe the React stream state directly into the HTML5 video element source map

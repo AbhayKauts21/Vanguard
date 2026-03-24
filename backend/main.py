@@ -39,10 +39,12 @@ limiter = Limiter(key_func=get_remote_address)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: launch auto-sync scheduler. Shutdown: cleanup."""
-    logger.info("🧠 CLEO backend starting...")
+    startup_logger = logger.bind(request_id="startup")
+    startup_logger.info("🧠 CLEO backend starting...")
     start_scheduler()
     yield
-    logger.info("🧠 CLEO backend shutting down...")
+    shutdown_logger = logger.bind(request_id="shutdown")
+    shutdown_logger.info("🧠 CLEO backend shutting down...")
     stop_scheduler()
 
     # Close adapter HTTP clients

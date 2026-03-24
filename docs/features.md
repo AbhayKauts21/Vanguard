@@ -34,7 +34,7 @@
 | F-016 | **Azure Chat Service** — stateless prompt + context orchestration with middleware hooks | ✅ Done | `services/azure_chat_service.py` |
 | F-017 | **Azure Chat API** — dedicated `POST /api/v1/azure-chat/` endpoint | ✅ Done | `api/router_azure_chat.py` |
 | F-018 | **Azure Prompt Builder** — deterministic context serialization for direct chat | ✅ Done | `core/azure_prompts.py` |
-| F-019 | **Azure Smoke Test Script** — manual validation against a live deployment | ✅ Done | `scripts/test_azure_chat.py` |
+| F-019 | **Azure Smoke Test Script** — manual validation against a live deployment | ✅ Done | `scripts/verify_azure_chat.py` |
 | F-020 | **Azure Direct Chat Tests** — unit + integration coverage for config, middleware, and routing | ✅ Done | `tests/unit/test_azure_chat_module.py` |
 
 ### v0.2.1 — CLEO Neural Interface Frontend (2026-03-16)
@@ -81,10 +81,6 @@
 
 ---
 
-## 🔮 Upcoming Features
-
-| # | Feature | Priority | Target |
-|---|---|---|---|
 ### v0.3.1 — Phase 2: RAG Chat End-to-End Hardening (2026-03-22)
 
 | # | Feature | Status | Module |
@@ -188,13 +184,7 @@
 | F-104 | **Local Auth UX Hardening** — 127.0.0.1 CORS/dev-origin support, frontend local API base URL, and user-facing auth copy | ✅ Done | `backend/app/core/config.py`, `frontend/.env.local`, `frontend/src/messages/` |
 | F-105 | **Auth Theme Cleanup** — Missing shared token definitions fixed and redundant right-side auth panel removed | ✅ Done | `frontend/src/styles/tokens.css`, `frontend/src/domains/auth/components/AuthPageShell.tsx` |
 | F-106 | **Hydration-Safe Session Label** — Stable SSR fallback for session status, then client-side session ID reveal after mount | ✅ Done | `frontend/src/components/chat/SessionStatus.tsx` |
-| F-107 | **Auth Verification Suite** — Backend auth/RBAC tests, frontend auth component tests, session hydration test, and smoke script | ✅ Done | `backend/tests/integration/test_auth_rbac_router.py`, `backend/tests/unit/test_auth_security.py`, `frontend/src/domains/auth/`, `frontend/src/components/chat/SessionStatus.test.tsx`, `backend/scripts/test_auth_rbac.py` |
-
----
-
-## ✅ CLEO v0.8.0 Snapshot
-
-> CLEO v0.8.0 — Full-stack AI assistant with RAG pipeline, auth/RBAC, localized access UX, structured observability, security hardening, and containerized deployment.
+| F-107 | **Auth Verification Suite** — Backend auth/RBAC tests, frontend auth component tests, session hydration test, and smoke script | ✅ Done | `backend/tests/integration/test_auth_rbac_router.py`, `backend/tests/unit/test_auth_security.py`, `frontend/src/domains/auth/`, `frontend/src/components/chat/SessionStatus.test.tsx`, `backend/scripts/verify_auth_rbac.py` |
 
 ---
 
@@ -202,8 +192,45 @@
 
 | # | Feature | Status | Module |
 |---|---|---|---|
-| F-108 | **Embedding Provider Strategy** — abstract embedding interface plus provider factory for Azure/OpenAI implementations | ✅ Done | `backend/app/adapters/embeddings/`, `backend/app/adapters/embedding_client.py` |
-| F-109 | **Azure Embedding Adapter** — Azure OpenAI `text-embedding-3-large` deployment support with provider metadata and config validation | ✅ Done | `backend/app/adapters/embeddings/azure_provider.py`, `backend/app/core/config.py` |
-| F-110 | **3072-Dimension Vector Contract** — Pinecone upsert/query validation aligned to `text-embedding-3-large` dimensions | ✅ Done | `backend/app/adapters/vector_store.py` |
-| F-111 | **Dependency-Inverted RAG Wiring** — ingestion and retrieval services depend on the embedding abstraction, not a concrete OpenAI client | ✅ Done | `backend/app/services/ingestion_service.py`, `backend/app/services/rag_service.py` |
-| F-112 | **Azure Embedding Test Coverage & Docs** — provider tests, env updates, and architecture/docs alignment for Azure `3-large` | ✅ Done | `backend/tests/unit/test_embedding_provider.py`, `backend/.env.example`, `README.md`, `docs/` |
+| F-108 | **Azure OpenAI Text Embeddings** — `embedding_client.py` now supports Azure OpenAI embeddings (text-embedding-3-large) for document vectorization | ✅ Done | `backend/app/adapters/embedding_client.py` |
+| F-109 | **Azure Chat Completion Service** — Dedicated `azure_chat_service.py` for Azure OpenAI chat completions with system prompts and citation formatting | ✅ Done | `backend/app/services/azure_chat_service.py` |
+| F-110 | **Azure Chat Endpoint** — New `/chat/azure` endpoint exposes Azure OpenAI chat with RAG for frontend integration | ✅ Done | `backend/app/api/router_azure_chat.py` |
+| F-111 | **Azure Integration Tests** — E2E test script validates Azure OpenAI embeddings + chat flow | ✅ Done | `backend/scripts/verify_azure_chat.py`, `backend/tests/integration/test_azure_chat_router.py` |
+| F-112 | **Azure Prompts & Config** — System prompts and config variables for Azure OpenAI chat (model, temperature, max tokens) | ✅ Done | `backend/app/core/azure_prompts.py`, `backend/app/core/config.py` |
+
+---
+
+### v0.9.0 — Azure Infrastructure & Terraform Deployment (2026-03-23)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-113 | **Terraform Azure Providers** — AzureRM (~3.0) and AzureAD (~2.0) provider configured with subscription/tenant ID variables | ✅ Done | `infrastructure/terraform/providers.tf` |
+| F-114 | **Terraform Variables** — Configurable inputs for subscription, tenant, resource group, location, VM size, SSH key, tags | ✅ Done | `infrastructure/terraform/variables.tf` |
+| F-115 | **Azure Service Principal from Terraform** — Creates Azure AD application, service principal, password, and assigns Contributor role to Vanguard resource group | ✅ Done | `infrastructure/terraform/main.tf` (azuread_application, azuread_service_principal, azuread_service_principal_password, azurerm_role_assignment) |
+| F-116 | **Azure Virtual Network** — VNet (10.0.0.0/16) with subnet (10.0.1.0/24) configured for VM deployment | ✅ Done | `infrastructure/terraform/main.tf` (azurerm_virtual_network, azurerm_subnet) |
+| F-117 | **Network Security Group** — NSG with configurable inbound CIDR restrictions for SSH (22), HTTP (80), HTTPS (443), Grafana (3000) | ✅ Done | `infrastructure/terraform/main.tf` (azurerm_network_security_group, azurerm_network_interface_security_group_association) |
+| F-118 | **Public IP & Network Interface** — Static public IP for SSH access, NIC with dynamic private IP and public IP association | ✅ Done | `infrastructure/terraform/main.tf` (azurerm_public_ip, azurerm_network_interface) |
+| F-119 | **Linux VM** — Ubuntu 22.04 LTS, Standard_B4ms (4 vCPU, 16GB RAM), 128GB Premium SSD, SSH-only authentication | ✅ Done | `infrastructure/terraform/main.tf` (azurerm_linux_virtual_machine) |
+| F-120 | **VM Init Script** — Bootstrap bash script (`init.sh`) installs Docker CE, PostgreSQL with remote access, Grafana OSS, Docker Compose v2.24.5 | ✅ Done | `infrastructure/terraform/init.sh` |
+| F-121 | **Terraform Outputs** — Exports public IP, SSH command, Grafana/PostgreSQL URLs, VM admin username, Service Principal credentials (sensitive) | ✅ Done | `infrastructure/terraform/outputs.tf` |
+| F-122 | **Terraform Configuration Template** — `.tfvars.example` with sample values for all required variables | ✅ Done | `infrastructure/terraform/terraform.tfvars.example` |
+| F-123 | **Terraform Gitignore** — Protects `.tfstate`, `.tfvars`, `.terraform/`, and backup files from version control | ✅ Done | `infrastructure/terraform/.gitignore` |
+| F-124 | **Terraform Deployment Guide** — Complete README with prerequisites, quick start, verification steps, and cleanup instructions | ✅ Done | `infrastructure/terraform/README.md` |
+| F-125 | **Azure Service Principal Setup Guide** — Step-by-step instructions for creating SP with Azure CLI, GitHub secrets config, troubleshooting | ✅ Done | `infrastructure/terraform/AZURE_SP_SETUP.md` |
+| F-126 | **CI/CD Quick Start Guide** — Developer workflow for feature branch → PR (terraform plan) → merge (terraform apply) | ✅ Done | `infrastructure/terraform/CICD_QUICK_START.md` |
+| F-127 | **GitHub Actions Terraform Workflow** — Automated CI/CD with 3 jobs: terraform-plan (on PR with plan comment), terraform-apply (on main merge), terraform-drift-detection (daily cron) | ✅ Done | `.github/workflows/terraform.yml` |
+| F-128 | **Terraform Plan PR Comments** — Workflow posts formatted terraform plan output as PR comment with diff highlighting | ✅ Done | `.github/workflows/terraform.yml` (terraform-plan job) |
+| F-129 | **Terraform Apply Auto-deploy** — Main branch merges trigger automatic `terraform apply` with production environment protection | ✅ Done | `.github/workflows/terraform.yml` (terraform-apply job) |
+| F-130 | **Terraform Drift Detection** — Daily scheduled job checks for infrastructure drift and reports in workflow summary | ✅ Done | `.github/workflows/terraform.yml` (terraform-drift-detection job) |
+
+---
+
+## 🔮 Upcoming Features
+
+| # | Feature | Priority | Target |
+|---|---|---|---|
+| F-131 | **Azure VM Auto-scaling** — Implement VM scale sets based on CPU/memory thresholds | 🔥 High | v0.10.0 |
+| F-132 | **Azure Key Vault Integration** — Migrate secrets and credentials to Azure Key Vault | 🔥 High | v0.10.0 |
+| F-133 | **Azure Monitor Integration** — Configure Azure Monitor for VM metrics, logs, and alerts | 🟡 Medium | v0.10.0 |
+| F-134 | **Terraform State Remote Backend** — Migrate state to Azure Storage with state locking | 🟡 Medium | v0.11.0 |
+

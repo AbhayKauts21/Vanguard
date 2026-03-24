@@ -26,8 +26,21 @@ export interface DetailedHealthResponse {
   services: {
     pinecone: { status: "online" | "offline"; vectors: number };
     bookstack: { status: "online" | "offline"; pages: number };
-    openai: { status: "online" | "offline"; model: string };
-    azure_openai: { status: "online" | "offline"; deployment: string };
+    embeddings: {
+      status: "online" | "offline";
+      provider: string;
+      model: string;
+      dimensions: number;
+    };
+    azure_openai: {
+      status: "online" | "offline";
+      chat_deployment: string;
+      embedding_deployment: string;
+    };
+    postgres: {
+      status: "online" | "offline";
+      database: string;
+    };
   };
   metrics: {
     total_vectors: number;

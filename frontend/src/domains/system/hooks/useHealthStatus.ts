@@ -12,16 +12,27 @@ export function useHealthStatus() {
       const data = await adminApi.getDetailedHealth();
       setHealth(data);
       setError(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to check system health");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to check system health";
+      setError(message);
       setHealth({
         status: "offline",
         timestamp: new Date().toISOString(),
         services: {
           pinecone: { status: "offline", vectors: 0 },
           bookstack: { status: "offline", pages: 0 },
-          openai: { status: "offline", model: "unknown" },
-          azure_openai: { status: "offline", deployment: "unknown" },
+          embeddings: {
+            status: "offline",
+            provider: "azure",
+            model: "unknown",
+            dimensions: 0,
+          },
+          azure_openai: {
+            status: "offline",
+            chat_deployment: "unknown",
+            embedding_deployment: "unknown",
+          },
+          postgres: { status: "offline", database: "unknown" },
         },
         metrics: { total_vectors: 0, uptime_seconds: 0 },
       });

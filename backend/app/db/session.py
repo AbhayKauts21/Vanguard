@@ -37,5 +37,7 @@ async def check_database_health() -> bool:
 
 
 async def dispose_engine() -> None:
+    database_url = build_async_database_url(settings)
+    if not database_url:
+        return
     await get_engine().dispose()
-

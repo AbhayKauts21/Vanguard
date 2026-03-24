@@ -28,7 +28,7 @@ export function AvatarControls() {
               ? "bg-amber-400 animate-pulse"
               : "bg-emerald-400"
         }`}
-        title={t(`state_${state}` as any)}
+        title={t(`state_${state}` as never)}
       />
 
       {/* State label */}

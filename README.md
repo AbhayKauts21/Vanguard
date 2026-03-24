@@ -151,7 +151,7 @@ The backend currently exposes two different chat paths:
 - Set Azure values in [`backend/.env.example`](backend/.env.example) and copy them into `backend/.env`.
 - `AZURE_OPENAI_ENDPOINT` must be the resource endpoint only, such as `https://your-resource.openai.azure.com`.
 - `AZURE_OPENAI_CHAT_DEPLOYMENT` must be the Azure deployment name, not just the raw model family.
-- The smoke-test script is available at `backend/scripts/test_azure_chat.py`.
+- The smoke-test script is available at `backend/scripts/verify_azure_chat.py`.
 
 ---
 

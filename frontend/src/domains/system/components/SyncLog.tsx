@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface LogEntry {
   id: string;
@@ -9,34 +9,33 @@ interface LogEntry {
   type: "success" | "info" | "error";
 }
 
-export function SyncLog() {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+function createMockLogs(): LogEntry[] {
+  // Generate an artificial trailing log since backend doesn't store telemetry yet 
+  const bootTime = new Date();
+  return [
+    {
+      id: "1",
+      timestamp: new Date(bootTime.getTime() - 1000 * 60 * 5).toLocaleTimeString(),
+      message: "Delta sync completed (0 changes found).",
+      type: "success"
+    },
+    {
+      id: "2",
+      timestamp: new Date(bootTime.getTime() - 1000 * 60 * 10).toLocaleTimeString(),
+      message: "Health check passed across 4/4 edge nodes.",
+      type: "info"
+    },
+    {
+      id: "3",
+      timestamp: new Date(bootTime.getTime() - 1000 * 60 * 15).toLocaleTimeString(),
+      message: "Page 'Architecture Params' ingested successfully (7 chunks).",
+      type: "success"
+    }
+  ];
+}
 
-  useEffect(() => {
-    // Generate an artificial trailing log since backend doesn't store telemetry yet 
-    const bootTime = new Date();
-    const mockLogs: LogEntry[] = [
-      {
-        id: "1",
-        timestamp: new Date(bootTime.getTime() - 1000 * 60 * 5).toLocaleTimeString(),
-        message: "Delta sync completed (0 changes found).",
-        type: "success"
-      },
-      {
-        id: "2",
-        timestamp: new Date(bootTime.getTime() - 1000 * 60 * 10).toLocaleTimeString(),
-        message: "Health check passed across 4/4 edge nodes.",
-        type: "info"
-      },
-      {
-        id: "3",
-        timestamp: new Date(bootTime.getTime() - 1000 * 60 * 15).toLocaleTimeString(),
-        message: "Page 'Architecture Params' ingested successfully (7 chunks).",
-        type: "success"
-      }
-    ];
-    setLogs(mockLogs);
-  }, []);
+export function SyncLog() {
+  const [logs] = useState<LogEntry[]>(createMockLogs);
 
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/50 hover:border-white/20">

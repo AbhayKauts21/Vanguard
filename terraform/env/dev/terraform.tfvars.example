@@ -1,0 +1,32 @@
+# Example Terraform Variables File
+# Copy this file to terraform.tfvars and update values as needed
+
+# Resource Group Configuration
+resource_group_name = "vanguard"
+location            = "East US 2"
+
+# Network Configuration
+vnet_name       = "vanguard-vnet-dev"
+address_space   = ["10.0.0.0/16"]
+subnet_name     = "vanguard-subnet-dev"
+subnet_prefixes = ["10.0.1.0/24"]
+
+# Security Group Configuration
+nsg_name = "vanguard-nsg-dev"
+
+# VM Configuration
+vm_name        = "vanguard-vm-dev"
+vm_size        = "Standard_B2s"
+admin_username = "azureuser"
+
+# Network Resources
+public_ip_name = "vanguard-public-ip-dev"
+nic_name       = "vanguard-nic-dev"
+
+# Tags
+tags = {
+  Environment = "Development"
+  Project     = "Vanguard"
+  ManagedBy   = "Terraform"
+  Owner       = "DevOps Team"
+}

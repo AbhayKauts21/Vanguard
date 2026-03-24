@@ -15,7 +15,9 @@ export function SessionStatus() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
+    // Defer mount state to next tick to avoid hydration issues
+    const timer = setTimeout(() => setIsMounted(true), 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const sessionLabel =

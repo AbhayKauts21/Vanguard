@@ -37,9 +37,10 @@ export async function POST() {
 
     return NextResponse.json({ token: data.data.token });
     
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: `Internal Routing Exception: ${error.message}` },
+      { error: `Internal Routing Exception: ${message}` },
       { status: 500 }
     );
   }

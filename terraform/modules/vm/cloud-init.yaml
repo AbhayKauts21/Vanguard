@@ -1,0 +1,53 @@
+#cloud-config
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - apt-transport-https
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - software-properties-common
+  - wget
+
+runcmd:
+  # Install Docker
+  - echo "=== Installing Docker ==="
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - apt-get update -y
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable docker
+  - systemctl start docker
+  - usermod -aG docker ${admin_username}
+  - docker --version
+
+  # Install PostgreSQL
+  - echo "=== Installing PostgreSQL ==="
+  - apt-get install -y postgresql postgresql-contrib
+  - systemctl enable postgresql
+  - systemctl start postgresql
+  - sudo -u postgres psql -c "ALTER USER postgres PASSWORD '${postgres_password}';"
+  - sudo -u postgres psql -c "CREATE DATABASE vanguard;"
+  - echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/14/main/pg_hba.conf
+  - sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/g" /etc/postgresql/14/main/postgresql.conf
+  - systemctl restart postgresql
+  - psql --version
+
+  # Install Grafana
+  - echo "=== Installing Grafana ==="
+  - wget -q -O - https://packages.grafana.com/gpg.key | gpg --dearmor -o /usr/share/keyrings/grafana-archive-keyring.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/grafana-archive-keyring.gpg] https://packages.grafana.com/oss/deb stable main" | tee /etc/apt/sources.list.d/grafana.list
+  - apt-get update -y
+  - apt-get install -y grafana
+  - systemctl enable grafana-server
+  - systemctl start grafana-server
+  - grafana-server -v
+
+  # Create a status file
+  - echo "Docker, PostgreSQL, and Grafana installation completed at $(date)" > /var/log/cloud-init-complete.log
+  - echo "=== Installation Complete ==="
+
+final_message: "Vanguard VM provisioning completed successfully!"

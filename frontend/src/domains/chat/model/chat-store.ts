@@ -135,7 +135,7 @@ export const useChatStore = create<ChatState>()(
       storage: createJSONStorage(() => {
         try {
           return sessionStorage;
-        } catch (e) {
+        } catch (_e) {
           // SSR fallback
           return {
             getItem: () => null,

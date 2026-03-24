@@ -73,12 +73,21 @@ export function HealthGrid() {
           <ServiceCard 
             name="Azure OpenAI" 
             status={health?.services.azure_openai.status} 
-            detail={health?.services.azure_openai.deployment}
+            detail={health?.services.azure_openai.chat_deployment}
           />
           <ServiceCard 
-            name="OpenAI Engine" 
-            status={health?.services.openai.status} 
-            detail={health?.services.openai.model}
+            name="Embeddings"
+            status={health?.services.embeddings.status}
+            detail={
+              health?.services.embeddings.model
+                ? `${health?.services.embeddings.model} · ${health?.services.embeddings.dimensions}d`
+                : undefined
+            }
+          />
+          <ServiceCard
+            name="Postgres"
+            status={health?.services.postgres.status}
+            detail={health?.services.postgres.database}
           />
         </div>
       </div>

@@ -1,0 +1,264 @@
+# ========================================================================
+# CLEO - Full Observability Stack with OpenTelemetry + Grafana
+# ========================================================================
+#
+# This docker-compose file sets up:
+# - Frontend (Next.js) - 2 replicas
+# - Backend (FastAPI) - 3 replicas  
+# - PostgreSQL database
+# - OpenTelemetry Collector
+# - Grafana Stack (Tempo, Loki, Prometheus)
+# - Grafana dashboard
+#
+# Usage:
+#   docker-compose up --build
+#   Access Grafana: http://localhost:3001 (admin/admin)
+#
+# ========================================================================
+
+version: '3.9'
+
+networks:
+  cleo-network:
+    driver: bridge
+
+volumes:
+  tempo-data:
+  loki-data:
+  prometheus-data:
+  grafana-data:
+
+services:
+  # ======================================================================
+  # DATABASE - Using External PostgreSQL on VM
+  # Database is already running on VM: 20.114.145.163
+  # No local postgres service needed
+  # ======================================================================
+
+  # ======================================================================
+  # BACKEND - FastAPI (3 replicas)
+  # ======================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    deploy:
+      replicas: 3
+    environment:
+      # Database - External PostgreSQL on VM
+      POSTGRES_HOST: 20.114.145.163
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: vanguard
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Pi5CzcCKEcu6
+      
+      # Auth/Security
+      JWT_SECRET_KEY: local-dev-secret-key-with-at-least-thirty-two-characters
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: 14
+      AUTH_DEFAULT_ROLE: viewer
+      ADMIN_API_KEY: change-me-in-production
+      ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://frontend:3000
+      RATE_LIMIT_PER_MINUTE: 30
+      
+      # Application
+      PROJECT_NAME: CLEO
+      DEBUG: true
+      API_V1_STR: /api/v1
+      
+      # Embeddings
+      EMBEDDING_DIMENSIONS: 3072
+      
+      # Azure OpenAI
+      AZURE_OPENAI_ENDPOINT: https://vanguard-openai.openai.azure.com/
+      AZURE_OPENAI_API_KEY: 2FH1g8mBi81xFQIfbeuGC02VMKLPwpXtX2xAPC95uoHA21dVOkAgJQQJ99CCACHYHv6XJ3w3AAAAACOGzX9P
+      AZURE_OPENAI_API_VERSION: "2024-02-15-preview"
+      AZURE_OPENAI_CHAT_DEPLOYMENT: gpt-4o-mini
+      AZURE_OPENAI_EMBEDDING_DEPLOYMENT: text-embedding-3-large
+      AZURE_OPENAI_AUTH_MODE: api_key
+      AZURE_OPENAI_TIMEOUT_SECONDS: 30
+      AZURE_OPENAI_MAX_RETRIES: 2
+      
+      # Pinecone
+      PINECONE_API_KEY: pcsk_7XEzu4_ASurMpmjVwxS57X2jrerNCton9oBzhViyyvnS4atLYgjqFpKRyqxjDRU5WUNspB
+      PINECONE_INDEX_NAME: cleo-dev
+      PINECONE_CLOUD: aws
+      PINECONE_REGION: us-east-1
+      
+      # BookStack
+      BOOKSTACK_URL: ""
+      BOOKSTACK_TOKEN_ID: ""
+      BOOKSTACK_TOKEN_SECRET: ""
+      BOOKSTACK_WEBHOOK_SECRET: ""
+      
+      # Ingestion / retrieval tuning
+      CHUNK_SIZE: 800
+      CHUNK_OVERLAP: 200
+      MIN_SIMILARITY_SCORE: 0.45
+      SYNC_INTERVAL_MINUTES: 5
+      TOP_K_RESULTS: 5
+      
+      # OpenTelemetry
+      OTEL_ENABLED: "true"
+      OTEL_SERVICE_NAME: cleo-backend
+      SERVICE_VERSION: "1.0.0"
+      ENVIRONMENT: production
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      LOG_LEVEL: INFO
+      LOG_FORMAT: json
+    depends_on:
+      - otel-collector
+    networks:
+      - cleo-network
+    ports:
+      - "8000-8002:8000"
+    restart: unless-stopped
+
+  # ======================================================================
+  # FRONTEND - Next.js (2 replicas)
+  # ======================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_NAME: CLEO
+        NEXT_PUBLIC_DEFAULT_LOCALE: en
+        NEXT_PUBLIC_SUPPORTED_LOCALES: en,es
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+        NEXT_PUBLIC_ENABLE_AVATAR: "false"
+        NEXT_PUBLIC_ENABLE_AMBIENT_EFFECTS: "true"
+        NEXT_PUBLIC_ENABLE_STREAMING: "true"
+        NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318/v1/traces
+        NEXT_PUBLIC_OTEL_ENABLED: "true"
+        NEXT_PUBLIC_APP_VERSION: "1.0.0"
+    deploy:
+      replicas: 2
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      - backend
+      - otel-collector
+    networks:
+      - cleo-network
+    ports:
+      - "3000-3001:3000"
+    restart: unless-stopped
+
+  # ======================================================================
+  # OPENTELEMETRY COLLECTOR
+  # ======================================================================
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.113.0
+    container_name: cleo-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    environment:
+      ENVIRONMENT: production
+    networks:
+      - cleo-network
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8888:8888"   # Prometheus metrics (collector itself)
+      - "8889:8889"   # Prometheus exporter
+      - "13133:13133" # Health check
+      - "55679:55679" # zPages
+    depends_on:
+      - tempo
+      - loki
+      - prometheus
+    restart: unless-stopped
+
+  # ======================================================================
+  # GRAFANA TEMPO - Distributed Tracing
+  # ======================================================================
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: cleo-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo/tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/var/tempo
+    networks:
+      - cleo-network
+    ports:
+      - "3200:3200"   # Tempo HTTP
+      - "4317"        # OTLP gRPC
+    restart: unless-stopped
+
+  # ======================================================================
+  # GRAFANA LOKI - Log Aggregation
+  # ======================================================================
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: cleo-loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - ./observability/loki/loki.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    networks:
+      - cleo-network
+    ports:
+      - "3100:3100"   # Loki HTTP
+    restart: unless-stopped
+
+  # ======================================================================
+  # PROMETHEUS - Metrics
+  # ======================================================================
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    container_name: cleo-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'
+    volumes:
+      - ./observability/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml
+      - prometheus-data:/prometheus
+    networks:
+      - cleo-network
+    ports:
+      - "9090:9090"   # Prometheus UI
+    restart: unless-stopped
+
+  # ======================================================================
+  # GRAFANA - Observability Dashboard
+  # ======================================================================
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: cleo-grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+    networks:
+      - cleo-network
+    ports:
+      - "3002:3000"   # Grafana UI (avoiding port conflicts with Tempo:3200 and Frontend:3000-3001)
+    depends_on:
+      - tempo
+      - loki
+      - prometheus
+    restart: unless-stopped
+
+# ========================================================================
+# SCALING COMMANDS
+# ========================================================================
+# Scale backend:  docker-compose up --scale backend=5
+# Scale frontend: docker-compose up --scale frontend=3
+# ========================================================================

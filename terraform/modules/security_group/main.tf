@@ -37,21 +37,6 @@ resource "azurerm_network_security_rule" "http" {
   network_security_group_name = azurerm_network_security_group.nsg.name
 }
 
-# Grafana Rule
-resource "azurerm_network_security_rule" "grafana" {
-  name                        = "AllowGrafana"
-  priority                    = 120
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "3000"
-  source_address_prefix       = "*"
-  destination_address_prefix  = "*"
-  resource_group_name         = var.resource_group_name
-  network_security_group_name = azurerm_network_security_group.nsg.name
-}
-
 # PostgreSQL Rule
 resource "azurerm_network_security_rule" "postgresql" {
   name                        = "AllowPostgreSQL"
@@ -66,3 +51,6 @@ resource "azurerm_network_security_rule" "postgresql" {
   resource_group_name         = var.resource_group_name
   network_security_group_name = azurerm_network_security_group.nsg.name
 }
+
+# Note: Grafana runs in Docker Compose, not on VM
+# Access Grafana via docker-compose on port 3200

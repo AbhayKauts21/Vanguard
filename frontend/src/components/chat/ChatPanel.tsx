@@ -6,6 +6,7 @@ import { EmptyState } from "./EmptyState";
 import { TypingIndicator } from "./TypingIndicator";
 import { Composer } from "./Composer";
 import { OfflineBanner } from "./OfflineBanner";
+import { SuggestedPromptRail } from "./SuggestedPromptRail";
 import { useChatStore } from "@/domains/chat/model";
 
 interface ChatPanelProps {
@@ -51,6 +52,7 @@ function ErrorBanner({ errorType }: { errorType: string | null }) {
 export function ChatPanel({ messages, isThinking, onSend, disabled }: ChatPanelProps) {
   const hasMessages = messages.length > 0;
   const errorType = useChatStore((s) => s.errorType);
+  const shouldShowPromptRail = hasMessages && messages.length <= 4 && !isThinking;
 
   return (
     <div className="flex-1 flex flex-col glass-panel rounded-xl overflow-hidden shadow-2xl panel-boundary transition-all duration-1000 relative">
@@ -64,6 +66,14 @@ export function ChatPanel({ messages, isThinking, onSend, disabled }: ChatPanelP
       <OfflineBanner />
 
       {hasMessages ? <MessageList messages={messages} /> : <EmptyState onSend={onSend} disabled={disabled} />}
+
+      {shouldShowPromptRail && (
+        <SuggestedPromptRail
+          onSend={onSend}
+          disabled={disabled}
+          className="px-8 pb-4"
+        />
+      )}
 
       {isThinking && <TypingIndicator />}
 

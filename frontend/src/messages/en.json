@@ -13,7 +13,12 @@
     "neuralLink": "Neural Link",
     "archive": "Archive",
     "system": "System",
-    "language": "Language"
+    "language": "Language",
+    "newSession": "New Session",
+    "clearThread": "Clear Thread",
+    "focusInput": "Focus Input",
+    "adminConsole": "Admin Console",
+    "pulseInterface": "Pulse interface"
   },
   "auth": {
     "navLogin": "Login",
@@ -103,6 +108,11 @@
   "avatar": {
     "coreSync": "CORE_SYNC: ACTIVE",
     "meshEngaged": "NEURAL_MESH: ENGAGED",
+    "knowledgeReady": "KNOWLEDGE_BASE: READY",
+    "knowledgeSyncing": "KNOWLEDGE_BASE: SYNCING",
+    "backendOnline": "BACKEND: ONLINE",
+    "backendDegraded": "BACKEND: DEGRADED",
+    "backendOffline": "BACKEND: OFFLINE",
     "systemReady": "SYSTEM: READY",
     "awaiting": "Awaiting Input",
     "mute": "Mute avatar",
@@ -129,6 +139,9 @@
   "footer": {
     "neuralMesh": "Neural Mesh Analysis...",
     "nodeLocation": "Neo-Tokyo Node 07",
+    "vectorsLabel": "Vectors",
+    "backendLabel": "Backend",
+    "latencyLabel": "Avg Latency",
     "buildInfo": "CLEO Systems // Build 5.0.0-Dynamic // Protocol 99"
   }
 }

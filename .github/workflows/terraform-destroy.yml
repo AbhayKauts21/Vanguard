@@ -9,6 +9,7 @@ on:
 env:
   TERRAFORM_VERSION: '1.12.2'
   WORKING_DIR: 'terraform/env/dev'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   destroy:
@@ -39,7 +40,6 @@ jobs:
 
       - name: Force Unlock State (if locked)
         run: |
-          # Detect a stuck lock ID from a dry-run and release it
           LOCK_OUTPUT=$(terraform plan 2>&1 || true)
           LOCK_ID=$(echo "$LOCK_OUTPUT" | grep -oP '(?<=ID:\s{8})[a-f0-9-]+' || true)
           if [ -n "$LOCK_ID" ]; then
@@ -55,13 +55,14 @@ jobs:
       - name: Check if infrastructure exists
         id: check
         run: |
-          VM_IP=$(terraform output -raw vm_public_ip 2>/dev/null || echo "")
-          if [ -n "$VM_IP" ]; then
+          # Count resources in state — reliable way to check if anything exists
+          RESOURCE_COUNT=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$RESOURCE_COUNT" -gt "0" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Infrastructure exists at $VM_IP — will destroy"
+            echo "Found $RESOURCE_COUNT resource(s) in state — will destroy"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "No infrastructure found in state — nothing to destroy"
+            echo "No resources in state — nothing to destroy"
           fi
 
       - name: Terraform Destroy
@@ -77,5 +78,5 @@ jobs:
             echo "All Azure resources have been destroyed. Ready for fresh deploy." >> $GITHUB_STEP_SUMMARY
           else
             echo "## ℹ️ Nothing to Destroy" >> $GITHUB_STEP_SUMMARY
-            echo "No existing infrastructure found in Terraform state." >> $GITHUB_STEP_SUMMARY
+            echo "No resources found in Terraform state — already clean." >> $GITHUB_STEP_SUMMARY
           fi

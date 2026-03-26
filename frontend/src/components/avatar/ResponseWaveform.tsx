@@ -1,20 +1,21 @@
 "use client";
 
+import { useMemo } from "react";
 import { useChatStore } from "@/domains/chat/model";
 
 const BAR_DELAYS = [0.05, 0.18, 0.32, 0.14, 0.28, 0.38];
 
 export function ResponseWaveform() {
-  const { streamingMessageId, streamingLength } = useChatStore((state) => {
-    const streamingMessage = state.streamingMessageId
-      ? state.messages.find((message) => message.id === state.streamingMessageId)
-      : null;
+  const streamingMessageId = useChatStore((state) => state.streamingMessageId);
+  const messages = useChatStore((state) => state.messages);
 
-    return {
-      streamingMessageId: state.streamingMessageId,
-      streamingLength: streamingMessage?.content.length ?? 0,
-    };
-  });
+  const streamingLength = useMemo(() => {
+    if (!streamingMessageId) {
+      return 0;
+    }
+
+    return messages.find((message) => message.id === streamingMessageId)?.content.length ?? 0;
+  }, [messages, streamingMessageId]);
 
   const isActive = Boolean(streamingMessageId);
   const pulseKey = `${streamingMessageId ?? "idle"}:${streamingLength}`;

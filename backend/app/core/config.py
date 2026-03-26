@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus
 
@@ -5,6 +6,10 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.exceptions import AzureConfigurationError, DatabaseConfigurationError, EmbeddingConfigurationError
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+ENV_FILE_PATH = BACKEND_DIR / ".env"
 
 
 class Settings(BaseSettings):
@@ -79,7 +84,7 @@ class Settings(BaseSettings):
     AUTH_DEFAULT_ROLE: str = "viewer"
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(ENV_FILE_PATH),
         case_sensitive=True,
         extra="ignore",
     )

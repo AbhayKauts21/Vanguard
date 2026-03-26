@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.adapters.embedding_client import EmbeddingClient
+from app.adapters.embeddings.base import EmbeddingProvider
 from app.adapters.vector_store import VectorStore
 from app.core.exceptions import EmbeddingError, VectorStoreError
 from app.services.text_processor import TextProcessor
@@ -57,18 +58,28 @@ def test_text_processor_cleans_html_and_builds_chunks():
 async def test_embedding_client_batches_and_returns_embeddings():
     captured_batches = []
 
-    class FakeEmbeddingsAPI:
-        def create(self, *, model, input):
-            captured_batches.append((model, list(input)))
-            return SimpleNamespace(
-                data=[
-                    SimpleNamespace(embedding=[float(index), float(index) + 0.5])
-                    for index, _ in enumerate(input)
-                ]
-            )
+    class FakeProvider(EmbeddingProvider):
+        provider_name = "fake"
+        model_name = "fake-embedding-model"
+        dimensions = 2
 
-    client = EmbeddingClient()
-    client._client = SimpleNamespace(embeddings=FakeEmbeddingsAPI())
+        async def embed_text(self, text: str):
+            return (await self.embed_texts([text]))[0]
+
+        async def embed_texts(self, texts):
+            all_embeddings = []
+            for i in range(0, len(texts), 2048):
+                batch = texts[i : i + 2048]
+                captured_batches.append((self.model_name, list(batch)))
+                all_embeddings.extend(
+                    [
+                        [float(index), float(index) + 0.5]
+                        for index, _ in enumerate(batch)
+                    ]
+                )
+            return all_embeddings
+
+    client = EmbeddingClient(provider=FakeProvider())
 
     texts = [f"text-{index}" for index in range(2050)]
     embeddings = await client.embed_texts(texts)
@@ -82,17 +93,23 @@ async def test_embedding_client_batches_and_returns_embeddings():
 
 @pytest.mark.asyncio
 async def test_embedding_client_maps_failures_to_embedding_error():
-    class FailingEmbeddingsAPI:
-        def create(self, *, model, input):
-            raise RuntimeError("boom")
+    class FailingProvider(EmbeddingProvider):
+        provider_name = "fake"
+        model_name = "fake-embedding-model"
+        dimensions = 2
 
-    client = EmbeddingClient()
-    client._client = SimpleNamespace(embeddings=FailingEmbeddingsAPI())
+        async def embed_text(self, text: str):
+            return (await self.embed_texts([text]))[0]
+
+        async def embed_texts(self, texts):
+            raise EmbeddingError(detail="Azure embedding failed: boom")
+
+    client = EmbeddingClient(provider=FailingProvider())
 
     with pytest.raises(EmbeddingError) as exc:
         await client.embed_texts(["hello"])
 
-    assert "OpenAI embedding failed" in exc.value.detail
+    assert "Azure embedding failed" in exc.value.detail
 
 
 @pytest.mark.asyncio
@@ -185,14 +202,19 @@ async def test_chunk_to_embedding_to_vector_pipeline():
 
     assert chunks
 
-    class FakeEmbeddingsAPI:
-        def create(self, *, model, input):
-            return SimpleNamespace(
-                data=[
-                    SimpleNamespace(embedding=[float(index), float(len(text))])
-                    for index, text in enumerate(input)
-                ]
-            )
+    class FakeProvider(EmbeddingProvider):
+        provider_name = "fake"
+        model_name = "fake-embedding-model"
+        dimensions = 2
+
+        async def embed_text(self, text: str):
+            return (await self.embed_texts([text]))[0]
+
+        async def embed_texts(self, texts):
+            return [
+                [float(index)] * 3072 if text else [0.0] * 3072
+                for index, text in enumerate(texts)
+            ]
 
     stored_batches = []
 
@@ -200,8 +222,7 @@ async def test_chunk_to_embedding_to_vector_pipeline():
         def upsert(self, *, vectors, namespace):
             stored_batches.append((vectors, namespace))
 
-    embedding_client = EmbeddingClient()
-    embedding_client._client = SimpleNamespace(embeddings=FakeEmbeddingsAPI())
+    embedding_client = EmbeddingClient(provider=FakeProvider())
 
     vector_store = VectorStore()
     vector_store._index = FakeIndex()

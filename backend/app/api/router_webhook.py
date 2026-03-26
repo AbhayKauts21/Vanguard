@@ -25,7 +25,12 @@ async def _process_webhook(payload: BookStackWebhookPayload) -> None:
     event = payload.event
     related = payload.related_item
 
-    if not related or related.type != "page":
+    if not related:
+        logger.debug(f"Ignoring webhook event with no related_item: {event}")
+        return
+
+    # Event name prefix tells us the entity type (page_create → page)
+    if not event.startswith("page_"):
         logger.debug(f"Ignoring non-page webhook event: {event}")
         return
 

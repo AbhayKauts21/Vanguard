@@ -22,7 +22,11 @@ export function useDetailedHealth() {
 
   useEffect(() => {
     if (query.data) {
-      setVectorCount(query.data.metrics.total_vectors);
+      const vectorCount =
+        query.data.metrics.total_vectors ||
+        query.data.services.pinecone.vectors ||
+        0;
+      setVectorCount(vectorCount);
       setBackendStatus(query.data.status === "healthy" ? "online" : "degraded");
     } else if (query.isError) {
       setBackendStatus("offline");

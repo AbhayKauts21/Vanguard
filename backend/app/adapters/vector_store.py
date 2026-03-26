@@ -140,15 +140,34 @@ class VectorStore:
         index = self._get_index()
         try:
             stats = index.describe_index_stats()
+            namespaces = stats.get("namespaces", {}) or {}
+            namespace_total = 0
+
+            for namespace_name, namespace_stats in namespaces.items():
+                vector_count = (
+                    namespace_stats.get("vector_count")
+                    or namespace_stats.get("record_count")
+                    or 0
+                )
+                if namespace_name == self.NAMESPACE:
+                    namespace_total = int(vector_count)
+                    break
+
+            total_vectors = int(stats.get("total_vector_count", 0) or 0)
+            if namespace_total > 0:
+                total_vectors = namespace_total
+
             return {
-                "total_vectors": stats.get("total_vector_count", 0),
-                "namespaces": stats.get("namespaces", {}),
+                "total_vectors": total_vectors,
+                "namespace_vectors": namespace_total,
+                "namespaces": namespaces,
                 "expected_dimensions": self.expected_dimensions,
             }
         except Exception as e:
             logger.error(f"Pinecone stats failed: {e}")
             return {
                 "total_vectors": 0,
+                "namespace_vectors": 0,
                 "namespaces": {},
                 "expected_dimensions": self.expected_dimensions,
             }

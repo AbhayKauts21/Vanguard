@@ -26,6 +26,8 @@ class WebhookEvent(str, Enum):
 
 class BookStackPage(BaseModel):
     """Represents a page fetched from BookStack API."""
+    model_config = ConfigDict(extra="ignore")
+
     id: int
     name: str
     slug: str
@@ -41,6 +43,8 @@ class BookStackPage(BaseModel):
 
 class BookStackBook(BaseModel):
     """Represents a book from BookStack API."""
+    model_config = ConfigDict(extra="ignore")
+
     id: int
     name: str
     slug: str
@@ -284,21 +288,53 @@ class SyncStatusResponse(BaseModel):
 
 # --- Webhook DTOs ---
 
-class WebhookRelatedItem(BaseModel):
-    """The entity that triggered the BookStack webhook."""
-    id: int
-    type: str = "page"
-    book_id: int = 0
-    chapter_id: int = 0
+class WebhookTriggeredBy(BaseModel):
+    """The user who triggered the BookStack webhook event."""
+    id: int = 0
     name: str = ""
     slug: str = ""
 
 
+class WebhookRelatedItem(BaseModel):
+    """The entity that triggered the BookStack webhook.
+
+    BookStack does NOT send a 'type' field — the entity type is
+    inferred from the event name (page_create → page, book_update → book).
+    We default fields to safe values so unknown keys are silently ignored.
+    """
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    book_id: int = 0
+    chapter_id: int = 0
+    name: str = ""
+    slug: str = ""
+    priority: int = 0
+    draft: bool = False
+    revision_count: int = 0
+    template: bool = False
+    created_at: str = ""
+    updated_at: str = ""
+    created_by: Optional[WebhookTriggeredBy] = None
+    updated_by: Optional[WebhookTriggeredBy] = None
+    owned_by: Optional[WebhookTriggeredBy] = None
+
+
 class BookStackWebhookPayload(BaseModel):
-    """Incoming BookStack webhook POST body."""
+    """Incoming BookStack webhook POST body.
+
+    Matches the exact JSON format BookStack sends:
+    https://www.bookstackapp.com/docs/admin/hacking-bookstack/#webhooks
+    """
+    model_config = ConfigDict(extra="ignore")
+
     event: str
     text: str = ""
     triggered_at: str = ""
+    triggered_by: Optional[WebhookTriggeredBy] = None
+    triggered_by_profile_url: str = ""
+    webhook_id: int = 0
+    webhook_name: str = ""
     url: str = ""
     related_item: Optional[WebhookRelatedItem] = None
 

@@ -1,0 +1,171 @@
+# OpenTelemetry Collector Configuration
+#
+# This configuration receives telemetry data from frontend and backend,
+# processes it, and exports to Grafana stack (Tempo, Loki, Prometheus).
+#
+# Architecture:
+# - Receivers: OTLP (HTTP + gRPC)
+# - Processors: Batch, Memory Limiter, Resource Detection
+# - Exporters: Tempo (traces), Loki (logs), Prometheus (metrics)
+
+receivers:
+  # OTLP receiver for traces, metrics, and logs
+  # Supports both gRPC and HTTP protocols
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost:3000"
+            - "http://127.0.0.1:3000"
+            - "http://localhost:8000"
+          allowed_headers:
+            - "*"
+
+  # Prometheus receiver for scraping metrics
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 30s
+          static_configs:
+            - targets: ['localhost:8888']
+
+processors:
+  # Batch processor - batches telemetry data before exporting
+  # Reduces number of outgoing connections and improves throughput
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # Memory limiter - prevents OOM by limiting memory usage
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Resource detection - adds environment metadata
+  resourcedetection:
+    detectors: [env, system, docker]
+    timeout: 5s
+    override: false
+
+  # Resource processor - adds custom resource attributes
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:ENVIRONMENT}
+        action: upsert
+      - key: service.namespace
+        value: cleo
+        action: upsert
+
+  # Attributes processor - adds/modifies span attributes
+  attributes:
+    actions:
+      - key: environment
+        value: ${env:ENVIRONMENT}
+        action: upsert
+
+exporters:
+  # Tempo exporter - distributed tracing backend
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+    sending_queue:
+      enabled: true
+      num_consumers: 10
+      queue_size: 1000
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
+  # Loki exporter - log aggregation
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: true
+      job: true
+
+  # Prometheus exporter - metrics
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: cleo
+    const_labels:
+      environment: ${env:ENVIRONMENT}
+    send_timestamps: true
+    metric_expiration: 5m
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Prometheus Remote Write exporter (alternative to scraping)
+  prometheusremotewrite:
+    endpoint: http://prometheus:9090/api/v1/write
+    tls:
+      insecure: true
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Debug exporter - detailed output for troubleshooting
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+# Extensions provide additional capabilities
+extensions:
+  # Health check extension
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # Performance profiler
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # zPages for diagnostics
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+# Service configuration - defines telemetry pipelines
+service:
+  extensions: [health_check, pprof, zpages]
+
+  pipelines:
+    # Traces pipeline: OTLP -> Process -> Tempo + Debug
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resourcedetection, resource, attributes]
+      exporters: [otlp/tempo, debug]
+
+    # Metrics pipeline: OTLP + Prometheus -> Process -> Prometheus
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, batch, resourcedetection, resource]
+      exporters: [prometheus, prometheusremotewrite]
+
+    # Logs pipeline: OTLP -> Process -> Loki + Debug
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resourcedetection, resource]
+      exporters: [loki, debug]
+
+  # Telemetry configuration for the collector itself
+  telemetry:
+    logs:
+      level: info
+      development: false
+      encoding: json
+      output_paths:
+        - stdout
+      error_output_paths:
+        - stderr
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888

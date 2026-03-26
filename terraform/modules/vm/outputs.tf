@@ -24,12 +24,10 @@ output "ssh_command" {
   value       = "ssh -i vanguard_ssh_key.pem ${var.admin_username}@${azurerm_public_ip.public_ip.ip_address}"
 }
 
-output "grafana_url" {
-  description = "Grafana dashboard URL"
-  value       = "http://${azurerm_public_ip.public_ip.ip_address}:3000"
-}
+# Note: Grafana is deployed via Docker Compose, not on VM
+# Access Grafana via: http://localhost:3200 when running docker-compose
 
 output "postgresql_connection" {
   description = "PostgreSQL connection string"
-  value       = "postgresql://${var.admin_username}@${azurerm_public_ip.public_ip.ip_address}:5432/postgres"
+  value       = "postgresql://${var.admin_username}@${azurerm_public_ip.public_ip.ip_address}:5432/vanguard"
 }

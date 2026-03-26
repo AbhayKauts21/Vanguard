@@ -36,18 +36,11 @@ runcmd:
   - systemctl restart postgresql
   - psql --version
 
-  # Install Grafana
-  - echo "=== Installing Grafana ==="
-  - wget -q -O - https://packages.grafana.com/gpg.key | gpg --dearmor -o /usr/share/keyrings/grafana-archive-keyring.gpg
-  - echo "deb [signed-by=/usr/share/keyrings/grafana-archive-keyring.gpg] https://packages.grafana.com/oss/deb stable main" | tee /etc/apt/sources.list.d/grafana.list
-  - apt-get update -y
-  - apt-get install -y grafana
-  - systemctl enable grafana-server
-  - systemctl start grafana-server
-  - grafana-server -v
+  # Note: Grafana is deployed via Docker Compose, not on VM
+  # See docker-compose.observability.yml for Grafana configuration
 
   # Create a status file
-  - echo "Docker, PostgreSQL, and Grafana installation completed at $(date)" > /var/log/cloud-init-complete.log
+  - echo "Docker and PostgreSQL installation completed at $(date)" > /var/log/cloud-init-complete.log
   - echo "=== Installation Complete ==="
 
 final_message: "Vanguard VM provisioning completed successfully!"

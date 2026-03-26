@@ -34,7 +34,7 @@ output "ssh_private_key" {
 
 output "grafana_url" {
   description = "Grafana dashboard URL (default credentials: admin/admin)"
-  value       = module.vm.grafana_url
+  value       = "http://${module.vm.public_ip_address}:3002"
 }
 
 output "postgresql_connection" {
@@ -51,6 +51,6 @@ output "deployment_summary" {
     vm_name        = var.vm_name
     vm_size        = var.vm_size
     public_ip      = module.vm.public_ip_address
-    grafana_url    = module.vm.grafana_url
+    grafana_url    = "http://${module.vm.public_ip_address}:3002"
   }
 }

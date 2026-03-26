@@ -1,6 +1,8 @@
 # Terraform Azure VM with PostgreSQL
 
-This Terraform configuration deploys an Azure Virtual Machine with Docker, PostgreSQL, and Grafana installed and configured automatically via cloud-init.
+This Terraform configuration deploys an Azure Virtual Machine with Docker and PostgreSQL installed and configured automatically via cloud-init.
+
+**Note**: Grafana and the observability stack run via Docker Compose, not on the VM. See `docker-compose.observability.yml` for the complete observability setup.
 
 ## ⚡ Quick Reference
 
@@ -22,10 +24,11 @@ cd terraform && ./destroy.sh
 
 - **VM**: Ubuntu 22.04 LTS (Standard_B2s)
 - **Docker**: Latest version with Docker Compose
-- **PostgreSQL**: Running in Docker container
-- **Grafana**: Monitoring dashboard (port 3000)
-- **Networking**: VNet, Subnet, NSG with SSH/HTTP/HTTPS/Grafana access
+- **PostgreSQL**: Installed and configured on VM (port 5432)
+- **Networking**: VNet, Subnet, NSG with SSH/HTTP/HTTPS/PostgreSQL access
 - **Storage**: Terraform state stored in Azure Storage Account
+
+**Note**: Grafana and observability stack are deployed via Docker Compose (see `docker-compose.observability.yml`)
 
 ## 🔐 Security Features
 
@@ -401,11 +404,9 @@ cat /var/log/cloud-init-complete.log
 docker --version
 docker compose version
 
-# Check PostgreSQL container
-docker ps | grep postgres
-
-# Check Grafana access
-curl -s http://localhost:3000 | head
+# Check PostgreSQL status
+sudo systemctl status postgresql
+psql --version
 ```
 
 ### Test PostgreSQL Connection

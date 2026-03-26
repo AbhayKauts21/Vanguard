@@ -2,6 +2,7 @@ import uvicorn
 from contextlib import asynccontextmanager
 import time
 from datetime import datetime
+import os
 
 START_TIME = time.time()
 
@@ -28,7 +29,42 @@ from app.core.exceptions import (
 )
 from app.core.logging import get_request_logger  # noqa: F401 — triggers _setup_logger() early
 from app.core.middleware import RequestIdMiddleware
+
+# OpenTelemetry imports
+from app.core.telemetry import (
+    OpenTelemetryConfig,
+    initialize_opentelemetry,
+    instrument_fastapi,
+    instrument_httpx,
+)
+from app.core.telemetry_middleware import TelemetryMiddleware
+from app.core.structured_logging import configure_structured_logging
+
 from app.services.sync_scheduler import start_scheduler, stop_scheduler
+
+# ---------------------------------------------------------------------------
+# Initialize OpenTelemetry BEFORE anything else
+# ---------------------------------------------------------------------------
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() in ("true", "1", "yes")
+
+if OTEL_ENABLED:
+    otel_config = OpenTelemetryConfig(
+        service_name=os.getenv("OTEL_SERVICE_NAME", "cleo-backend"),
+        service_version=os.getenv("SERVICE_VERSION", "1.0.0"),
+        environment=os.getenv("ENVIRONMENT", "development"),
+        otlp_endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+        enable_console_exporter=os.getenv("OTEL_CONSOLE_EXPORTER", "false").lower() in ("true", "1"),
+    )
+    initialize_opentelemetry(otel_config)
+    instrument_httpx()
+    
+    # Configure structured JSON logging
+    configure_structured_logging(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        json_format=os.getenv("LOG_FORMAT", "json") == "json",
+    )
+    
+    logger.info("[OTEL] Observability initialized")
 
 # ---------------------------------------------------------------------------
 # Rate limiter (slowapi) — keyed by client IP
@@ -65,6 +101,12 @@ def get_application() -> FastAPI:
     # Rate-limiter state
     _app.state.limiter = limiter
     _app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    # OpenTelemetry FastAPI instrumentation
+    if OTEL_ENABLED:
+        instrument_fastapi(_app)
+        # Add telemetry middleware for custom attributes
+        _app.add_middleware(TelemetryMiddleware)
 
     # Request-ID tracing middleware
     _app.add_middleware(RequestIdMiddleware)

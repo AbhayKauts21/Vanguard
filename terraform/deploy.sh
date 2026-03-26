@@ -120,12 +120,14 @@ if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     VM_IP=$(terraform output -raw vm_public_ip 2>/dev/null || echo "N/A")
     SSH_CMD=$(terraform output -raw ssh_command 2>/dev/null || echo "N/A")
-    GRAFANA_URL=$(terraform output -raw grafana_url 2>/dev/null || echo "N/A")
+    POSTGRES_CONN=$(terraform output -raw postgresql_connection 2>/dev/null || echo "N/A")
     
     echo ""
     echo -e "${GREEN}VM Public IP:${NC} $VM_IP"
     echo -e "${GREEN}SSH Command:${NC} $SSH_CMD"
-    echo -e "${GREEN}Grafana URL:${NC} $GRAFANA_URL"
+    echo -e "${GREEN}PostgreSQL:${NC} $POSTGRES_CONN"
+    echo ""
+    echo -e "${YELLOW}Note: Grafana runs via Docker Compose (http://localhost:3200)${NC}"
     echo ""
     
     # Save SSH key

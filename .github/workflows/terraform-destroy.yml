@@ -1,0 +1,66 @@
+name: Terraform Destroy Existing Infra
+
+on:
+  push:
+    branches:
+      - feature/observability-setup
+  workflow_dispatch:
+
+env:
+  TERRAFORM_VERSION: '1.12.2'
+  WORKING_DIR: 'terraform/env/dev'
+
+jobs:
+  destroy:
+    name: Destroy Terraform Infrastructure
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Check if infrastructure exists
+        id: check
+        run: |
+          VM_IP=$(terraform output -raw vm_public_ip 2>/dev/null || echo "")
+          if [ -n "$VM_IP" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Infrastructure exists at $VM_IP — will destroy"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No infrastructure found in state — nothing to destroy"
+          fi
+
+      - name: Terraform Destroy
+        if: steps.check.outputs.exists == 'true'
+        env:
+          TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+        run: terraform destroy -auto-approve
+
+      - name: Write summary
+        run: |
+          if [ "${{ steps.check.outputs.exists }}" = "true" ]; then
+            echo "## ✅ Infrastructure Destroyed" >> $GITHUB_STEP_SUMMARY
+            echo "All Azure resources have been destroyed. Ready for fresh deploy." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ℹ️ Nothing to Destroy" >> $GITHUB_STEP_SUMMARY
+            echo "No existing infrastructure found in Terraform state." >> $GITHUB_STEP_SUMMARY
+          fi

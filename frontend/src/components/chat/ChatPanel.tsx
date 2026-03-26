@@ -53,28 +53,21 @@ export function ChatPanel({ messages, isThinking, onSend, disabled }: ChatPanelP
   const errorType = useChatStore((s) => s.errorType);
 
   return (
-    <>
-      {/* Biometric neural activity bar on left edge */}
-      <div className="absolute left-0 top-[15%] bottom-[15%] w-[1px] bg-white/5 z-10 overflow-hidden rounded-full">
-        <div
-          className="w-full bg-white/40 shadow-[0_0_8px_white] animate-neural-pulse h-0 opacity-0 transition-all duration-300"
-          id="neural-activity-bar"
-        />
+    <div className="flex-1 flex flex-col glass-panel rounded-xl overflow-hidden shadow-2xl panel-boundary transition-all duration-1000 relative">
+      <div className="pointer-events-none absolute inset-px rounded-[inherit]">
+        <span className="absolute left-0 top-0 h-5 w-5 rounded-tl-xl border-l border-t border-white/20" />
       </div>
 
-      {/* Main glass container */}
-      <div className="flex-1 flex flex-col glass-panel rounded-xl overflow-hidden shadow-2xl panel-boundary transition-all duration-1000 relative">
-        <SessionStatus />
-        
-        <ErrorBanner errorType={errorType} />
-        <OfflineBanner />
+      <SessionStatus />
 
-        {hasMessages ? <MessageList messages={messages} /> : <EmptyState />}
+      <ErrorBanner errorType={errorType} />
+      <OfflineBanner />
 
-        {isThinking && <TypingIndicator />}
+      {hasMessages ? <MessageList messages={messages} /> : <EmptyState />}
 
-        <Composer onSend={onSend} disabled={disabled} />
-      </div>
-    </>
+      {isThinking && <TypingIndicator />}
+
+      <Composer onSend={onSend} disabled={disabled} />
+    </div>
   );
 }

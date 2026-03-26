@@ -76,6 +76,7 @@
     "sessionStable": "Uplink Stable",
     "sessionConnecting": "Connecting...",
     "inputPlaceholder": "Address CLEO...",
+    "initialMessage": "Initializing neural synchronization. All systems nominal. I have processed the latest data grid from the central archive. How shall we proceed with your objectives?",
     "emptyState": "How can I help you today?",
     "emptyStateHint": "Ask me anything about our documentation.",
     "thinking": "Processing neural query...",
@@ -120,6 +121,6 @@
   "footer": {
     "neuralMesh": "Neural Mesh Analysis...",
     "nodeLocation": "Neo-Tokyo Node 07",
-    "buildInfo": "CLEO Systems // Build 4.2.0-A // Protocol 99"
+    "buildInfo": "CLEO Systems // Build 5.0.0-Dynamic // Protocol 99"
   }
 }

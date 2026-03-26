@@ -76,6 +76,7 @@
     "sessionStable": "Enlace Estable",
     "sessionConnecting": "Conectando...",
     "inputPlaceholder": "Consulta a CLEO...",
+    "initialMessage": "Inicializando sincronización neural. Todos los sistemas están nominales. He procesado la cuadrícula de datos más reciente del archivo central. ¿Cómo deseas proceder con tus objetivos?",
     "emptyState": "¿Cómo puedo ayudarte hoy?",
     "emptyStateHint": "Pregúntame lo que quieras sobre nuestra documentación.",
     "thinking": "Procesando consulta neural...",
@@ -120,6 +121,6 @@
   "footer": {
     "neuralMesh": "Análisis de Red Neural...",
     "nodeLocation": "Nodo Neo-Tokyo 07",
-    "buildInfo": "CLEO Systems // Build 4.2.0-A // Protocolo 99"
+    "buildInfo": "CLEO Systems // Build 5.0.0-Dynamic // Protocolo 99"
   }
 }

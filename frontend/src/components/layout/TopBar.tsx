@@ -1,6 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import type { MouseEvent } from "react";
+import { spawnShockwave } from "@/components/effects";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { AuthStatusMenu } from "@/domains/auth/components";
 import { Link } from "@/i18n/navigation";
@@ -11,6 +13,10 @@ import { Link } from "@/i18n/navigation";
  */
 export function TopBar() {
   const t = useTranslations("header");
+
+  function handleShockwave(event: MouseEvent<HTMLButtonElement>) {
+    spawnShockwave(event.clientX, event.clientY);
+  }
 
   return (
     <header className="flex items-center justify-between border-b border-white/10 px-10 py-5 glass-panel" style={{ zIndex: 150 }}>
@@ -41,10 +47,16 @@ export function TopBar() {
         <div className="flex gap-4 items-center">
           <LanguageSwitcher />
           <AuthStatusMenu />
-          <button className="flex items-center justify-center rounded-full h-9 w-9 bg-white/5 text-white/70 border border-white/10 transition-all hover:bg-white/10">
+          <button
+            className="flex items-center justify-center rounded-full h-9 w-9 bg-white/5 text-white/70 border border-white/10 transition-all hover:bg-white/10"
+            onClick={handleShockwave}
+          >
             <span className="material-symbols-outlined text-[18px]">settings</span>
           </button>
-          <button className="flex items-center justify-center rounded-full h-9 w-9 bg-white/5 text-white/40 border border-white/10 transition-all hover:bg-white/10">
+          <button
+            className="flex items-center justify-center rounded-full h-9 w-9 bg-white/5 text-white/40 border border-white/10 transition-all hover:bg-white/10"
+            onClick={handleShockwave}
+          >
             <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
           </button>
         </div>

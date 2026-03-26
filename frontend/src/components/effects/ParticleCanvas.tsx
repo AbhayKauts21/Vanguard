@@ -14,8 +14,8 @@ import { useEffect, useRef } from "react";
 class Particle {
   x: number;
   y: number;
-  baseX: number;
-  baseY: number;
+  originX: number;
+  originY: number;
   size: number;
   opacity: number;
   vx: number;
@@ -24,39 +24,48 @@ class Particle {
   constructor(canvasW: number, canvasH: number) {
     this.x = Math.random() * canvasW;
     this.y = Math.random() * canvasH;
-    this.baseX = this.x;
-    this.baseY = this.y;
+    this.originX = this.x;
+    this.originY = this.y;
     this.size = Math.random() * 1.5 + 0.5;
-    this.opacity = Math.random() * 0.7 + 0.3;
-    this.vx = (Math.random() - 0.5) * 0.2;
-    this.vy = (Math.random() - 0.5) * 0.2;
+    this.opacity = Math.random() * 0.4 + 0.1;
+    this.vx = (Math.random() - 0.5) * 0.1;
+    this.vy = (Math.random() - 0.5) * 0.1;
   }
 
-  /** Update position: drift + mouse repulsion + edge bounce */
+  /** Update position: subtle drift + mouse repulsion + return-to-origin. */
   update(
     mouseX: number | null,
     mouseY: number | null,
     canvasW: number,
     canvasH: number,
   ) {
-    this.x += this.vx;
-    this.y += this.vy;
-
-    /* Bounce at edges */
-    if (this.x < 0 || this.x > canvasW) this.vx *= -1;
-    if (this.y < 0 || this.y > canvasH) this.vy *= -1;
-
-    /* Mouse repulsion — 150px radius, push away */
     if (mouseX !== null && mouseY !== null) {
       const dx = mouseX - this.x;
       const dy = mouseY - this.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
+
       if (distance < 150) {
         const force = (150 - distance) / 150;
-        this.x -= (dx / distance) * force * 2;
-        this.y -= (dy / distance) * force * 2;
+        const safeDistance = distance || 1;
+
+        this.x -= (dx / safeDistance) * force * 5;
+        this.y -= (dy / safeDistance) * force * 5;
+      } else {
+        this.x += (this.originX - this.x) * 0.02;
+        this.y += (this.originY - this.y) * 0.02;
       }
+    } else {
+      this.x += (this.originX - this.x) * 0.02;
+      this.y += (this.originY - this.y) * 0.02;
     }
+
+    this.x += this.vx;
+    this.y += this.vy;
+    this.originX += this.vx;
+    this.originY += this.vy;
+
+    if (this.x < 0 || this.x > canvasW) this.vx *= -1;
+    if (this.y < 0 || this.y > canvasH) this.vy *= -1;
   }
 
   /** Draw particle, skipping if inside the sphere mask area */
@@ -179,7 +188,7 @@ export function ParticleCanvas() {
       ref={canvasRef}
       id="particle-canvas"
       className="pointer-events-none fixed inset-0"
-      style={{ zIndex: 100, backgroundColor: "transparent" }}
+      style={{ zIndex: 50, backgroundColor: "transparent" }}
     />
   );
 }

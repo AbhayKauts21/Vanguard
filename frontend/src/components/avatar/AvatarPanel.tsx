@@ -3,6 +3,7 @@
 import { AvatarBadge } from "./AvatarBadge";
 import { AvatarTelemetry } from "./AvatarTelemetry";
 import { EnergyCoreCanvas } from "./EnergyCoreCanvas";
+import { ResponseWaveform } from "./ResponseWaveform";
 import { useEnergyCoreState } from "@/domains/avatar/hooks/useEnergyCoreState";
 import { useDetailedHealth } from "@/domains/system/hooks/useDetailedHealth";
 import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
@@ -29,12 +30,18 @@ export function AvatarPanel() {
   useDetailedHealth();
   const coreState = useEnergyCoreState();
   const lastLatencyMs = useTelemetryStore((s) => s.lastLatencyMs);
+  const vectorCount = useTelemetryStore((s) => s.vectorCount);
 
   const latencyDisplay = lastLatencyMs !== null
     ? lastLatencyMs < 1000
       ? `${lastLatencyMs}ms`
       : `${(lastLatencyMs / 1000).toFixed(1)}s`
     : "2ms";
+  const vectorDisplay = vectorCount !== null
+    ? vectorCount >= 1000
+      ? `${(vectorCount / 1000).toFixed(1)}k`
+      : `${vectorCount}`
+    : "—";
 
   const currentStatus = CORE_STATUS[coreState];
 
@@ -61,11 +68,12 @@ export function AvatarPanel() {
         >
           {currentStatus.label}
         </div>
+        <ResponseWaveform />
       </div>
 
       <AvatarBadge
-        label="Synapse"
-        value="98.4%"
+        label="Vectors"
+        value={vectorDisplay}
         className="absolute right-10 top-10 z-20"
         animationDelay="-1.5s"
       />

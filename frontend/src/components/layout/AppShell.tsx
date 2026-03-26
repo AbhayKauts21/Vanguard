@@ -2,7 +2,6 @@
 
 import {
   MoodOverlay,
-  HexGridBackground,
   ParticleCanvas,
   ScanlineOverlay,
 } from "@/components/effects";
@@ -13,7 +12,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="relative flex h-screen w-full flex-col overflow-hidden font-display text-white min-h-screen selection:bg-white/20">
       <MoodOverlay />
-      <HexGridBackground />
       <ParticleCanvas />
       <ScanlineOverlay />
 

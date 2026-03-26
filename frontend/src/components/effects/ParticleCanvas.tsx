@@ -20,6 +20,8 @@ class Particle {
   opacity: number;
   vx: number;
   vy: number;
+  flowSeed: number;
+  driftSeed: number;
 
   constructor(canvasW: number, canvasH: number) {
     this.x = Math.random() * canvasW;
@@ -30,42 +32,57 @@ class Particle {
     this.opacity = Math.random() * 0.4 + 0.1;
     this.vx = (Math.random() - 0.5) * 0.1;
     this.vy = (Math.random() - 0.5) * 0.1;
+    this.flowSeed = Math.random() * Math.PI * 2;
+    this.driftSeed = Math.random() * Math.PI * 2;
   }
 
-  /** Update position: subtle drift + mouse repulsion + return-to-origin. */
+  /** Update position with fluid drift and a softer wave-like disturbance around the cursor. */
   update(
     mouseX: number | null,
     mouseY: number | null,
     canvasW: number,
     canvasH: number,
+    time: number,
   ) {
+    const ambientFlowX =
+      Math.sin(time * 0.00045 + this.flowSeed + this.originY * 0.006) * 0.18;
+    const ambientFlowY =
+      Math.cos(time * 0.00055 + this.driftSeed + this.originX * 0.004) * 0.18;
+
     if (mouseX !== null && mouseY !== null) {
       const dx = mouseX - this.x;
       const dy = mouseY - this.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (distance < 150) {
-        const force = (150 - distance) / 150;
+      if (distance < 105) {
+        const force = (105 - distance) / 105;
         const safeDistance = distance || 1;
+        const awayX = -dx / safeDistance;
+        const awayY = -dy / safeDistance;
+        const tangentX = -awayY;
+        const tangentY = awayX;
+        const swirl = Math.sin(time * 0.003 + this.flowSeed) * 1.2;
 
-        this.x -= (dx / safeDistance) * force * 5;
-        this.y -= (dy / safeDistance) * force * 5;
+        this.x += (awayX * 0.85 + tangentX * swirl) * force * 2.1;
+        this.y += (awayY * 0.85 + tangentY * swirl) * force * 2.1;
       } else {
-        this.x += (this.originX - this.x) * 0.02;
-        this.y += (this.originY - this.y) * 0.02;
+        this.x += (this.originX - this.x) * 0.016;
+        this.y += (this.originY - this.y) * 0.016;
       }
     } else {
-      this.x += (this.originX - this.x) * 0.02;
-      this.y += (this.originY - this.y) * 0.02;
+      this.x += (this.originX - this.x) * 0.016;
+      this.y += (this.originY - this.y) * 0.016;
     }
 
-    this.x += this.vx;
-    this.y += this.vy;
-    this.originX += this.vx;
-    this.originY += this.vy;
+    this.x += this.vx + ambientFlowX;
+    this.y += this.vy + ambientFlowY;
+    this.originX += this.vx * 0.45 + ambientFlowX * 0.16;
+    this.originY += this.vy * 0.45 + ambientFlowY * 0.16;
 
     if (this.x < 0 || this.x > canvasW) this.vx *= -1;
     if (this.y < 0 || this.y > canvasH) this.vy *= -1;
+    if (this.originX < 0 || this.originX > canvasW) this.vx *= -1;
+    if (this.originY < 0 || this.originY > canvasH) this.vy *= -1;
   }
 
   /** Draw particle, skipping if inside the sphere mask area */
@@ -140,10 +157,11 @@ export function ParticleCanvas() {
     let rafId: number;
 
     function animate() {
+      const now = performance.now();
       ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
 
       for (const p of particles) {
-        p.update(mouse.x, mouse.y, canvas!.width, canvas!.height);
+        p.update(mouse.x, mouse.y, canvas!.width, canvas!.height, now);
         p.draw(ctx!, sphere.cx, sphere.cy, sphere.r);
       }
 

@@ -37,6 +37,21 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Force Unlock State (if locked)
+        run: |
+          # Detect a stuck lock ID from a dry-run and release it
+          LOCK_OUTPUT=$(terraform plan 2>&1 || true)
+          LOCK_ID=$(echo "$LOCK_OUTPUT" | grep -oP '(?<=ID:\s{8})[a-f0-9-]+' || true)
+          if [ -n "$LOCK_ID" ]; then
+            echo "Detected lock ID: $LOCK_ID — force unlocking..."
+            terraform force-unlock -force "$LOCK_ID"
+          else
+            echo "No lock detected, continuing..."
+          fi
+        continue-on-error: true
+        env:
+          TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+
       - name: Check if infrastructure exists
         id: check
         run: |

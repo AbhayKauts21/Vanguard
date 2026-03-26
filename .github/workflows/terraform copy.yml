@@ -15,6 +15,15 @@ on:
     paths:
       - 'terraform/**'
   workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: true
+        type: choice
+        default: deploy
+        options:
+          - deploy
+          - destroy
 
 env:
   TERRAFORM_VERSION: '1.12.2'
@@ -97,14 +106,14 @@ jobs:
 
       - name: Terraform Apply
         id: apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.action == 'deploy')
         env:
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
         run: terraform apply -auto-approve tfplan.binary
 
       - name: Terraform Output
         id: output
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: (github.ref == 'refs/heads/main' && github.event_name == 'push') || (github.event_name == 'workflow_dispatch' && inputs.action == 'deploy')
         run: |
           echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -172,3 +181,13 @@ jobs:
               repo: context.repo.repo,
               body: output
             });
+
+      - name: Terraform Destroy
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+        env:
+          TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          echo "## 💥 Destroying Infrastructure" >> $GITHUB_STEP_SUMMARY
+          terraform destroy -auto-approve
+          echo "## ✅ Infrastructure Destroyed" >> $GITHUB_STEP_SUMMARY
+          echo "All Azure resources have been destroyed." >> $GITHUB_STEP_SUMMARY

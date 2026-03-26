@@ -157,6 +157,11 @@ function SourceCard({ citation, tier }: { citation: Citation; tier: "primary" | 
           <p className="text-[9px] text-white/40 tracking-wider mt-0.5">
             {citation.source_name || `Page ${citation.page_id}`}
           </p>
+          {citation.chunk_text ? (
+            <p className="mt-1.5 max-w-[24rem] text-[10px] leading-relaxed text-white/45">
+              {citation.chunk_text}
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="flex items-center gap-2">

@@ -19,7 +19,9 @@ export function NeuralSvgOverlay() {
 /** Fire a neural link SVG path from an element to the avatar sphere. */
 export function fireNeuralLink(sourceEl: HTMLElement) {
   const svg = document.getElementById("neural-svg");
-  const sphere = document.getElementById("sphere-anchor");
+  const sphere =
+    document.getElementById("sphere-anchor") ??
+    document.getElementById("energy-core-mask-target");
   if (!svg || !sphere) return;
 
   const rect = sourceEl.getBoundingClientRect();

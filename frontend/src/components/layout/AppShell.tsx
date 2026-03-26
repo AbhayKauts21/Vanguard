@@ -2,6 +2,7 @@
 
 import {
   MoodOverlay,
+  NeuralSvgOverlay,
   ParticleCanvas,
   ScanlineOverlay,
 } from "@/components/effects";
@@ -14,6 +15,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <MoodOverlay />
       <ParticleCanvas />
       <ScanlineOverlay />
+      <NeuralSvgOverlay />
 
       {children}
     </div>

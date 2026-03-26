@@ -47,13 +47,10 @@ export function AvatarPanel() {
 
   return (
     <div
-      className="h-full w-full rounded-xl border border-white/10 bg-black/40 overflow-hidden relative glass-panel flex items-center justify-center panel-boundary"
+      className="h-full w-full rounded-xl border border-white/8 bg-black overflow-hidden relative glass-panel flex items-center justify-center panel-boundary"
       id="avatar-layer"
       style={{ zIndex: 101 }}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 pointer-events-none" />
-      <div className="absolute inset-0 pointer-events-none opacity-10 bg-[linear-gradient(rgba(255,255,255,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[size:80px_80px]" />
-
       <EnergyCoreCanvas state={coreState} />
 
       <div className="pointer-events-none absolute inset-px rounded-[inherit]">
@@ -85,7 +82,7 @@ export function AvatarPanel() {
         animationDelay="-4s"
       />
 
-      <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end justify-between bg-gradient-to-t from-black via-black/20 to-transparent p-10">
+      <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end justify-between bg-gradient-to-t from-black via-black/10 to-transparent p-10">
         <div className="flex flex-col gap-3">
           <h1 className="text-5xl font-extralight tracking-[0.4em] text-white/90 uppercase">
             CLEO-01

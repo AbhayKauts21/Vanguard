@@ -18,21 +18,21 @@ interface EnergyCoreProfile {
 const ENERGY_CORE_PROFILES: Record<EnergyCoreVisualState, EnergyCoreProfile> = {
   idle: {
     color: 0x1e3a8a,
-    speed: 0.15,
-    noise: 0.08,
+    speed: 0.12,
+    noise: 0.055,
     scale: 1,
   },
   syncing: {
     color: 0xd97706,
-    speed: 0.4,
-    noise: 0.15,
-    scale: 1.02,
+    speed: 0.28,
+    noise: 0.11,
+    scale: 1.015,
   },
   speech: {
-    color: 0x10b981,
-    speed: 0.8,
-    noise: 0.45,
-    scale: 1.15,
+    color: 0x22c55e,
+    speed: 0.34,
+    noise: 0.145,
+    scale: 1.035,
   },
 };
 
@@ -163,9 +163,10 @@ export function EnergyCoreCanvas({ state }: EnergyCoreCanvasProps) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(container.offsetWidth, container.offsetHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
     container.appendChild(renderer.domElement);
 
-    const geometry = new THREE.IcosahedronGeometry(1.2, 5);
+    const geometry = new THREE.IcosahedronGeometry(1.2, 6);
     const material = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
@@ -201,22 +202,22 @@ export function EnergyCoreCanvas({ state }: EnergyCoreCanvasProps) {
       material.uniforms.uTime.value = elapsedTime;
       (material.uniforms.uColor.value as THREE.Color).lerp(
         new THREE.Color(targetProfile.color),
-        0.015,
+        0.01,
       );
       material.uniforms.uSpeed.value = THREE.MathUtils.lerp(
         material.uniforms.uSpeed.value,
         targetProfile.speed,
-        0.015,
+        0.01,
       );
       material.uniforms.uNoiseIntensity.value = THREE.MathUtils.lerp(
         material.uniforms.uNoiseIntensity.value,
         targetProfile.noise,
-        0.015,
+        0.01,
       );
 
       globe.scale.lerp(
         new THREE.Vector3(targetProfile.scale, targetProfile.scale, targetProfile.scale),
-        0.02,
+        0.014,
       );
 
       renderer.render(scene, camera);

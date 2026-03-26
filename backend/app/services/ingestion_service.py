@@ -98,11 +98,12 @@ class IngestionService:
         logger.info("Starting full BookStack → Pinecone sync...")
 
         try:
-            # 1. Wipe existing vectors for clean re-index
-            await self.vector_store.delete_all()
-
-            # 2. Fetch all page stubs from BookStack
+            # 1. Fetch all page stubs from BookStack before touching Pinecone.
+            # This preserves the current index if BookStack is temporarily unavailable.
             pages = await self.bookstack_client.get_all_pages()
+
+            # 2. Wipe existing vectors for clean re-index only after source fetch succeeds
+            await self.vector_store.delete_all()
             total_chunks = 0
             failed: List[int] = []
 

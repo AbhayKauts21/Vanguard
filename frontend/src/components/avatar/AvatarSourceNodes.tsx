@@ -1,8 +1,6 @@
 "use client";
 
-import { useRef } from "react";
 import { useTranslations } from "next-intl";
-import { fireNeuralLink } from "@/components/effects/NeuralSvgOverlay";
 import type {
   EnergyCoreKnowledgeMode,
   EnergyCoreSourceNode,
@@ -16,15 +14,15 @@ interface AvatarSourceNodesProps {
 const TIER_TONES = {
   primary: {
     dot: "border-cyan-300/35 bg-cyan-300/18 shadow-[0_0_24px_rgba(125,211,252,0.32)]",
-    line: "from-cyan-300/45",
+    halo: "border-cyan-300/18 bg-cyan-300/8",
   },
   secondary: {
     dot: "border-emerald-300/30 bg-emerald-300/15 shadow-[0_0_20px_rgba(110,231,183,0.24)]",
-    line: "from-emerald-300/35",
+    halo: "border-emerald-300/16 bg-emerald-300/8",
   },
   tertiary: {
     dot: "border-white/20 bg-white/8 shadow-[0_0_18px_rgba(255,255,255,0.16)]",
-    line: "from-white/20",
+    halo: "border-white/10 bg-white/5",
   },
 } as const;
 
@@ -79,15 +77,10 @@ function OrbitNode({
     fallback: t("sourceNodeFallback"),
     idle: t("sourceNodeIdle"),
   };
-  const ref = useRef<HTMLButtonElement>(null);
   const tone = TIER_TONES[node.tier];
   const side = node.orbitAngle > 90 && node.orbitAngle < 270 ? "right" : "left";
 
   function handleClick() {
-    if (ref.current) {
-      fireNeuralLink(ref.current);
-    }
-
     if (node.sourceUrl) {
       window.open(node.sourceUrl, "_blank", "noopener,noreferrer");
     }
@@ -100,12 +93,7 @@ function OrbitNode({
         transform: `translateY(-50%) rotate(${node.orbitAngle}deg)`,
       }}
     >
-      <span
-        className={`pointer-events-none absolute left-0 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r ${tone.line} to-transparent`}
-        style={{ width: `${node.radius - 26}px`, opacity: 0.7 }}
-      />
       <button
-        ref={ref}
         type="button"
         onClick={handleClick}
         aria-label={node.title}
@@ -120,6 +108,12 @@ function OrbitNode({
         <span
           className={`relative flex h-4 w-4 items-center justify-center rounded-full border ${tone.dot} animate-float transition-transform duration-300 group-hover:scale-125`}
         >
+          <span
+            className={`absolute inset-[-7px] rounded-full border ${tone.halo} opacity-80 transition-transform duration-300 group-hover:scale-110`}
+          />
+          <span
+            className={`absolute inset-[-14px] rounded-full border ${tone.halo} opacity-35`}
+          />
           <span className="h-1.5 w-1.5 rounded-full bg-white/90" />
         </span>
 

@@ -17,19 +17,19 @@ interface EnergyCoreProfile {
 
 const ENERGY_CORE_PROFILES: Record<EnergyCoreVisualState, EnergyCoreProfile> = {
   idle: {
-    color: 0x1e3a8a,
+    color: 0x162d8f,
     speed: 0.1,
     noise: 0.042,
     scale: 1,
   },
   syncing: {
-    color: 0xd97706,
+    color: 0xc26109,
     speed: 0.22,
     noise: 0.082,
     scale: 1.012,
   },
   speech: {
-    color: 0x14b8a6,
+    color: 0x10968a,
     speed: 0.25,
     noise: 0.094,
     scale: 1.018,
@@ -126,7 +126,7 @@ const fragmentShader = `
 
   void main() {
     float alpha = 0.5 + 0.5 * vNoise;
-    gl_FragColor = vec4(uColor + (vNoise * 0.2), alpha * 0.8);
+    gl_FragColor = vec4(uColor + (vNoise * 0.12), alpha * 0.82);
   }
 `;
 

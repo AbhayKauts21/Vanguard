@@ -1,9 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { Citation } from "@/types";
-import { fireNeuralLink } from "@/components/effects/NeuralSvgOverlay";
 
 interface CitationListProps {
   primary?: Citation[];
@@ -127,11 +126,9 @@ function SourceSection({
 }
 
 function SourceCard({ citation, tier }: { citation: Citation; tier: "primary" | "secondary" | "tertiary" }) {
-  const ref = useRef<HTMLDivElement>(null);
   const t = useTranslations("chat");
 
   function handleClick() {
-    if (ref.current) fireNeuralLink(ref.current);
     if (citation.source_url) {
       window.open(citation.source_url, "_blank", "noopener,noreferrer");
     }
@@ -145,7 +142,7 @@ function SourceCard({ citation, tier }: { citation: Citation; tier: "primary" | 
   };
 
   return (
-    <div ref={ref} onClick={handleClick} className={`${baseStyles} ${tierStyles[tier]}`}>
+    <div onClick={handleClick} className={`${baseStyles} ${tierStyles[tier]}`}>
       <div className="flex items-center gap-3">
         <span className="material-symbols-outlined text-white/40 group-hover:text-white/80 transition-colors text-lg">
           {citation.source_type === "vector" ? "memory" : "database"}

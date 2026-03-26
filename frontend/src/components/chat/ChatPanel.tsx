@@ -63,7 +63,7 @@ export function ChatPanel({ messages, isThinking, onSend, disabled }: ChatPanelP
       <ErrorBanner errorType={errorType} />
       <OfflineBanner />
 
-      {hasMessages ? <MessageList messages={messages} /> : <EmptyState />}
+      {hasMessages ? <MessageList messages={messages} /> : <EmptyState onSend={onSend} disabled={disabled} />}
 
       {isThinking && <TypingIndicator />}
 

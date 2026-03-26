@@ -77,6 +77,9 @@
     "sessionConnecting": "Conectando...",
     "inputPlaceholder": "Consulta a CLEO...",
     "initialMessage": "Inicializando sincronización neural. Todos los sistemas están nominales. He procesado la cuadrícula de datos más reciente del archivo central. ¿Cómo deseas proceder con tus objetivos?",
+    "promptArchitecture": "Resume la arquitectura de CLEO",
+    "promptCapabilities": "¿Qué puede hacer CLEO ahora?",
+    "promptKnowledgeBase": "¿Qué hay en la base de conocimiento?",
     "emptyState": "¿Cómo puedo ayudarte hoy?",
     "emptyStateHint": "Pregúntame lo que quieras sobre nuestra documentación.",
     "thinking": "Procesando consulta neural...",
@@ -90,7 +93,12 @@
     "uncertainDesc": "Encontré información pero no estoy seguro de que responda tu pregunta.",
     "whatIFound": "Lo que encontré de todas formas:",
     "contactSupport": "Contacta a soporte para detalles precisos →",
-    "azureMode": "Respuesta de conocimiento general (no específica de nuestro producto)"
+    "azureMode": "Respuesta de conocimiento general (no específica de nuestro producto)",
+    "sourcesSummary": "{count} fuentes verificadas",
+    "sourcesDrawerTitle": "Recuperación fundamentada",
+    "expandSources": "Ver {count} fuentes más",
+    "collapseSources": "Cerrar",
+    "viewOriginal": "Abrir"
   },
   "avatar": {
     "coreSync": "SINCRONIZACIÓN: ACTIVA",

@@ -77,6 +77,9 @@
     "sessionConnecting": "Connecting...",
     "inputPlaceholder": "Address CLEO...",
     "initialMessage": "Initializing neural synchronization. All systems nominal. I have processed the latest data grid from the central archive. How shall we proceed with your objectives?",
+    "promptArchitecture": "Summarize CLEO architecture",
+    "promptCapabilities": "What can CLEO do right now?",
+    "promptKnowledgeBase": "What is in the knowledge base?",
     "emptyState": "How can I help you today?",
     "emptyStateHint": "Ask me anything about our documentation.",
     "thinking": "Processing neural query...",
@@ -90,7 +93,12 @@
     "uncertainDesc": "I found some information but I'm not confident it answers your question.",
     "whatIFound": "What I found anyway:",
     "contactSupport": "Contact support for accurate details →",
-    "azureMode": "General knowledge answer (not specific to our product)"
+    "azureMode": "General knowledge answer (not specific to our product)",
+    "sourcesSummary": "{count} grounded sources",
+    "sourcesDrawerTitle": "Grounded retrieval",
+    "expandSources": "View {count} more sources",
+    "collapseSources": "Collapse",
+    "viewOriginal": "Open"
   },
   "avatar": {
     "coreSync": "CORE_SYNC: ACTIVE",

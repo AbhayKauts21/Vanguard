@@ -18,21 +18,21 @@ interface EnergyCoreProfile {
 const ENERGY_CORE_PROFILES: Record<EnergyCoreVisualState, EnergyCoreProfile> = {
   idle: {
     color: 0x1e3a8a,
-    speed: 0.12,
-    noise: 0.055,
+    speed: 0.1,
+    noise: 0.042,
     scale: 1,
   },
   syncing: {
     color: 0xd97706,
-    speed: 0.28,
-    noise: 0.11,
-    scale: 1.015,
+    speed: 0.22,
+    noise: 0.082,
+    scale: 1.012,
   },
   speech: {
-    color: 0x22c55e,
-    speed: 0.34,
-    noise: 0.145,
-    scale: 1.035,
+    color: 0x14b8a6,
+    speed: 0.25,
+    noise: 0.094,
+    scale: 1.018,
   },
 };
 
@@ -166,7 +166,7 @@ export function EnergyCoreCanvas({ state }: EnergyCoreCanvasProps) {
     renderer.setClearColor(0x000000, 0);
     container.appendChild(renderer.domElement);
 
-    const geometry = new THREE.IcosahedronGeometry(1.2, 6);
+    const geometry = new THREE.IcosahedronGeometry(1.2, 7);
     const material = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
@@ -202,23 +202,26 @@ export function EnergyCoreCanvas({ state }: EnergyCoreCanvasProps) {
       material.uniforms.uTime.value = elapsedTime;
       (material.uniforms.uColor.value as THREE.Color).lerp(
         new THREE.Color(targetProfile.color),
-        0.01,
+        0.008,
       );
       material.uniforms.uSpeed.value = THREE.MathUtils.lerp(
         material.uniforms.uSpeed.value,
         targetProfile.speed,
-        0.01,
+        0.008,
       );
       material.uniforms.uNoiseIntensity.value = THREE.MathUtils.lerp(
         material.uniforms.uNoiseIntensity.value,
         targetProfile.noise,
-        0.01,
+        0.008,
       );
 
       globe.scale.lerp(
         new THREE.Vector3(targetProfile.scale, targetProfile.scale, targetProfile.scale),
-        0.014,
+        0.01,
       );
+      globe.rotation.y += 0.0011;
+      globe.rotation.x += 0.00028;
+      innerSphere.rotation.y -= 0.00045;
 
       renderer.render(scene, camera);
       animationFrameId = window.requestAnimationFrame(renderFrame);

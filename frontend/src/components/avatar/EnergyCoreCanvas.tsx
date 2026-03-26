@@ -13,33 +13,40 @@ interface EnergyCoreProfile {
   speed: number;
   noise: number;
   scale: number;
+  breathAmplitude: number;
+  breathSpeed: number;
 }
 
 const ENERGY_CORE_PROFILES: Record<EnergyCoreVisualState, EnergyCoreProfile> = {
   idle: {
     color: 0x162d8f,
-    speed: 0.1,
-    noise: 0.042,
+    speed: 0.062,
+    noise: 0.036,
     scale: 1,
+    breathAmplitude: 0.006,
+    breathSpeed: 0.72,
   },
   syncing: {
     color: 0xc26109,
-    speed: 0.22,
-    noise: 0.082,
-    scale: 1.012,
+    speed: 0.132,
+    noise: 0.061,
+    scale: 1.01,
+    breathAmplitude: 0.011,
+    breathSpeed: 0.98,
   },
   speech: {
     color: 0x10968a,
-    speed: 0.25,
-    noise: 0.094,
-    scale: 1.018,
+    speed: 0.148,
+    noise: 0.068,
+    scale: 1.014,
+    breathAmplitude: 0.014,
+    breathSpeed: 1.08,
   },
 };
 
 const INITIAL_PROFILE = ENERGY_CORE_PROFILES.idle;
 
 const vertexShader = `
-  varying vec2 vUv;
   varying float vNoise;
   uniform float uTime;
   uniform float uSpeed;
@@ -112,15 +119,17 @@ const vertexShader = `
   }
 
   void main() {
-    vUv = uv;
-    vNoise = snoise(normal + uTime * uSpeed);
+    vec3 primaryFlow = normal * 1.1 + vec3(uTime * uSpeed * 0.85);
+    vec3 secondaryFlow = position * 0.72 + vec3(3.1, -2.3, 1.7) - vec3(uTime * uSpeed * 0.38);
+    float primaryNoise = snoise(primaryFlow);
+    float secondaryNoise = snoise(secondaryFlow);
+    vNoise = mix(primaryNoise, secondaryNoise, 0.32);
     vec3 newPosition = position + normal * vNoise * uNoiseIntensity;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
   }
 `;
 
 const fragmentShader = `
-  varying vec2 vUv;
   varying float vNoise;
   uniform vec3 uColor;
 
@@ -194,34 +203,42 @@ export function EnergyCoreCanvas({ state }: EnergyCoreCanvasProps) {
 
     let animationFrameId = 0;
     const clock = new THREE.Clock();
+    const targetColor = new THREE.Color(INITIAL_PROFILE.color);
+    const targetScale = new THREE.Vector3(1, 1, 1);
+    const innerTargetScale = new THREE.Vector3(1, 1, 1);
 
     const renderFrame = () => {
       const elapsedTime = clock.getElapsedTime();
       const targetProfile = targetStateRef.current;
+      const breathWave = Math.sin(elapsedTime * targetProfile.breathSpeed) * targetProfile.breathAmplitude;
+      const targetNoise = targetProfile.noise + targetProfile.noise * breathWave * 3;
+      const targetScaleValue = targetProfile.scale + breathWave;
 
       material.uniforms.uTime.value = elapsedTime;
+      targetColor.set(targetProfile.color);
       (material.uniforms.uColor.value as THREE.Color).lerp(
-        new THREE.Color(targetProfile.color),
-        0.008,
+        targetColor,
+        0.0055,
       );
       material.uniforms.uSpeed.value = THREE.MathUtils.lerp(
         material.uniforms.uSpeed.value,
         targetProfile.speed,
-        0.008,
+        0.0055,
       );
       material.uniforms.uNoiseIntensity.value = THREE.MathUtils.lerp(
         material.uniforms.uNoiseIntensity.value,
-        targetProfile.noise,
-        0.008,
+        targetNoise,
+        0.0065,
       );
 
-      globe.scale.lerp(
-        new THREE.Vector3(targetProfile.scale, targetProfile.scale, targetProfile.scale),
-        0.01,
-      );
-      globe.rotation.y += 0.0011;
-      globe.rotation.x += 0.00028;
-      innerSphere.rotation.y -= 0.00045;
+      targetScale.set(targetScaleValue, targetScaleValue, targetScaleValue);
+      globe.scale.lerp(targetScale, 0.012);
+      innerTargetScale.setScalar(1 + breathWave * 0.45);
+      innerSphere.scale.lerp(innerTargetScale, 0.015);
+
+      globe.rotation.y += 0.00068;
+      globe.rotation.x += 0.00018;
+      innerSphere.rotation.y -= 0.00024;
 
       renderer.render(scene, camera);
       animationFrameId = window.requestAnimationFrame(renderFrame);

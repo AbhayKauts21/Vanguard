@@ -1,20 +1,6 @@
 name: Dev - Terraform Deploy with Trivy Scan
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-      - feature/observability-setup
-    paths:
-      - 'terraform/**'
-      - '.github/workflows/terraform.yml'
-  pull_request:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'terraform/**'
   workflow_dispatch:
     inputs:
       action:

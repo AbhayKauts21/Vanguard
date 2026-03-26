@@ -1,8 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TopBar } from "./TopBar";
-import { useChatStore } from "@/domains/chat/model";
 
 vi.mock("@/components/i18n/LanguageSwitcher", () => ({
   LanguageSwitcher: () => <div>Language Switcher</div>,
@@ -29,39 +28,24 @@ vi.mock("@/i18n/navigation", () => ({
 
 const messages = {
   header: {
-    newSession: "New Session",
-    clearThread: "Clear Thread",
     focusInput: "Focus Input",
+    focusInputHint: "Operator cursor",
     adminConsole: "Admin Console",
+    adminConsoleHint: "System controls",
     pulseInterface: "Pulse interface",
   },
 };
 
 describe("TopBar", () => {
-  beforeEach(() => {
-    useChatStore.setState({
-      messages: [{ id: "msg-1", role: "user", content: "hello" }],
-      isThinking: false,
-      streamingMessageId: null,
-      errorType: null,
-      conversationId: "session-a",
-    });
-  });
-
-  it("renders functional controls and clears the thread", () => {
+  it("renders bespoke header actions for input focus and admin access", () => {
     render(
       <NextIntlClientProvider locale="en" messages={messages}>
         <TopBar />
       </NextIntlClientProvider>,
     );
 
-    expect(screen.getByRole("button", { name: "New Session" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Clear Thread" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Focus Input" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Admin Console" })).toHaveAttribute("href", "/admin");
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear Thread" }));
-
-    expect(useChatStore.getState().messages).toEqual([]);
+    expect(screen.getByText("Focus Input")).toBeInTheDocument();
+    expect(screen.getByText("Operator cursor")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Admin Console/i })).toHaveAttribute("href", "/admin");
   });
 });

@@ -17,7 +17,9 @@
     "newSession": "New Session",
     "clearThread": "Clear Thread",
     "focusInput": "Focus Input",
+    "focusInputHint": "Operator cursor",
     "adminConsole": "Admin Console",
+    "adminConsoleHint": "System controls",
     "pulseInterface": "Pulse interface"
   },
   "auth": {
@@ -72,7 +74,7 @@
     "unnamedUser": "Unnamed user",
     "role": "Role",
     "permissions": "Permissions",
-    "goToChat": "Neural Link",
+    "goToChat": "CLEO Chat",
     "goToSystem": "System Console",
     "logout": "Sign out",
     "loggingOut": "Signing out..."

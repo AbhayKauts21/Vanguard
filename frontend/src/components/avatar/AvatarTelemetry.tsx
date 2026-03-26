@@ -13,19 +13,12 @@ export function AvatarTelemetry() {
   const ts = useTranslations("status");
 
   const sync = useSyncStatus();
-  const backendStatus = useTelemetryStore((s) => s.backendStatus);
   const vectorCount = useTelemetryStore((s) => s.vectorCount);
 
   const isSyncing = sync.data?.status === "syncing";
   const coreSyncLabel = isSyncing ? ts("syncing") : t("coreSync");
   const knowledgeLabel =
     vectorCount && vectorCount > 0 ? t("knowledgeReady") : t("knowledgeSyncing");
-  const backendLabel =
-    backendStatus === "online"
-      ? t("backendOnline")
-      : backendStatus === "degraded"
-        ? t("backendDegraded")
-        : t("backendOffline");
 
   return (
     <div className="flex gap-6 mt-2">
@@ -39,12 +32,6 @@ export function AvatarTelemetry() {
         <span className="material-symbols-outlined text-white/30 text-xs font-light">dataset</span>
         <span className="text-[10px] font-medium tracking-[0.15em] text-white/30">
           {knowledgeLabel}
-        </span>
-      </div>
-      <div className="flex items-center gap-2.5">
-        <span className="material-symbols-outlined text-white/30 text-xs font-light">memory</span>
-        <span className={`text-[10px] font-medium tracking-[0.15em] ${backendStatus === "online" ? "text-white/30" : backendStatus === "degraded" ? "text-amber-300/55" : "text-red-400/50"}`}>
-          {backendLabel}
         </span>
       </div>
     </div>

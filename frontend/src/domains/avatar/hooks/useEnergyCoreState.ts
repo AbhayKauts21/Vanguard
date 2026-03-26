@@ -17,8 +17,10 @@ export function useEnergyCoreState(): EnergyCoreVisualState {
   const streamingMessageId = useChatStore((s) => s.streamingMessageId);
   const avatarState = useAvatarStore((s) => s.currentState);
 
-  const [speechHoldUntil, setSpeechHoldUntil] = useState<number | null>(null);
+  const [hasSpeechHold, setHasSpeechHold] = useState(false);
   const previousAssistantSignatureRef = useRef<string | null>(null);
+  const startHoldFrameRef = useRef<number | null>(null);
+  const endHoldTimeoutRef = useRef<number | null>(null);
 
   const latestAssistant = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -46,36 +48,42 @@ export function useEnergyCoreState(): EnergyCoreVisualState {
       previousSignature === null || !previousSignature.startsWith(`${latestAssistant.id}:`);
 
     if (!latestAssistant.isStreaming && (finishedStreaming || addedCompletedResponse)) {
-      setSpeechHoldUntil(Date.now() + ENERGY_CORE_SPEECH_HOLD_MS);
+      if (startHoldFrameRef.current !== null) {
+        window.cancelAnimationFrame(startHoldFrameRef.current);
+      }
+
+      if (endHoldTimeoutRef.current !== null) {
+        window.clearTimeout(endHoldTimeoutRef.current);
+      }
+
+      startHoldFrameRef.current = window.requestAnimationFrame(() => {
+        setHasSpeechHold(true);
+        endHoldTimeoutRef.current = window.setTimeout(() => {
+          setHasSpeechHold(false);
+          endHoldTimeoutRef.current = null;
+        }, ENERGY_CORE_SPEECH_HOLD_MS);
+      });
     }
 
     previousAssistantSignatureRef.current = signature;
   }, [latestAssistant]);
 
   useEffect(() => {
-    if (!speechHoldUntil) {
-      return;
-    }
-
-    const remainingMs = speechHoldUntil - Date.now();
-    if (remainingMs <= 0) {
-      setSpeechHoldUntil(null);
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setSpeechHoldUntil(null);
-    }, remainingMs);
-
     return () => {
-      window.clearTimeout(timeoutId);
+      if (startHoldFrameRef.current !== null) {
+        window.cancelAnimationFrame(startHoldFrameRef.current);
+      }
+
+      if (endHoldTimeoutRef.current !== null) {
+        window.clearTimeout(endHoldTimeoutRef.current);
+      }
     };
-  }, [speechHoldUntil]);
+  }, []);
 
   return deriveEnergyCoreState({
     avatarState,
     isThinking,
     hasStreamingMessage: Boolean(streamingMessageId),
-    hasSpeechHold: speechHoldUntil !== null && speechHoldUntil > Date.now(),
+    hasSpeechHold,
   });
 }

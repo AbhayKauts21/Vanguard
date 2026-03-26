@@ -83,7 +83,9 @@ class Particle {
 
 /** Cache sphere position from DOM */
 function getSphereRect(): { cx: number; cy: number; r: number } {
-  const el = document.getElementById("avatar-sphere-mask-target");
+  const el =
+    document.getElementById("energy-core-mask-target") ??
+    document.getElementById("avatar-sphere-mask-target");
   if (!el) return { cx: 0, cy: 0, r: 0 };
   const rect = el.getBoundingClientRect();
   return {

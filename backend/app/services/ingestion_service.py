@@ -102,8 +102,9 @@ class IngestionService:
             # This preserves the current index if BookStack is temporarily unavailable.
             pages = await self.bookstack_client.get_all_pages()
 
-            # 2. Wipe existing vectors for clean re-index only after source fetch succeeds
-            await self.vector_store.delete_all()
+            # 2. Clear only BookStack-owned vectors after source fetch succeeds.
+            # This preserves locally ingested markdown docs that share the namespace.
+            await self.vector_store.delete_by_source_type("bookstack")
             total_chunks = 0
             failed: List[int] = []
 

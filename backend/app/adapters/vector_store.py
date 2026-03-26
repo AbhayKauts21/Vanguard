@@ -135,6 +135,28 @@ class VectorStore:
             logger.error(f"Pinecone delete_all failed: {e}")
             raise VectorStoreError(detail=f"Failed to clear vector store: {e}")
 
+    async def delete_by_source_type(self, source_type: str) -> None:
+        """Delete all vectors for a specific source type within the namespace."""
+        index = self._get_index()
+        try:
+            index.delete(
+                filter={"source_type": {"$eq": source_type}},
+                namespace=self.NAMESPACE,
+            )
+            logger.info("Deleted vectors for source_type='{}'", source_type)
+        except Exception as e:
+            if self._is_missing_namespace_error(e):
+                logger.info(
+                    "Pinecone namespace '{}' does not exist yet; delete_by_source_type is a no-op".format(
+                        self.NAMESPACE
+                    )
+                )
+                return
+            logger.error(f"Pinecone delete_by_source_type failed for {source_type}: {e}")
+            raise VectorStoreError(
+                detail=f"Failed to delete vectors for source_type '{source_type}': {e}"
+            )
+
     async def get_index_stats(self) -> Dict:
         """Return index stats (total vector count, etc.)."""
         index = self._get_index()

@@ -19,6 +19,7 @@ on:
           - all
           - backend
           - frontend
+          - observability
       backend_version:
         description: "Backend version (e.g. v1.2.0 or latest)"
         required: false
@@ -467,6 +468,57 @@ jobs:
         run: rm -f /tmp/vm_key.pem
 
 # ─────────────────────────────────────────────
+# JOB 4c: deploy-observability
+# Restarts grafana, otel-collector, tempo, loki, prometheus
+# ─────────────────────────────────────────────
+  deploy-observability:
+    name: Deploy Observability
+    runs-on: ubuntu-latest
+    needs: [provision, setup-vm]
+    if: inputs.action == 'deploy' && inputs.deploy_target == 'observability'
+
+    steps:
+      - name: Write SSH key
+        run: |
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
+          chmod 600 /tmp/vm_key.pem
+          echo "SSH key written"
+
+      - name: Restart observability stack
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            cd ~/cleo
+            docker compose -f docker-compose.observability.yml up -d \
+              grafana otel-collector tempo loki prometheus
+            echo 'Observability stack restarted'
+          "
+
+      - name: Health check — Grafana
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          for i in $(seq 1 12); do
+            if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
+                "curl -sf http://localhost:3002/api/health" 2>/dev/null; then
+              echo "Grafana healthy"
+              exit 0
+            fi
+            echo "Attempt $i/12 — waiting 5s..."
+            sleep 5
+          done
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
+            "cd ~/cleo && docker compose -f docker-compose.observability.yml logs grafana --tail=50"
+          exit 1
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f /tmp/vm_key.pem
+
+# ─────────────────────────────────────────────
 # JOB 5: configure-nginx (first deploy only)
 # ─────────────────────────────────────────────
   configure-nginx:
@@ -548,13 +600,14 @@ jobs:
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [provision, deploy-backend, deploy-frontend, configure-nginx]
+    needs: [provision, deploy-backend, deploy-frontend, deploy-observability, configure-nginx]
     if: |
       always() &&
       inputs.action == 'deploy' &&
       needs.provision.result == 'success' &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
       (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&
+      (needs.deploy-observability.result == 'success' || needs.deploy-observability.result == 'skipped') &&
       (needs.configure-nginx.result == 'success' || needs.configure-nginx.result == 'skipped')
 
     steps:

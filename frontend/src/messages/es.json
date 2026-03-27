@@ -13,7 +13,14 @@
     "neuralLink": "Enlace Neural",
     "archive": "Archivo",
     "system": "Sistema",
-    "language": "Idioma"
+    "language": "Idioma",
+    "newSession": "Nueva sesión",
+    "clearThread": "Limpiar hilo",
+    "focusInput": "Enfocar entrada",
+    "focusInputHint": "Cursor del operador",
+    "adminConsole": "Consola admin",
+    "adminConsoleHint": "Controles del sistema",
+    "pulseInterface": "Impulsar interfaz"
   },
   "auth": {
     "navLogin": "Iniciar sesión",
@@ -67,7 +74,7 @@
     "unnamedUser": "Usuario sin nombre",
     "role": "Rol",
     "permissions": "Permisos",
-    "goToChat": "Enlace Neural",
+    "goToChat": "Chat de CLEO",
     "goToSystem": "Consola del sistema",
     "logout": "Cerrar sesión",
     "loggingOut": "Cerrando sesión..."
@@ -76,6 +83,10 @@
     "sessionStable": "Enlace Estable",
     "sessionConnecting": "Conectando...",
     "inputPlaceholder": "Consulta a CLEO...",
+    "initialMessage": "Inicializando sincronización neural. Todos los sistemas están nominales. He procesado la cuadrícula de datos más reciente del archivo central. ¿Cómo deseas proceder con tus objetivos?",
+    "promptArchitecture": "Resume la arquitectura de CLEO",
+    "promptCapabilities": "¿Qué puede hacer CLEO ahora?",
+    "promptKnowledgeBase": "¿Qué hay en la base de conocimiento?",
     "emptyState": "¿Cómo puedo ayudarte hoy?",
     "emptyStateHint": "Pregúntame lo que quieras sobre nuestra documentación.",
     "thinking": "Procesando consulta neural...",
@@ -89,13 +100,27 @@
     "uncertainDesc": "Encontré información pero no estoy seguro de que responda tu pregunta.",
     "whatIFound": "Lo que encontré de todas formas:",
     "contactSupport": "Contacta a soporte para detalles precisos →",
-    "azureMode": "Respuesta de conocimiento general (no específica de nuestro producto)"
+    "azureMode": "Respuesta de conocimiento general (no específica de nuestro producto)",
+    "sourcesSummary": "{count} fuentes verificadas",
+    "sourcesDrawerTitle": "Recuperación fundamentada",
+    "expandSources": "Ver {count} fuentes más",
+    "collapseSources": "Cerrar",
+    "viewOriginal": "Abrir"
   },
   "avatar": {
     "coreSync": "SINCRONIZACIÓN: ACTIVA",
     "meshEngaged": "RED_NEURAL: CONECTADA",
+    "knowledgeReady": "BASE_CONOCIMIENTO: LISTA",
+    "knowledgeSyncing": "BASE_CONOCIMIENTO: SINCRONIZANDO",
+    "backendOnline": "BACKEND: EN LÍNEA",
+    "backendDegraded": "BACKEND: DEGRADADO",
+    "backendOffline": "BACKEND: DESCONECTADO",
     "systemReady": "SISTEMA: LISTO",
     "awaiting": "Esperando Entrada",
+    "sourceNodeGrounded": "Fuente verificada",
+    "sourceNodeContext": "Señal de contexto",
+    "sourceNodeFallback": "Memoria de respaldo",
+    "sourceNodeIdle": "Nodo de conocimiento",
     "mute": "Silenciar avatar",
     "unmute": "Activar audio del avatar",
     "speaking": "Hablando",
@@ -120,6 +145,9 @@
   "footer": {
     "neuralMesh": "Análisis de Red Neural...",
     "nodeLocation": "Nodo Neo-Tokyo 07",
-    "buildInfo": "CLEO Systems // Build 4.2.0-A // Protocolo 99"
+    "vectorsLabel": "Vectores",
+    "backendLabel": "Backend",
+    "latencyLabel": "Latencia media",
+    "buildInfo": "CLEO Systems // Build 5.0.0-Dynamic // Protocolo 99"
   }
 }

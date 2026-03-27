@@ -162,7 +162,7 @@ async def detailed_health():
     try:
         stats = await vector_store.get_index_stats()
         pinecone_status = "online"
-        vector_count = stats.get("total_vectors", 0)
+        vector_count = stats.get("namespace_vectors") or stats.get("total_vectors", 0)
     except Exception:
         pinecone_status = "offline"
         vector_count = 0

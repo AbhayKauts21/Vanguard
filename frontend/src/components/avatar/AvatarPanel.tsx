@@ -1,107 +1,93 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useTranslations } from "next-intl";
-import { AvatarTelemetry } from "./AvatarTelemetry";
 import { AvatarBadge } from "./AvatarBadge";
-import { AvatarSphere } from "./AvatarSphere";
-import { AvatarVideo } from "./AvatarVideo";
+import { AvatarSourceNodes } from "./AvatarSourceNodes";
+import { AvatarTelemetry } from "./AvatarTelemetry";
+import { EnergyCoreCanvas } from "./EnergyCoreCanvas";
+import { ResponseWaveform } from "./ResponseWaveform";
+import { useEnergyCoreState } from "@/domains/avatar/hooks/useEnergyCoreState";
+import { useEnergyCoreTelemetry } from "@/domains/avatar/hooks/useEnergyCoreTelemetry";
 import { useDetailedHealth } from "@/domains/system/hooks/useDetailedHealth";
 import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
-import { env } from "@/lib/env";
+
+const CORE_STATUS = {
+  idle: {
+    className: "text-blue-300/90 border-blue-400/30",
+    label: "[IDLE]",
+  },
+  syncing: {
+    className: "text-amber-300/90 border-amber-400/30",
+    label: "[SYNCING]",
+  },
+  speech: {
+    className: "text-emerald-300/90 border-emerald-400/30",
+    label: "[SPEECH_ACTIVE]",
+  },
+} as const;
 
 /**
- * Avatar panel — right-side container.
- * Grid overlay, sphere with concentric rings, floating badges outside the sphere,
- * CLEO-01 title positioned below the sphere (non-overlapping).
+ * Avatar panel — the CLEO energy core visualizer and supporting telemetry shell.
  */
 export function AvatarPanel() {
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  /* Phase 8: poll /health/detailed for real metrics */
   useDetailedHealth();
+  const coreState = useEnergyCoreState();
+  const coreTelemetry = useEnergyCoreTelemetry();
   const lastLatencyMs = useTelemetryStore((s) => s.lastLatencyMs);
   const vectorCount = useTelemetryStore((s) => s.vectorCount);
 
-  /* Format latency for badge display */
   const latencyDisplay = lastLatencyMs !== null
     ? lastLatencyMs < 1000
       ? `${lastLatencyMs}ms`
       : `${(lastLatencyMs / 1000).toFixed(1)}s`
-    : "—";
-
-  /* Format vector count compactly */
+    : "2ms";
   const vectorDisplay = vectorCount !== null
     ? vectorCount >= 1000
       ? `${(vectorCount / 1000).toFixed(1)}k`
       : `${vectorCount}`
     : "—";
 
-  /* Parallax: badges + sphere drift slightly with mouse for depth */
-  useEffect(() => {
-    function onMouseMove(e: MouseEvent) {
-      const core = document.getElementById("avatar-liquid-core");
-      if (!core) return;
-      const coreX = (e.clientX - window.innerWidth / 2) * 0.05;
-      const coreY = (e.clientY - window.innerHeight / 2) * 0.05;
-      core.style.transform = `translate(${coreX}px, ${coreY}px) scale(1.15)`;
-
-      /* Badge parallax — opposite direction for depth illusion */
-      const badges = document.querySelectorAll<HTMLDivElement>(".avatar-badge");
-      badges.forEach((badge) => {
-        const bx = (e.clientX - window.innerWidth / 2) * -0.02;
-        const by = (e.clientY - window.innerHeight / 2) * -0.02;
-        badge.style.transform = `translate(${bx}px, ${by}px)`;
-      });
-    }
-    window.addEventListener("mousemove", onMouseMove);
-    return () => window.removeEventListener("mousemove", onMouseMove);
-  }, []);
+  const currentStatus = CORE_STATUS[coreState];
 
   return (
     <div
-      ref={panelRef}
-      className="h-full w-full rounded-xl border border-white/10 bg-black/40 overflow-hidden relative glass-panel flex items-center justify-center panel-boundary"
+      className="h-full w-full rounded-xl border border-white/8 bg-black overflow-hidden relative glass-panel flex items-center justify-center panel-boundary"
       id="avatar-layer"
       style={{ zIndex: 101 }}
     >
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-white/5 pointer-events-none" />
+      <EnergyCoreCanvas state={coreState} />
 
-      {/* Grid lines overlay */}
-      <div
-        className="absolute inset-0 opacity-10 pointer-events-none"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
-          backgroundSize: "80px 80px",
-        }}
-      />
-
-      {/* Sphere + badges section — flex-1 to take available space above title */}
-      <div className="relative z-10 flex-1 w-full flex items-center justify-center">
-        {/* Sphere / Context Avatar Video overlay */}
-        {env.enableAvatar ? <AvatarVideo /> : <AvatarSphere />}
-
-        {/* Floating Latency badge — real TTFT from last message */}
-        <AvatarBadge
-          label="Latency"
-          value={latencyDisplay}
-          className="absolute top-[12%] right-[8%]"
-          animationDelay="-1.5s"
-        />
-
-        {/* Floating Vectors badge — real Pinecone vector count */}
-        <AvatarBadge
-          label="Vectors"
-          value={vectorDisplay}
-          className="absolute bottom-[25%] left-[5%]"
-          animationDelay="-4s"
-        />
+      <div className="pointer-events-none absolute inset-px rounded-[inherit]">
+        <span className="absolute left-0 top-0 h-5 w-5 rounded-tl-xl border-l border-t border-white/20" />
+        <span className="absolute bottom-0 right-0 h-5 w-5 rounded-br-xl border-b border-r border-white/20" />
       </div>
 
-      {/* Bottom section — CLEO-01 title + telemetry */}
-      <div className="absolute bottom-0 left-0 right-0 p-10 flex justify-between items-end bg-gradient-to-t from-black via-black/20 to-transparent" style={{ zIndex: 102 }}>
+      <AvatarSourceNodes nodes={coreTelemetry.sourceNodes} mode={coreTelemetry.mode} />
+
+      <div className="absolute left-10 top-10 z-20 flex flex-col gap-2">
+        <div
+          className={`rounded-[4px] border bg-black/50 px-3 py-1 font-mono text-[10px] tracking-[0.2em] backdrop-blur-[10px] transition-all duration-500 ${currentStatus.className}`}
+          id="core-status-tag"
+        >
+          {currentStatus.label}
+        </div>
+        <ResponseWaveform />
+      </div>
+
+      <AvatarBadge
+        label="Vectors"
+        value={vectorDisplay}
+        className="absolute right-10 top-10 z-20"
+        animationDelay="-1.5s"
+      />
+
+      <AvatarBadge
+        label="Latency"
+        value={latencyDisplay}
+        className="absolute bottom-24 right-10 z-20"
+        animationDelay="-4s"
+      />
+
+      <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end justify-between bg-gradient-to-t from-black via-black/10 to-transparent p-10">
         <div className="flex flex-col gap-3">
           <h1 className="text-5xl font-extralight tracking-[0.4em] text-white/90 uppercase">
             CLEO-01

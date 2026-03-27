@@ -135,20 +135,61 @@ class VectorStore:
             logger.error(f"Pinecone delete_all failed: {e}")
             raise VectorStoreError(detail=f"Failed to clear vector store: {e}")
 
+    async def delete_by_source_type(self, source_type: str) -> None:
+        """Delete all vectors for a specific source type within the namespace."""
+        index = self._get_index()
+        try:
+            index.delete(
+                filter={"source_type": {"$eq": source_type}},
+                namespace=self.NAMESPACE,
+            )
+            logger.info("Deleted vectors for source_type='{}'", source_type)
+        except Exception as e:
+            if self._is_missing_namespace_error(e):
+                logger.info(
+                    "Pinecone namespace '{}' does not exist yet; delete_by_source_type is a no-op".format(
+                        self.NAMESPACE
+                    )
+                )
+                return
+            logger.error(f"Pinecone delete_by_source_type failed for {source_type}: {e}")
+            raise VectorStoreError(
+                detail=f"Failed to delete vectors for source_type '{source_type}': {e}"
+            )
+
     async def get_index_stats(self) -> Dict:
         """Return index stats (total vector count, etc.)."""
         index = self._get_index()
         try:
             stats = index.describe_index_stats()
+            namespaces = stats.get("namespaces", {}) or {}
+            namespace_total = 0
+
+            for namespace_name, namespace_stats in namespaces.items():
+                vector_count = (
+                    namespace_stats.get("vector_count")
+                    or namespace_stats.get("record_count")
+                    or 0
+                )
+                if namespace_name == self.NAMESPACE:
+                    namespace_total = int(vector_count)
+                    break
+
+            total_vectors = int(stats.get("total_vector_count", 0) or 0)
+            if namespace_total > 0:
+                total_vectors = namespace_total
+
             return {
-                "total_vectors": stats.get("total_vector_count", 0),
-                "namespaces": stats.get("namespaces", {}),
+                "total_vectors": total_vectors,
+                "namespace_vectors": namespace_total,
+                "namespaces": namespaces,
                 "expected_dimensions": self.expected_dimensions,
             }
         except Exception as e:
             logger.error(f"Pinecone stats failed: {e}")
             return {
                 "total_vectors": 0,
+                "namespace_vectors": 0,
                 "namespaces": {},
                 "expected_dimensions": self.expected_dimensions,
             }

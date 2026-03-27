@@ -1,12 +1,12 @@
 /**
- * OpenTelemetry Browser Instrumentation
+ * OpenTelemetry Next.js Module Hook
  * 
- * This module initializes OpenTelemetry for the Next.js frontend, enabling:
- * - Distributed tracing across frontend and backend
- * - Automatic instrumentation of fetch/XHR requests
- * - User interaction tracking
- * - Page load and navigation metrics
- * - B3 propagation for trace context
+ * This file is automatically loaded by Next.js during build and startup.
+ * It should NOT be directly imported from other files.
+ * Use ./lib/otel-client.ts for client-side telemetry utilities.
+ * 
+ * References:
+ * https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
  */
 
 import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
@@ -22,6 +22,7 @@ import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
 import { B3Propagator, B3InjectEncoding } from '@opentelemetry/propagator-b3';
 import { CompositePropagator, W3CTraceContextPropagator } from '@opentelemetry/core';
 import { ZoneContextManager } from '@opentelemetry/context-zone';
+import { setTracer, setProvider } from './lib/otel-client';
 
 // Environment-specific configuration
 const OTEL_EXPORTER_OTLP_ENDPOINT = 
@@ -32,200 +33,75 @@ const ENVIRONMENT = process.env.NODE_ENV || 'development';
 const SERVICE_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 
 /**
- * Initialize OpenTelemetry for browser-side tracing
+ * Setup OpenTelemetry for the Next.js application
+ * This is called automatically by Next.js module hook system
  */
-export function initializeOpenTelemetry(): void {
-  // Only initialize in browser environment
+function setupOpenTelemetry(): void {
   if (typeof window === 'undefined') {
-    console.log('[OTEL] Skipping browser instrumentation on server');
+    console.log('[OTEL] Skipping setup - not in browser environment');
     return;
   }
 
-  // Check if already initialized
-  if ((window as any).__OTEL_INITIALIZED__) {
-    console.log('[OTEL] Already initialized, skipping');
-    return;
-  }
+  try {
+    // Create tracer provider with resource
+    const provider = new WebTracerProvider({
+      resource: new Resource({
+        [SemanticResourceAttributes.SERVICE_NAME]: 'cleo-frontend',
+        [SemanticResourceAttributes.SERVICE_VERSION]: SERVICE_VERSION,
+        environment: ENVIRONMENT,
+      }),
+    });
 
-  console.log('[OTEL] Initializing OpenTelemetry Web SDK');
-  console.log(`[OTEL] Export endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT}`);
+    // Add OTLP trace exporter
+    const exporter = new OTLPTraceExporter({
+      url: OTEL_EXPORTER_OTLP_ENDPOINT,
+    });
 
-  // Define service resource attributes
-  const resource = new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: 'cleo-frontend',
-    [SemanticResourceAttributes.SERVICE_VERSION]: SERVICE_VERSION,
-    [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: ENVIRONMENT,
-    'service.namespace': 'cleo',
-  });
+    provider.addSpanProcessor(new BatchSpanProcessor(exporter));
 
-  // Create tracer provider with resource
-  const provider = new WebTracerProvider({
-    resource,
-  });
-
-  // Configure OTLP exporter
-  const otlpExporter = new OTLPTraceExporter({
-    url: OTEL_EXPORTER_OTLP_ENDPOINT,
-    headers: {
-      // Add custom headers if needed (e.g., API keys)
-    },
-  });
-
-  // Add batch span processor for efficient export
-  provider.addSpanProcessor(
-    new BatchSpanProcessor(otlpExporter, {
-      maxQueueSize: 100,
-      maxExportBatchSize: 10,
-      scheduledDelayMillis: 1000,
-    })
-  );
-
-  // Configure propagators for trace context
-  // Use both B3 (for backend compatibility) and W3C Trace Context
-  provider.register({
-    contextManager: new ZoneContextManager(),
-    propagator: new CompositePropagator({
+    // Setup propagators (B3 for distributed tracing, W3C as fallback)
+    const propagator = new CompositePropagator({
       propagators: [
-        new B3Propagator({ injectEncoding: B3InjectEncoding.MULTI_HEADER }),
+        new B3Propagator({
+          injectEncoding: B3InjectEncoding.MULTI_HEADER,
+        }),
         new W3CTraceContextPropagator(),
       ],
-    }),
-  });
+    });
 
-  // Register auto-instrumentations
-  registerInstrumentations({
-    instrumentations: [
-      // Instrument fetch API
-      new FetchInstrumentation({
-        propagateTraceHeaderCorsUrls: [
-          /.*/,  // Propagate trace headers to all origins
-        ],
-        clearTimingResources: true,
-        applyCustomAttributesOnSpan: (span, request, response) => {
-          // Add custom attributes to fetch spans
-          if (response && typeof response.status === 'number') {
-            span.setAttribute('http.response.status_code', response.status);
-          }
-          
-          // Extract user context if available
-          try {
-            const userInfo = getUserContext();
-            if (userInfo.userId) {
-              span.setAttribute('user.id', userInfo.userId);
-            }
-            if (userInfo.locale) {
-              span.setAttribute('user.locale', userInfo.locale);
-            }
-          } catch (error) {
-            // Silently ignore if user context is not available
-          }
-        },
-      }),
+    // Register instrumentations
+    registerInstrumentations({
+      tracerProvider: provider,
+      instrumentations: [
+        new FetchInstrumentation(),
+        new XMLHttpRequestInstrumentation(),
+        new UserInteractionInstrumentation({
+          eventNames: ['click', 'submit', 'change', 'keydown'],
+        }),
+        new DocumentLoadInstrumentation(),
+      ],
+    });
 
-      // Instrument XMLHttpRequest (for libraries that use it)
-      new XMLHttpRequestInstrumentation({
-        propagateTraceHeaderCorsUrls: [
-          /.*/,
-        ],
-      }),
+    // Set context manager for async operations
+    provider.register({
+      contextManager: new ZoneContextManager(),
+    });
 
-      // Instrument user interactions (clicks, etc.)
-      new UserInteractionInstrumentation({
-        eventNames: ['click', 'submit'],
-        shouldPreventSpanCreation: (eventType, element) => {
-          // Avoid creating spans for non-interactive elements
-          return element.tagName === 'DIV' || element.tagName === 'SPAN';
-        },
-      }),
+    // Export for client-side usage
+    setProvider(provider);
+    setTracer(provider.getTracer('cleo-web'));
 
-      // Instrument document load events
-      new DocumentLoadInstrumentation(),
-    ],
-  });
-
-  // Mark as initialized
-  (window as any).__OTEL_INITIALIZED__ = true;
-
-  console.log('[OTEL] Initialization complete');
-}
-
-/**
- * Get user context for trace attributes
- * This should integrate with your auth/session management
- */
-function getUserContext(): { userId?: string; locale?: string; route?: string } {
-  try {
-    // Extract locale from URL or document
-    const locale = document.documentElement.lang || 
-                   window.location.pathname.split('/')[1];
-
-    // Extract route
-    const route = window.location.pathname;
-
-    // Extract user ID from session storage or auth store
-    // Adjust this based on your auth implementation
-    let userId: string | undefined;
-    
-    try {
-      const authData = sessionStorage.getItem('auth');
-      if (authData) {
-        const parsed = JSON.parse(authData);
-        userId = parsed.user?.id || parsed.userId;
-      }
-    } catch (e) {
-      // Ignore JSON parse errors
-    }
-
-    return {
-      userId,
-      locale,
-      route,
-    };
+    console.log('[OTEL] Setup complete');
   } catch (error) {
-    console.warn('[OTEL] Error extracting user context:', error);
-    return {};
+    console.error('[OTEL] Setup failed:', error);
   }
 }
 
 /**
- * Get the active tracer for manual instrumentation
+ * Required export for Next.js Module Hook system
+ * This function is called during Next.js build and startup
  */
-export function getTracer() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const { trace } = require('@opentelemetry/api');
-  return trace.getTracer('cleo-frontend', SERVICE_VERSION);
-}
-
-/**
- * Create a custom span for manual instrumentation
- * 
- * @example
- * const span = createSpan('user.login', { 'user.email': email });
- * try {
- *   await performLogin();
- *   span.setStatus({ code: SpanStatusCode.OK });
- * } catch (error) {
- *   span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
- *   span.recordException(error);
- * } finally {
- *   span.end();
- * }
- */
-export function createSpan(name: string, attributes?: Record<string, string | number | boolean>) {
-  const tracer = getTracer();
-  if (!tracer) {
-    return null;
-  }
-
-  const span = tracer.startSpan(name, {
-    attributes: {
-      ...attributes,
-      ...getUserContext(),
-    },
-  });
-
-  return span;
+export async function register() {
+  // Setup instrumentation when the module is loaded
+  setupOpenTelemetry();
 }

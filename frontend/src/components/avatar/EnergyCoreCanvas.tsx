@@ -6,6 +6,8 @@ import type { EnergyCoreVisualState } from "@/domains/avatar/model/energy-core";
 
 interface EnergyCoreCanvasProps {
   state: EnergyCoreVisualState;
+  /** Real-time audio level 0-1 for voice-reactive animation during speech. */
+  audioLevel?: number;
 }
 
 interface EnergyCoreProfile {
@@ -25,6 +27,14 @@ const ENERGY_CORE_PROFILES: Record<EnergyCoreVisualState, EnergyCoreProfile> = {
     scale: 1,
     breathAmplitude: 0.006,
     breathSpeed: 0.65,
+  },
+  listening: {
+    color: 0xa855f7,
+    speed: 0.085,
+    noise: 0.042,
+    scale: 1.005,
+    breathAmplitude: 0.009,
+    breathSpeed: 0.75,
   },
   syncing: {
     color: 0xff9f1c,
@@ -139,10 +149,16 @@ const fragmentShader = `
   }
 `;
 
-export function EnergyCoreCanvas({ state }: EnergyCoreCanvasProps) {
+export function EnergyCoreCanvas({ state, audioLevel = 0 }: EnergyCoreCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const maskRef = useRef<HTMLDivElement>(null);
   const targetStateRef = useRef<EnergyCoreProfile>(INITIAL_PROFILE);
+  const audioLevelRef = useRef(0);
+
+  // Keep audio level in a ref for the render loop (avoids re-creating the Three.js scene)
+  useEffect(() => {
+    audioLevelRef.current = audioLevel;
+  }, [audioLevel]);
 
   useEffect(() => {
     targetStateRef.current = ENERGY_CORE_PROFILES[state];
@@ -210,9 +226,14 @@ export function EnergyCoreCanvas({ state }: EnergyCoreCanvasProps) {
     const renderFrame = () => {
       const elapsedTime = clock.getElapsedTime();
       const targetProfile = targetStateRef.current;
+      const currentAudioLevel = audioLevelRef.current;
       const breathWave = Math.sin(elapsedTime * targetProfile.breathSpeed) * targetProfile.breathAmplitude;
-      const targetNoise = targetProfile.noise + targetProfile.noise * breathWave * 3;
-      const targetScaleValue = targetProfile.scale + breathWave;
+
+      // Audio-reactive modulation: during speech, noise and scale pulse with voice output
+      const audioNoiseBoost = currentAudioLevel * 0.035;
+      const audioScaleBoost = currentAudioLevel * 0.012;
+      const targetNoise = targetProfile.noise + targetProfile.noise * breathWave * 3 + audioNoiseBoost;
+      const targetScaleValue = targetProfile.scale + breathWave + audioScaleBoost;
 
       material.uniforms.uTime.value = elapsedTime;
       targetColor.set(targetProfile.color);
@@ -233,8 +254,20 @@ export function EnergyCoreCanvas({ state }: EnergyCoreCanvasProps) {
 
       targetScale.set(targetScaleValue, targetScaleValue, targetScaleValue);
       globe.scale.lerp(targetScale, 0.012);
-      innerTargetScale.setScalar(1 + breathWave * 0.45);
+      const innerScaleBoost = currentAudioLevel * 0.08;
+      innerTargetScale.setScalar(1 + breathWave * 0.45 + innerScaleBoost);
       innerSphere.scale.lerp(innerTargetScale, 0.015);
+
+      // Tint inner sphere toward the active profile color for glow effect
+      (innerMaterial.color as THREE.Color).lerp(targetColor, 0.003);
+
+      // Audio-reactive inner sphere glow: opacity and scale pulse with voice
+      const innerGlowOpacity = 0.05 + currentAudioLevel * 0.12;
+      innerMaterial.opacity = THREE.MathUtils.lerp(
+        innerMaterial.opacity,
+        innerGlowOpacity,
+        0.08,
+      );
 
       globe.rotation.y += 0.00068;
       globe.rotation.x += 0.00018;

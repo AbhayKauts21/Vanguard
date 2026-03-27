@@ -113,6 +113,20 @@ class AzureOpenAITimeoutError(CleoError):
         super().__init__(detail=detail, status_code=504)
 
 
+class AzureSpeechConfigError(CleoError):
+    """Raised when Azure Speech Services configuration is incomplete."""
+
+    def __init__(self, detail: str = "Azure Speech configuration is invalid."):
+        super().__init__(detail=detail, status_code=500)
+
+
+class AzureSpeechSynthesisError(CleoError):
+    """Raised when Azure Speech TTS synthesis fails."""
+
+    def __init__(self, detail: str = "Speech synthesis failed."):
+        super().__init__(detail=detail, status_code=502)
+
+
 # --- Exception Handlers (registered in main.py) ---
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):

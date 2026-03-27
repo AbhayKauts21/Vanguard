@@ -149,5 +149,23 @@
     "backendLabel": "Backend",
     "latencyLabel": "Latencia media",
     "buildInfo": "CLEO Systems // Build 5.0.0-Dynamic // Protocolo 99"
+  },
+  "voice": {
+    "activateVoice": "Iniciar modo de voz",
+    "deactivateVoice": "Detener modo de voz",
+    "sendVoice": "Dejar de escuchar y enviar",
+    "cancelSpeaking": "Detener voz de CLEO",
+    "processing": "Procesando entrada de voz",
+    "listening": "Escuchando",
+    "speaking": "Hablando",
+    "ready": "Listo",
+    "operator": "Operador",
+    "cleoCore": "CLEO Core",
+    "micDenied": "Se denegó el acceso al micrófono. Permite los permisos del micrófono.",
+    "notSupported": "El modo de voz no es compatible con este navegador.",
+    "noMicrophone": "No se detectó micrófono. Conecta un micrófono.",
+    "networkError": "Error de red durante el reconocimiento de voz. Verifica tu conexión.",
+    "ttsError": "Error en síntesis de voz. Mostrando respuesta en texto.",
+    "keyboardShortcut": "Ctrl+Shift+V para alternar modo de voz"
   }
 }

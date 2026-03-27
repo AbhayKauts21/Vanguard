@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     # HeyGen avatar (future use)
     HEYGEN_API_KEY: str = ""
 
+    # Azure Speech Services — voice pipeline TTS
+    AZURE_SPEECH_KEY: str = ""
+    AZURE_SPEECH_REGION: str = "eastus"
+    AZURE_TTS_VOICE: str = "en-US-JennyNeural"
+    AZURE_TTS_OUTPUT_FORMAT: str = "audio-24khz-48kbitrate-mono-mp3"
+
     # Security — Phase 7
     ADMIN_API_KEY: str = "change-me-in-production"
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
@@ -91,14 +97,6 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-
-def build_azure_openai_base_url(endpoint: str) -> str:
-    """Normalize Azure resource endpoint into the SDK base_url format."""
-    normalized = endpoint.rstrip("/")
-    if not normalized:
-        return ""
-    return f"{normalized}/openai/v1/"
 
 
 def validate_azure_openai_settings(cfg: Settings) -> None:

@@ -3,8 +3,11 @@
 import { AppShell, TopBar, FooterStatusBar, SplitPanelLayout } from "@/components/layout";
 import { ChatPanel } from "@/components/chat";
 import { AvatarPanel } from "@/components/avatar";
+import { VoiceTranscript } from "@/components/voice";
 import { useChatStore } from "@/domains/chat/model";
 import { useChat, useChatStream } from "@/domains/chat/hooks";
+import { useVoiceMode } from "@/domains/voice/hooks";
+import { useVoiceStore } from "@/domains/voice/model";
 import { env } from "@/lib/env";
 
 /* Main CLEO neural interface — wires layout + chat + backend. */
@@ -19,6 +22,21 @@ export default function CleoInterface() {
   /* Use streaming when enabled via env. */
   const handleSend = env.enableStreaming ? sendStream : send;
 
+  /* Voice mode orchestration. */
+  const { activate, deactivate, sendVoiceMessage } = useVoiceMode();
+  const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
+  const voicePhase = useVoiceStore((s) => s.phase);
+  const isSupported = useVoiceStore((s) => s.isSupported);
+
+  const voiceProps = {
+    isVoiceMode,
+    isSupported,
+    phase: voicePhase,
+    onActivate: activate,
+    onDeactivate: deactivate,
+    onSendVoiceMessage: sendVoiceMessage,
+  };
+
   return (
     <AppShell>
       <TopBar />
@@ -29,10 +47,12 @@ export default function CleoInterface() {
             isThinking={isThinking}
             onSend={handleSend}
             disabled={isThinking || !!streamingId}
+            voice={voiceProps}
           />
         }
         right={<AvatarPanel />}
       />
+
       <FooterStatusBar />
     </AppShell>
   );

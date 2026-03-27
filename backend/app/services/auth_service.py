@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import secrets
 from uuid import UUID
 
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -21,10 +23,14 @@ from app.core.security import (
 from app.db.models import User
 from app.domain.schemas import (
     AuthSessionResponse,
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutResponse,
     RefreshTokenRequest,
     RegisterRequest,
+    ResetPasswordRequest,
+    PasswordResetConfirmResponse,
+    PasswordResetRequestResponse,
     UserResponse,
 )
 from app.repositories.auth_repository import auth_repository
@@ -134,6 +140,72 @@ class AuthService:
 
         return LogoutResponse()
 
+    async def request_password_reset(
+        self,
+        session: AsyncSession,
+        payload: ForgotPasswordRequest,
+    ) -> PasswordResetRequestResponse:
+        email = payload.email.lower()
+        user = await user_repository.get_by_email(session, email)
+
+        if user and user.is_active:
+            code = self._generate_reset_code()
+            expires_at = datetime.now(timezone.utc) + timedelta(
+                minutes=settings.PASSWORD_RESET_CODE_EXPIRE_MINUTES
+            )
+            await auth_repository.revoke_active_password_reset_codes(session, user_id=user.id)
+            await auth_repository.create_password_reset_code(
+                session,
+                user_id=user.id,
+                code_hash=hash_password(code),
+                expires_at=expires_at,
+            )
+            logger.info(
+                "Password reset code generated for {}: {} (expires in {} minutes)",
+                email,
+                code,
+                settings.PASSWORD_RESET_CODE_EXPIRE_MINUTES,
+            )
+
+        await session.commit()
+        return PasswordResetRequestResponse(
+            detail=(
+                "If an account exists for that email, a reset code has been generated. "
+                "Check the backend logs in local development."
+            )
+        )
+
+    async def reset_password(
+        self,
+        session: AsyncSession,
+        payload: ResetPasswordRequest,
+    ) -> PasswordResetConfirmResponse:
+        user = await user_repository.get_by_email(session, payload.email.lower())
+        if user is None or not user.is_active:
+            raise AuthenticationError(detail="Invalid or expired reset code.")
+
+        record = await auth_repository.get_latest_password_reset_code(session, user_id=user.id)
+        if record is None:
+            raise AuthenticationError(detail="Invalid or expired reset code.")
+
+        now = datetime.now(timezone.utc)
+        if record.consumed_at is not None or self._as_utc(record.expires_at) <= now:
+            raise AuthenticationError(detail="Invalid or expired reset code.")
+
+        if not verify_password(payload.code, record.code_hash):
+            raise AuthenticationError(detail="Invalid or expired reset code.")
+
+        user.password_hash = hash_password(payload.new_password)
+        session.add(user)
+        await auth_repository.consume_password_reset_code(session, record)
+        await auth_repository.revoke_refresh_tokens_for_user(session, user_id=user.id)
+        await session.commit()
+
+        logger.info("Password updated via reset flow for {}", user.email)
+        return PasswordResetConfirmResponse(
+            detail="Your password has been updated. You can sign in now."
+        )
+
     async def get_me(self, current_user: User) -> UserResponse:
         return to_user_response(current_user)
 
@@ -167,6 +239,10 @@ class AuthService:
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
         return value.astimezone(timezone.utc)
+
+    @staticmethod
+    def _generate_reset_code() -> str:
+        return f"{secrets.randbelow(1_000_000):06d}"
 
 
 auth_service = AuthService()

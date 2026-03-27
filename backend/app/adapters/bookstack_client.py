@@ -105,6 +105,10 @@ class BookStackClient:
             logger.error(f"BookStack list_books failed: {e}")
             raise BookStackConnectionError(detail=f"Failed to list books: {e}")
 
+    async def get_books(self) -> List[BookStackBook]:
+        """Backward-compatible alias used by health checks and older services."""
+        return await self.list_books()
+
 
 # Singleton instance — injected into services
 bookstack_client = BookStackClient()

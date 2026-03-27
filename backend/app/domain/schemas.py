@@ -15,6 +15,27 @@ class SyncStatus(str, Enum):
     FAILED = "failed"
 
 
+class DocumentProviderType(str, Enum):
+    BOOKSTACK = "bookstack"
+    CONFLUENCE = "confluence"
+    AZURE_BLOB_PDF = "azure_blob_pdf"
+    OPENAPI = "openapi"
+    LOCAL_FILE = "local_file"
+
+
+class DocumentContentFormat(str, Enum):
+    HTML = "html"
+    MARKDOWN = "markdown"
+    TEXT = "text"
+    OPENAPI = "openapi"
+
+
+class SyncTriggerType(str, Enum):
+    MANUAL = "manual"
+    SCHEDULED = "scheduled"
+    WEBHOOK = "webhook"
+
+
 class WebhookEvent(str, Enum):
     """BookStack webhook event types we handle."""
     PAGE_CREATE = "page_create"
@@ -33,7 +54,7 @@ class BookStackPage(BaseModel):
     slug: str
     html: str = ""
     book_id: int = 0
-    chapter_id: int = 0
+    chapter_id: Optional[int] = None
     updated_at: str = ""
 
     @property
@@ -67,9 +88,49 @@ class VectorSearchResult(BaseModel):
     page_id: int
     page_title: str = ""
     bookstack_url: str = ""
+    source_url: str = ""
     book_id: int = 0
+    document_uid: str = ""
+    external_document_id: str = ""
+    source_key: str = ""
     source_type: str = "bookstack"
     source_name: str = ""
+
+
+class DocumentReference(BaseModel):
+    """Provider-agnostic reference to an external document."""
+
+    source_key: str
+    provider_type: DocumentProviderType
+    external_document_id: str
+    external_parent_id: Optional[str] = None
+    title: str = ""
+    source_url: str = ""
+    container_name: str = ""
+    provider_updated_at: Optional[datetime] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class NormalizedDocument(BaseModel):
+    """Provider-agnostic normalized document used by sync orchestration."""
+
+    source_key: str
+    provider_type: DocumentProviderType
+    external_document_id: str
+    external_parent_id: Optional[str] = None
+    title: str
+    content: str
+    content_format: DocumentContentFormat
+    source_url: str = ""
+    container_name: str = ""
+    provider_updated_at: Optional[datetime] = None
+    checksum: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    access_scope: Optional[Dict[str, Any]] = None
+
+    @property
+    def document_uid(self) -> str:
+        return f"{self.source_key}:{self.external_document_id}"
 
 
 # --- Chat DTOs ---
@@ -81,6 +142,9 @@ class Citation(BaseModel):
     source_url: str = ""
     source_type: str = "bookstack"      # "bookstack", "confluence", "notion", etc.
     source_name: str = ""               # parent container: book title, space name, etc.
+    source_key: str = ""
+    document_uid: str = ""
+    external_document_id: str = ""
     chunk_text: str = ""
     score: float = 0.0
     tier: str = "tertiary"              # "primary" | "secondary" | "tertiary"
@@ -208,6 +272,26 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=6, max_length=12)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class PasswordResetRequestResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    detail: str
+
+
+class PasswordResetConfirmResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    detail: str
+
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str = Field(..., min_length=32)
 
@@ -296,6 +380,20 @@ class SyncStatusResponse(BaseModel):
     last_sync_at: Optional[datetime] = None
     next_sync_at: Optional[datetime] = None
     pages_in_index: int = 0
+    source_key: Optional[str] = None
+
+
+class DocumentSyncRunSummary(BaseModel):
+    source_key: str
+    trigger_type: SyncTriggerType
+    status: SyncStatus
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    documents_seen: int = 0
+    documents_upserted: int = 0
+    documents_skipped: int = 0
+    documents_deleted: int = 0
+    documents_failed: int = 0
 
 
 # --- Webhook DTOs ---
@@ -318,7 +416,7 @@ class WebhookRelatedItem(BaseModel):
 
     id: int
     book_id: int = 0
-    chapter_id: int = 0
+    chapter_id: Optional[int] = None
     name: str = ""
     slug: str = ""
     priority: int = 0

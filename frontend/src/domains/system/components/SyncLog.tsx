@@ -10,24 +10,22 @@ interface LogEntry {
 }
 
 function createMockLogs(): LogEntry[] {
-  // Generate an artificial trailing log since backend doesn't store telemetry yet 
-  const bootTime = new Date();
   return [
     {
       id: "1",
-      timestamp: new Date(bootTime.getTime() - 1000 * 60 * 5).toLocaleTimeString(),
+      timestamp: "T-05m",
       message: "Delta sync completed (0 changes found).",
       type: "success"
     },
     {
       id: "2",
-      timestamp: new Date(bootTime.getTime() - 1000 * 60 * 10).toLocaleTimeString(),
+      timestamp: "T-10m",
       message: "Health check passed across 4/4 edge nodes.",
       type: "info"
     },
     {
       id: "3",
-      timestamp: new Date(bootTime.getTime() - 1000 * 60 * 15).toLocaleTimeString(),
+      timestamp: "T-15m",
       message: "Page 'Architecture Params' ingested successfully (7 chunks).",
       type: "success"
     }

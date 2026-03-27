@@ -45,11 +45,14 @@ class Settings(BaseSettings):
     PINECONE_INDEX_NAME: str = "cleo-docs"
     PINECONE_CLOUD: str = "aws"
     PINECONE_REGION: str = "us-east-1"
+    DOCUMENT_VECTOR_NAMESPACE: str = "bookstack"
 
     # BookStack — knowledge base source
     BOOKSTACK_URL: str = ""
     BOOKSTACK_TOKEN_ID: str = ""
     BOOKSTACK_TOKEN_SECRET: str = ""
+    BOOKSTACK_SOURCE_KEY: str = "bookstack_default"
+    BOOKSTACK_SOURCE_NAME: str = "BookStack"
 
     # Ingestion pipeline tuning
     CHUNK_SIZE: int = 800
@@ -88,6 +91,7 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 14
     AUTH_DEFAULT_ROLE: str = "viewer"
+    PASSWORD_RESET_CODE_EXPIRE_MINUTES: int = 15
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE_PATH),

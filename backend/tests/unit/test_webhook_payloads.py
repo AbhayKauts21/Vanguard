@@ -45,11 +45,11 @@ async def test_process_webhook_ignores_non_page_events(monkeypatch):
         calls.append(("delete", page_id))
 
     monkeypatch.setattr(
-        "app.api.router_webhook.ingestion_service.ingest_single_page",
+        "app.api.router_webhook.document_sync_service.sync_document",
         fake_ingest,
     )
     monkeypatch.setattr(
-        "app.api.router_webhook.ingestion_service.delete_page",
+        "app.api.router_webhook.document_sync_service.delete_document",
         fake_delete,
     )
 

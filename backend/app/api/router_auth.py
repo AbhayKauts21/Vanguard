@@ -6,11 +6,15 @@ from app.db.models import User
 from app.db.session import get_db_session
 from app.domain.schemas import (
     AuthSessionResponse,
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutResponse,
     LogoutRequest,
+    PasswordResetConfirmResponse,
+    PasswordResetRequestResponse,
     RefreshTokenRequest,
     RegisterRequest,
+    ResetPasswordRequest,
     UserResponse,
 )
 from app.services.auth_service import auth_service
@@ -48,6 +52,22 @@ async def logout(
     session: AsyncSession = Depends(get_db_session),
 ):
     return await auth_service.logout(session, body)
+
+
+@router.post("/forgot-password", response_model=PasswordResetRequestResponse)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    return await auth_service.request_password_reset(session, body)
+
+
+@router.post("/reset-password", response_model=PasswordResetConfirmResponse)
+async def reset_password(
+    body: ResetPasswordRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    return await auth_service.reset_password(session, body)
 
 
 @router.get("/me", response_model=UserResponse)

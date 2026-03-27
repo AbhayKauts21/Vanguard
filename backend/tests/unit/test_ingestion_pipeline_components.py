@@ -6,6 +6,7 @@ from app.adapters.embedding_client import EmbeddingClient
 from app.adapters.embeddings.base import EmbeddingProvider
 from app.adapters.vector_store import VectorStore
 from app.core.exceptions import EmbeddingError, VectorStoreError
+from app.domain.schemas import DocumentContentFormat, DocumentProviderType, NormalizedDocument
 from app.services.text_processor import TextProcessor
 
 
@@ -52,6 +53,31 @@ def test_text_processor_cleans_html_and_builds_chunks():
     assert chunks[0].metadata["chapter_id"] == 3
     assert chunks[0].metadata["bookstack_url"].endswith("/sso-setup")
     assert chunks[0].metadata["chunk_index"] == 0
+
+
+def test_text_processor_processes_normalized_document_with_provider_metadata():
+    processor = TextProcessor(chunk_size=120, chunk_overlap=20)
+    document = NormalizedDocument(
+        source_key="bookstack_default",
+        provider_type=DocumentProviderType.BOOKSTACK,
+        external_document_id="42",
+        title="SSO Setup",
+        content="<h1>SSO Setup</h1><p>Configure SSO for enterprise tenants.</p>" * 5,
+        content_format=DocumentContentFormat.HTML,
+        source_url="https://docs.example.com/books/admin/page/sso-setup",
+        container_name="Admin Docs",
+        provider_updated_at=None,
+        checksum="abc123",
+        metadata={"page_id": 42, "book_id": 7, "book_title": "Admin Docs", "chapter_id": 3},
+    )
+
+    chunks = processor.process_document(document)
+
+    assert chunks
+    assert chunks[0].chunk_id.startswith("bookstack_default:42::chunk::")
+    assert chunks[0].metadata["document_uid"] == "bookstack_default:42"
+    assert chunks[0].metadata["source_key"] == "bookstack_default"
+    assert chunks[0].metadata["source_url"].endswith("/sso-setup")
 
 
 @pytest.mark.asyncio

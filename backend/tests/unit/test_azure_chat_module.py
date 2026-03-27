@@ -5,7 +5,7 @@ import pytest
 
 from app.adapters.azure_openai_client import AzureOpenAIClient
 from app.core.azure_prompts import build_azure_chat_messages
-from app.core.config import build_azure_openai_base_url, settings, validate_azure_openai_settings
+from app.core.config import settings, validate_azure_openai_settings
 from app.core.exceptions import AzureConfigurationError, AzureOpenAIError
 from app.domain.schemas import AzureChatRequest
 from app.services.azure_chat_service import AzureChatService
@@ -22,13 +22,6 @@ def test_validate_azure_openai_settings_requires_required_fields(monkeypatch):
     assert "AZURE_OPENAI_ENDPOINT" in exc.value.detail
     assert "AZURE_OPENAI_API_KEY" in exc.value.detail
     assert "AZURE_OPENAI_CHAT_DEPLOYMENT" in exc.value.detail
-
-
-def test_build_azure_openai_base_url_normalizes_endpoint():
-    assert (
-        build_azure_openai_base_url("https://demo.openai.azure.com/")
-        == "https://demo.openai.azure.com/openai/v1/"
-    )
 
 
 def test_prompt_builder_serializes_context_deterministically():
@@ -140,12 +133,12 @@ async def test_azure_client_builds_sdk_request_with_base_url_and_deployment(monk
         def __init__(self):
             self.completions = FakeCompletions()
 
-    class FakeOpenAI:
+    class FakeAzureOpenAI:
         def __init__(self, **kwargs):
             captured["client_kwargs"] = kwargs
             self.chat = FakeChat()
 
-    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAI))
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(AzureOpenAI=FakeAzureOpenAI))
     monkeypatch.setattr(settings, "AZURE_OPENAI_ENDPOINT", "https://demo.openai.azure.com/")
     monkeypatch.setattr(settings, "AZURE_OPENAI_API_KEY", "secret")
     monkeypatch.setattr(settings, "AZURE_OPENAI_API_VERSION", "2024-10-21")
@@ -163,12 +156,11 @@ async def test_azure_client_builds_sdk_request_with_base_url_and_deployment(monk
     )
 
     assert response.choices[0].message.content == "ok"
-    assert (
-        captured["client_kwargs"]["base_url"]
-        == "https://demo.openai.azure.com/openai/v1/"
-    )
+    assert captured["client_kwargs"]["azure_endpoint"] == "https://demo.openai.azure.com/"
     assert captured["client_kwargs"]["api_key"] == "secret"
-    assert captured["client_kwargs"]["default_query"] == {"api-version": "2024-10-21"}
+    assert captured["client_kwargs"]["api_version"] == "2024-10-21"
+    assert captured["client_kwargs"]["timeout"] == 15.0
+    assert captured["client_kwargs"]["max_retries"] == 4
     assert captured["payload"]["model"] == "chat-prod"
     assert captured["payload"]["max_tokens"] == 120
 
@@ -194,11 +186,11 @@ async def test_azure_client_stream_ignores_chunks_without_choices(monkeypatch):
         def __init__(self):
             self.completions = FakeCompletions()
 
-    class FakeOpenAI:
+    class FakeAzureOpenAI:
         def __init__(self, **kwargs):
             self.chat = FakeChat()
 
-    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAI))
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(AzureOpenAI=FakeAzureOpenAI))
     monkeypatch.setattr(settings, "AZURE_OPENAI_ENDPOINT", "https://demo.openai.azure.com/")
     monkeypatch.setattr(settings, "AZURE_OPENAI_API_KEY", "secret")
     monkeypatch.setattr(settings, "AZURE_OPENAI_CHAT_DEPLOYMENT", "chat-prod")

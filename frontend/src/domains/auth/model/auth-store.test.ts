@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import type { AuthSessionResponse } from "@/types";
 import {
   AUTH_STORAGE_KEY,
   getPersistedAccessToken,
@@ -21,7 +22,7 @@ describe("useAuthStore", () => {
   });
 
   it("stores a session response", () => {
-    const session = {
+    const session: AuthSessionResponse = {
       access_token: "access-123",
       refresh_token: "refresh-123",
       token_type: "bearer",

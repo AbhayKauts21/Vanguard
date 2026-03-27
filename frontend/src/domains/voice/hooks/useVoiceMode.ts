@@ -50,6 +50,10 @@ export function useVoiceMode() {
   const abortRef = useRef<AbortController | null>(null);
   const chunkerRef = useRef<SentenceChunker | null>(null);
   const ttsAbortRef = useRef<AbortController | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const phase = useVoiceStore((s) => s.phase);
+  const userTranscript = useVoiceStore((s) => s.userTranscript);
+  const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
 
   /**
    * Enter voice mode — start STT listening.
@@ -117,11 +121,13 @@ export function useVoiceMode() {
       appendCleoTranscript(sentence);
 
       try {
+        console.log("[VoiceMode] Synthesizing sentence:", sentence);
         const audioBlob = await synthesizeSpeech(
           sentence,
           {},
           ttsAbortRef.current?.signal,
         );
+        console.log("[VoiceMode] Audio synthesized successfully:", audioBlob.size, "bytes");
         enqueueAudio(audioBlob);
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
@@ -174,12 +180,19 @@ export function useVoiceMode() {
             what_i_found: event.what_i_found,
           });
 
-          // Wait for audio queue to drain, then return to idle
+          // Wait for audio queue to drain, then return to listening for to-and-fro conversation
           const waitForAudio = () => {
             if (isPlaying()) {
               requestAnimationFrame(waitForAudio);
             } else {
-              setPhase("idle");
+              const { isVoiceMode } = useVoiceStore.getState();
+              if (isVoiceMode) {
+                // Auto-restart listening for the next turn
+                setPhase("listening");
+                startSTT();
+              } else {
+                setPhase("idle");
+              }
               useVoiceStore.getState().setAudioLevel(0);
             }
           };
@@ -241,6 +254,9 @@ export function useVoiceMode() {
     stopAudio();
     abortRef.current?.abort();
     ttsAbortRef.current?.abort();
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
     chunkerRef.current?.reset();
     stopVoiceMode();
   }, [stopSTT, stopAudio, stopVoiceMode]);
@@ -266,6 +282,38 @@ export function useVoiceMode() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activate, deactivate]);
+
+  /**
+   * Silence detection — automatically send message after user stops speaking.
+   */
+  useEffect(() => {
+    // Only monitor silence during the listening phase
+    if (!isVoiceMode || phase !== "listening" || !userTranscript.trim()) {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      return;
+    }
+
+    // Reset silence timer on every new transcript result
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+
+    console.log("[VoiceMode] Resetting silence timer...");
+    silenceTimerRef.current = setTimeout(() => {
+      console.log("[VoiceMode] Silence detected, automatically sending message...");
+      sendVoiceMessage();
+      silenceTimerRef.current = null;
+    }, 2500); // 2.5 seconds of silence
+
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
+  }, [isVoiceMode, phase, userTranscript, sendVoiceMessage]);
 
   return {
     /** Enter voice mode (start listening). */

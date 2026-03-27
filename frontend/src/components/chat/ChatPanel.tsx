@@ -7,6 +7,7 @@ import { TypingIndicator } from "./TypingIndicator";
 import { Composer } from "./Composer";
 import { OfflineBanner } from "./OfflineBanner";
 import { SuggestedPromptRail } from "./SuggestedPromptRail";
+import { VoiceTranscript } from "@/components/voice";
 import { useChatStore } from "@/domains/chat/model";
 
 interface ChatPanelProps {
@@ -87,6 +88,9 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, voice }: Cha
       {isThinking && <TypingIndicator />}
 
       <Composer onSend={onSend} disabled={disabled} voice={voice} />
+
+      {/* Voice transcript overlay — localized to chat panel now */}
+      {voice?.isVoiceMode && <VoiceTranscript onDeactivate={voice.onDeactivate} />}
     </div>
   );
 }

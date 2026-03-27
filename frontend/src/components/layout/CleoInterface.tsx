@@ -53,9 +53,6 @@ export default function CleoInterface() {
         right={<AvatarPanel />}
       />
 
-      {/* Voice transcript overlay — floats above the interface during voice mode */}
-      {isVoiceMode && <VoiceTranscript />}
-
       <FooterStatusBar />
     </AppShell>
   );

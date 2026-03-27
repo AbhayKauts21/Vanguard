@@ -142,13 +142,15 @@ class AzureSpeechClient:
 
         # Handle errors
         cancellation = result.cancellation_details
-        error_detail = (
-            f"Speech synthesis failed: {cancellation.reason} — "
-            f"{cancellation.error_details}"
-            if cancellation
-            else "Speech synthesis failed with unknown error."
-        )
-        logger.error("azure_speech.synthesis_error", detail=error_detail)
+        if cancellation:
+            error_detail = (
+                f"Speech synthesis failed: {cancellation.reason} — "
+                f"{cancellation.error_details} (ErrorCode: {cancellation.error_code})"
+            )
+        else:
+            error_detail = f"Speech synthesis failed with reason code: {result.reason}"
+        
+        logger.error("azure_speech.synthesis_error", detail=error_detail, voice=settings.AZURE_TTS_VOICE)
         raise AzureSpeechSynthesisError(detail=error_detail)
 
     async def synthesize_stream(

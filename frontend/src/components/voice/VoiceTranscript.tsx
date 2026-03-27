@@ -15,7 +15,7 @@ import { AnimatePresence, motion } from "framer-motion";
  * - Error banner: red, dismissible
  * - Phase status pill: center-bottom with pulsing dot
  */
-export function VoiceTranscript() {
+export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void }) {
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
   const phase = useVoiceStore((s) => s.phase);
   const userTranscript = useVoiceStore((s) => s.userTranscript);
@@ -62,7 +62,7 @@ export function VoiceTranscript() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
           transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-          className="absolute inset-x-0 bottom-0 top-0 z-30 flex flex-col justify-end p-8 pointer-events-none"
+          className="absolute inset-0 z-30 flex flex-col justify-end p-6 pointer-events-none"
         >
           {/* Backdrop blur overlay */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl" />
@@ -162,8 +162,8 @@ export function VoiceTranscript() {
             </AnimatePresence>
           </div>
 
-          {/* Phase status pill */}
-          <div className="relative z-10 flex justify-center pointer-events-auto">
+          {/* Phase status pill + Stop Button */}
+          <div className="relative z-10 flex justify-center items-center gap-3 pointer-events-auto">
             <motion.div
               key={phase}
               initial={{ scale: 0.9, opacity: 0 }}
@@ -172,12 +172,20 @@ export function VoiceTranscript() {
               className={`flex items-center gap-2 rounded-full border ${currentPhase.ringColor} bg-black/60 px-4 py-1.5 backdrop-blur-md`}
             >
               <span className={`h-2 w-2 rounded-full ${currentPhase.dotColor} animate-pulse`} />
-              <span
-                className={`text-[10px] font-mono tracking-[0.2em] uppercase ${currentPhase.textColor}`}
-              >
+              <span className={`text-[10px] font-mono tracking-[0.2em] uppercase ${currentPhase.textColor}`}>
                 {currentPhase.label}
               </span>
             </motion.div>
+
+            {/* Stop Session Button */}
+            <button
+              type="button"
+              onClick={() => onDeactivate?.()}
+              className="group flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/40 backdrop-blur-md transition-all hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30"
+              title="End voice session"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
           </div>
         </motion.div>
       )}

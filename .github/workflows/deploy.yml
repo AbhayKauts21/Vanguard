@@ -426,15 +426,22 @@ jobs:
       - name: Inject frontend .env
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          # Convert JSON to KEY=VALUE lines for docker compose .env file
           FRONTEND_ENV_CONTENT=$(echo '${{ vars.FRONTEND_ENV_JSON }}' | \
             jq -r 'to_entries[] | "\(.key)=\(.value)"')
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             mkdir -p ~/cleo/frontend
+            # Write .env.local for runtime
             cat > ~/cleo/frontend/.env.local << 'ENVEOF'
           $FRONTEND_ENV_CONTENT
           ENVEOF
             chmod 600 ~/cleo/frontend/.env.local
-            echo 'frontend/.env.local written'
+            # Write ~/cleo/.env for docker compose build args
+            cat > ~/cleo/.env << 'ENVEOF'
+          $FRONTEND_ENV_CONTENT
+          ENVEOF
+            echo 'frontend envs written'
+            cat ~/cleo/.env
           "
 
       - name: Start services
@@ -442,15 +449,17 @@ jobs:
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
+            # Load build args from .env file
+            set -a && [ -f .env ] && source .env && set +a
             RUNNING=\$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
             if [ \"\$RUNNING\" = \"0\" ]; then
               echo 'No containers running — starting ALL services'
               docker compose -f docker-compose.observability.yml up --build --remove-orphans -d
             else
-              echo 'Updating frontend — down, build, up'
+              echo 'Updating frontend — down, no-cache build, up'
               docker compose -f docker-compose.observability.yml down frontend
               sleep 3
-              docker compose -f docker-compose.observability.yml build frontend
+              docker compose -f docker-compose.observability.yml build --no-cache frontend
               docker compose -f docker-compose.observability.yml up --remove-orphans -d frontend
             fi
           "

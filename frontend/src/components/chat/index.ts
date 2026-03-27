@@ -7,3 +7,4 @@ export { EmptyState } from "./EmptyState";
 export { OfflineBanner } from "./OfflineBanner";
 export { TypingIndicator } from "./TypingIndicator";
 export { SessionStatus } from "./SessionStatus";
+export { SuggestedPromptRail } from "./SuggestedPromptRail";

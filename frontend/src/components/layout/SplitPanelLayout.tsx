@@ -11,7 +11,7 @@ export function SplitPanelLayout({
   right: ReactNode;
 }) {
   return (
-    <main className="flex flex-1 overflow-hidden p-6 gap-6">
+    <main className="relative z-10 flex flex-1 overflow-hidden gap-6 p-6">
       <section className="w-[40%] flex flex-col gap-4 relative" id="chat-panel">
         {left}
       </section>

@@ -40,7 +40,7 @@ const messages = {
     unnamedUser: "Unnamed user",
     role: "Role",
     permissions: "Permissions",
-    goToChat: "Neural Link",
+    goToChat: "CLEO Chat",
     goToSystem: "System Console",
     logout: "Sign out",
     loggingOut: "Signing out...",

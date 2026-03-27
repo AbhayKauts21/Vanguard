@@ -13,7 +13,14 @@
     "neuralLink": "Neural Link",
     "archive": "Archive",
     "system": "System",
-    "language": "Language"
+    "language": "Language",
+    "newSession": "New Session",
+    "clearThread": "Clear Thread",
+    "focusInput": "Focus Input",
+    "focusInputHint": "Operator cursor",
+    "adminConsole": "Admin Console",
+    "adminConsoleHint": "System controls",
+    "pulseInterface": "Pulse interface"
   },
   "auth": {
     "navLogin": "Login",
@@ -67,7 +74,7 @@
     "unnamedUser": "Unnamed user",
     "role": "Role",
     "permissions": "Permissions",
-    "goToChat": "Neural Link",
+    "goToChat": "CLEO Chat",
     "goToSystem": "System Console",
     "logout": "Sign out",
     "loggingOut": "Signing out..."
@@ -76,6 +83,10 @@
     "sessionStable": "Uplink Stable",
     "sessionConnecting": "Connecting...",
     "inputPlaceholder": "Address CLEO...",
+    "initialMessage": "Initializing neural synchronization. All systems nominal. I have processed the latest data grid from the central archive. How shall we proceed with your objectives?",
+    "promptArchitecture": "Summarize CLEO architecture",
+    "promptCapabilities": "What can CLEO do right now?",
+    "promptKnowledgeBase": "What is in the knowledge base?",
     "emptyState": "How can I help you today?",
     "emptyStateHint": "Ask me anything about our documentation.",
     "thinking": "Processing neural query...",
@@ -89,13 +100,27 @@
     "uncertainDesc": "I found some information but I'm not confident it answers your question.",
     "whatIFound": "What I found anyway:",
     "contactSupport": "Contact support for accurate details →",
-    "azureMode": "General knowledge answer (not specific to our product)"
+    "azureMode": "General knowledge answer (not specific to our product)",
+    "sourcesSummary": "{count} grounded sources",
+    "sourcesDrawerTitle": "Grounded retrieval",
+    "expandSources": "View {count} more sources",
+    "collapseSources": "Collapse",
+    "viewOriginal": "Open"
   },
   "avatar": {
     "coreSync": "CORE_SYNC: ACTIVE",
     "meshEngaged": "NEURAL_MESH: ENGAGED",
+    "knowledgeReady": "KNOWLEDGE_BASE: READY",
+    "knowledgeSyncing": "KNOWLEDGE_BASE: SYNCING",
+    "backendOnline": "BACKEND: ONLINE",
+    "backendDegraded": "BACKEND: DEGRADED",
+    "backendOffline": "BACKEND: OFFLINE",
     "systemReady": "SYSTEM: READY",
     "awaiting": "Awaiting Input",
+    "sourceNodeGrounded": "Grounded Source",
+    "sourceNodeContext": "Context Signal",
+    "sourceNodeFallback": "Reference Cache",
+    "sourceNodeIdle": "Knowledge Node",
     "mute": "Mute avatar",
     "unmute": "Unmute avatar",
     "speaking": "Speaking",
@@ -120,6 +145,9 @@
   "footer": {
     "neuralMesh": "Neural Mesh Analysis...",
     "nodeLocation": "Neo-Tokyo Node 07",
-    "buildInfo": "CLEO Systems // Build 4.2.0-A // Protocol 99"
+    "vectorsLabel": "Vectors",
+    "backendLabel": "Backend",
+    "latencyLabel": "Avg Latency",
+    "buildInfo": "CLEO Systems // Build 5.0.0-Dynamic // Protocol 99"
   }
 }

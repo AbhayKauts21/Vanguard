@@ -21,46 +21,35 @@ body {
   font-family: var(--font-display);
 }
 
+html {
+  background-color: #000000;
+}
+
 /* === Glass Panel — core UI surface === */
 .glass-panel {
-  background: rgba(8, 8, 12, 0.7);
-  backdrop-filter: blur(40px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(16px) saturate(1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
   position: relative;
 }
 
 /* Adaptive depth when CLEO is speaking */
 .glass-panel.speaking {
-  background: rgba(8, 8, 12, 0.4);
-  backdrop-filter: blur(10px) saturate(1.1);
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(14px) saturate(1);
 }
 
 /* === Plasma Background === */
-.plasma-bg {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  z-index: -3;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, rgba(100, 80, 255, 0.03) 0%, transparent 60%);
-  filter: blur(60px);
-  animation: plasmaMove 20s ease-in-out infinite alternate;
-}
-
-/* === Mood Overlay === */
 #mood-overlay {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(30, 20, 60, 0.15) 0%, transparent 70%);
+  background: none;
   pointer-events: none;
   z-index: -4;
   transition: all 2s ease-in-out;
 }
 
-/* === Scanline CRT Effect === */
 .scanline {
   width: 100%; height: 100%;
   z-index: 110;
@@ -76,7 +65,7 @@ body {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  z-index: 100;
+  z-index: 50;
   pointer-events: none;
   background-color: transparent;
 }
@@ -180,7 +169,7 @@ body {
   transform: scale(0);
   animation: ripple-animation 0.8s cubic-bezier(0, 0, 0.2, 1);
   pointer-events: none;
-  z-index: 99;
+  z-index: 150;
 }
 
 /* === Message Echo Magnetic Pull === */
@@ -210,6 +199,15 @@ body {
 #avatar-layer {
   z-index: 101;
 }
+
+#three-canvas-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+
 header.glass-panel {
   z-index: 150;
 }

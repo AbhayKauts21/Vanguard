@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -9,6 +9,10 @@ import { useChatStore } from "@/domains/chat/model";
 const messages = {
   chat: {
     sessionStable: "Uplink Stable",
+  },
+  header: {
+    newSession: "New Session",
+    clearThread: "Clear Thread",
   },
 };
 
@@ -48,5 +52,18 @@ describe("SessionStatus", () => {
     await waitFor(() => {
       expect(screen.getByText("SESSION_FD8092DA")).toBeInTheDocument();
     });
+  });
+
+  it("renders chat actions and clears the thread from the panel header", () => {
+    useChatStore.setState({
+      messages: [{ id: "msg-1", role: "user", content: "hello" }],
+    });
+
+    renderWithIntl();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear Thread" }));
+
+    expect(useChatStore.getState().messages).toEqual([]);
+    expect(screen.getByRole("button", { name: "New Session" })).toBeInTheDocument();
   });
 });

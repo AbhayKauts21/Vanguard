@@ -10,8 +10,11 @@ import { useChatStore } from "@/domains/chat/model";
  */
 export function SessionStatus() {
   const t = useTranslations("chat");
-  const newConversation = useChatStore((s) => s.newConversation);
+  const headerT = useTranslations("header");
   const conversationId = useChatStore((s) => s.conversationId);
+  const newConversation = useChatStore((s) => s.newConversation);
+  const clearMessages = useChatStore((s) => s.clearMessages);
+  const hasMessages = useChatStore((s) => s.messages.length > 0);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -33,22 +36,49 @@ export function SessionStatus() {
           {t("sessionStable")}
         </span>
       </div>
-      <div className="flex items-center gap-4">
-        <button
-          onClick={newConversation}
-          title="Start a new conversation"
-          className="flex items-center gap-1.5 px-3 py-1 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded transition-colors border border-white/5 text-[10px] font-medium tracking-wide uppercase group cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[14px]">add_circle</span>
-          <span className="group-hover:opacity-100 opacity-80">New Chat</span>
-        </button>
-        <span className="text-[9px] text-white/30 font-mono tracking-widest uppercase hidden lg:inline">
-          Ctrl+K: Terminal
-        </span>
-        <span className="text-[9px] text-white/30 font-mono tracking-widest hidden md:inline">
+      <div className="flex items-center gap-3">
+        <span className="text-[9px] text-white/30 font-mono tracking-widest uppercase hidden md:inline">
           {sessionLabel}
         </span>
+        <ActionButton
+          icon="add"
+          label={headerT("newSession")}
+          onClick={newConversation}
+        />
+        <ActionButton
+          icon="ink_eraser"
+          label={headerT("clearThread")}
+          onClick={clearMessages}
+          disabled={!hasMessages}
+        />
       </div>
     </div>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+  onClick,
+  disabled = false,
+}: {
+  icon: string;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="group relative overflow-hidden rounded-[0.9rem] border border-white/10 bg-black/45 px-3.5 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-white/58 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.06] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+    >
+      <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/24 to-transparent" />
+      <span className="relative flex items-center gap-2">
+        <span aria-hidden="true" className="material-symbols-outlined text-[14px] font-light">{icon}</span>
+        <span>{label}</span>
+      </span>
+    </button>
   );
 }

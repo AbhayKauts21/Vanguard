@@ -375,9 +375,9 @@ jobs:
               echo 'No containers running — starting ALL services'
               docker compose -f docker-compose.observability.yml up --build --remove-orphans -d
             else
-              echo 'Updating backend — stop old, build new, start'
-              docker compose -f docker-compose.observability.yml stop backend
-              docker compose -f docker-compose.observability.yml rm -f backend
+              echo 'Updating backend — down, build, up'
+              docker compose -f docker-compose.observability.yml down backend
+              sleep 3
               docker compose -f docker-compose.observability.yml build backend
               docker compose -f docker-compose.observability.yml up --remove-orphans -d backend
             fi
@@ -447,9 +447,9 @@ jobs:
               echo 'No containers running — starting ALL services'
               docker compose -f docker-compose.observability.yml up --build --remove-orphans -d
             else
-              echo 'Updating frontend — stop old, build new, start'
-              docker compose -f docker-compose.observability.yml stop frontend
-              docker compose -f docker-compose.observability.yml rm -f frontend
+              echo 'Updating frontend — down, build, up'
+              docker compose -f docker-compose.observability.yml down frontend
+              sleep 3
               docker compose -f docker-compose.observability.yml build frontend
               docker compose -f docker-compose.observability.yml up --remove-orphans -d frontend
             fi
@@ -501,8 +501,8 @@ jobs:
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            docker compose -f docker-compose.observability.yml stop grafana otel-collector tempo loki prometheus
-            docker compose -f docker-compose.observability.yml rm -f grafana otel-collector tempo loki prometheus
+            docker compose -f docker-compose.observability.yml down grafana otel-collector tempo loki prometheus
+            sleep 3
             docker compose -f docker-compose.observability.yml up --remove-orphans -d grafana otel-collector tempo loki prometheus
             echo 'Observability stack restarted'
           "
@@ -563,8 +563,7 @@ jobs:
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             sudo apt-get update -qq
-            sudo apt-get install -y nginx certbot python3-pip
-            sudo pip3 install certbot-dns-godaddy --quiet
+            sudo apt-get install -y nginx certbot dnsutils
           "
 
       - name: Configure NGINX (HTTP — needed for cert issuance)
@@ -572,50 +571,11 @@ jobs:
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             sudo tee /etc/nginx/sites-available/cleo > /dev/null << 'NGINXEOF'
-          # Frontend
           server {
             listen 80;
-            server_name ${{ inputs.frontend_domain }};
+            server_name ${{ inputs.frontend_domain }} ${{ inputs.backend_domain }} ${{ inputs.grafana_domain }};
             location /.well-known/acme-challenge/ { root /var/www/certbot; }
-            location / {
-              proxy_pass http://localhost:3000;
-              proxy_http_version 1.1;
-              proxy_set_header Upgrade \$http_upgrade;
-              proxy_set_header Connection 'upgrade';
-              proxy_set_header Host \$host;
-              proxy_set_header X-Real-IP \$remote_addr;
-              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto \$scheme;
-            }
-          }
-          # Backend API
-          server {
-            listen 80;
-            server_name ${{ inputs.backend_domain }};
-            location /.well-known/acme-challenge/ { root /var/www/certbot; }
-            location / {
-              proxy_pass http://localhost:8000;
-              proxy_http_version 1.1;
-              proxy_set_header Host \$host;
-              proxy_set_header X-Real-IP \$remote_addr;
-              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto \$scheme;
-              proxy_buffering off;
-              proxy_read_timeout 300s;
-            }
-          }
-          # Grafana
-          server {
-            listen 80;
-            server_name ${{ inputs.grafana_domain }};
-            location /.well-known/acme-challenge/ { root /var/www/certbot; }
-            location / {
-              proxy_pass http://localhost:3002;
-              proxy_set_header Host \$host;
-              proxy_set_header X-Real-IP \$remote_addr;
-              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto \$scheme;
-            }
+            location / { return 200 'OK'; }
           }
           NGINXEOF
             sudo mkdir -p /var/www/certbot
@@ -625,42 +585,58 @@ jobs:
             echo 'HTTP NGINX configured'
           "
 
-      - name: Obtain wildcard SSL cert (Let's Encrypt + GoDaddy DNS)
+      - name: Wait for DNS to resolve to VM
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          echo "VM IP: $VM_IP"
+          echo ""
+          echo "⚠️  Make sure these A records are set in GoDaddy pointing to $VM_IP:"
+          echo "   ${{ inputs.frontend_domain }} → $VM_IP"
+          echo "   ${{ inputs.backend_domain }}  → $VM_IP"
+          echo "   ${{ inputs.grafana_domain }}  → $VM_IP"
+          echo ""
+          echo "Waiting for DNS to propagate (checking every 30s, up to 10 min)..."
+          for i in $(seq 1 20); do
+            RESOLVED=$(dig +short ${{ inputs.frontend_domain }} | tail -1)
+            echo "Attempt $i/20 — ${{ inputs.frontend_domain }} resolves to: $RESOLVED"
+            if [ "$RESOLVED" = "$VM_IP" ]; then
+              echo "DNS resolved correctly"
+              break
+            fi
+            if [ "$i" = "20" ]; then
+              echo "WARNING: DNS not yet propagated — proceeding anyway (certbot may fail)"
+            fi
+            sleep 30
+          done
+
+      - name: Obtain SSL cert (Let's Encrypt — webroot)
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            # Write GoDaddy credentials for certbot DNS plugin
-            sudo mkdir -p /etc/letsencrypt
-            sudo tee /etc/letsencrypt/godaddy.ini > /dev/null << 'CREDSEOF'
-          dns_godaddy_secret = ${{ secrets.GODADDY_API_SECRET }}
-          dns_godaddy_key = ${{ secrets.GODADDY_API_KEY }}
-          CREDSEOF
-            sudo chmod 600 /etc/letsencrypt/godaddy.ini
-
-            # Request wildcard cert for *.andinolabs.tech
             sudo certbot certonly \
-              --authenticator dns-godaddy \
-              --dns-godaddy-credentials /etc/letsencrypt/godaddy.ini \
-              --dns-godaddy-propagation-seconds 60 \
-              -d '*.andinolabs.tech' \
-              -d 'andinolabs.tech' \
+              --webroot \
+              --webroot-path /var/www/certbot \
+              -d '${{ inputs.frontend_domain }}' \
+              -d '${{ inputs.backend_domain }}' \
+              -d '${{ inputs.grafana_domain }}' \
               --email manu@andinolabs.com \
               --agree-tos \
               --non-interactive \
               --keep-until-expiring
 
-            # Verify cert was actually created
-            if [ ! -f /etc/letsencrypt/live/andinolabs.tech/fullchain.pem ]; then
-              echo 'ERROR: Certificate not found after certbot run'
-              sudo ls /etc/letsencrypt/live/ || true
+            CERT_PATH=/etc/letsencrypt/live/${{ inputs.frontend_domain }}/fullchain.pem
+            if [ ! -f \"\$CERT_PATH\" ]; then
+              echo 'ERROR: Certificate not found — DNS A records must point to $VM_IP'
+              sudo ls /etc/letsencrypt/live/ 2>/dev/null || echo 'No certs directory'
               exit 1
             fi
-            echo 'SSL certificate obtained and verified'
+            echo 'SSL certificate obtained successfully'
           "
 
       - name: Upgrade NGINX to HTTPS
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          CERT_BASE=/etc/letsencrypt/live/${{ inputs.frontend_domain }}
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             sudo tee /etc/nginx/sites-available/cleo > /dev/null << 'NGINXEOF'
           # ── Frontend ──────────────────────────────────────────
@@ -672,8 +648,8 @@ jobs:
           server {
             listen 443 ssl http2;
             server_name ${{ inputs.frontend_domain }};
-            ssl_certificate     /etc/letsencrypt/live/andinolabs.tech/fullchain.pem;
-            ssl_certificate_key /etc/letsencrypt/live/andinolabs.tech/privkey.pem;
+            ssl_certificate     $CERT_BASE/fullchain.pem;
+            ssl_certificate_key $CERT_BASE/privkey.pem;
             ssl_protocols TLSv1.2 TLSv1.3;
             ssl_ciphers HIGH:!aNULL:!MD5;
             ssl_prefer_server_ciphers on;
@@ -698,8 +674,8 @@ jobs:
           server {
             listen 443 ssl http2;
             server_name ${{ inputs.backend_domain }};
-            ssl_certificate     /etc/letsencrypt/live/andinolabs.tech/fullchain.pem;
-            ssl_certificate_key /etc/letsencrypt/live/andinolabs.tech/privkey.pem;
+            ssl_certificate     $CERT_BASE/fullchain.pem;
+            ssl_certificate_key $CERT_BASE/privkey.pem;
             ssl_protocols TLSv1.2 TLSv1.3;
             ssl_ciphers HIGH:!aNULL:!MD5;
             add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains' always;
@@ -723,8 +699,8 @@ jobs:
           server {
             listen 443 ssl http2;
             server_name ${{ inputs.grafana_domain }};
-            ssl_certificate     /etc/letsencrypt/live/andinolabs.tech/fullchain.pem;
-            ssl_certificate_key /etc/letsencrypt/live/andinolabs.tech/privkey.pem;
+            ssl_certificate     $CERT_BASE/fullchain.pem;
+            ssl_certificate_key $CERT_BASE/privkey.pem;
             ssl_protocols TLSv1.2 TLSv1.3;
             ssl_ciphers HIGH:!aNULL:!MD5;
             add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains' always;
@@ -739,8 +715,7 @@ jobs:
           NGINXEOF
             sudo nginx -t && sudo systemctl reload nginx
             echo 'HTTPS NGINX configured'
-
-            # Set up auto-renewal cron
+            # Auto-renewal cron
             (sudo crontab -l 2>/dev/null; echo '0 3 * * * certbot renew --quiet && systemctl reload nginx') | sudo crontab -
             echo 'Auto-renewal cron set'
           "

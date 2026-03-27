@@ -16,6 +16,8 @@ from loguru import logger
 from app.core.config import settings
 from app.core.exceptions import AzureSpeechConfigError, AzureSpeechSynthesisError
 
+import azure.cognitiveservices.speech as speechsdk
+
 
 class AzureSpeechClient:
     """Wraps Azure Cognitive Services Speech SDK for TTS."""
@@ -44,7 +46,6 @@ class AzureSpeechClient:
         self._validate_config()
 
         if self._synthesizer is None:
-            import azure.cognitiveservices.speech as speechsdk
 
             self._speech_config = speechsdk.SpeechConfig(
                 subscription=settings.AZURE_SPEECH_KEY,
@@ -98,8 +99,6 @@ class AzureSpeechClient:
         SSML is used for every request to ensure consistent voice selection
         and language tagging, which is required for premium 'Dragon' voices.
         """
-        import azure.cognitiveservices.speech as speechsdk
-        
         synth = self._get_synthesizer()
         effective_voice = voice or settings.AZURE_TTS_VOICE
         effective_lang = language or "en-US"
@@ -123,7 +122,7 @@ class AzureSpeechClient:
         result = await asyncio.to_thread(synth.speak_ssml_async(ssml).get)
 
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            audio_data = result.audio_data
+            audio_data = bytes(result.audio_data) # Explicitly convert memoryview to bytes
             if not audio_data or len(audio_data) == 0:
                 logger.warning(
                     "azure_speech.empty_audio", 

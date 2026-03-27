@@ -7,7 +7,7 @@ import { useAvatarStore } from "@/domains/avatar/model/avatar-store";
 import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
 import { useSpeechRecognition } from "./useSpeechRecognition";
 import { useAudioAnalyser } from "./useAudioAnalyser";
-import { SentenceChunker, synthesizeSpeech } from "@/domains/voice/engine";
+import { SentenceChunker, synthesizeSpeech, speakWithBrowserTTS } from "@/domains/voice/engine";
 import { api, consumeSSEStream } from "@/lib/api";
 import { CHAT_STREAM_ENDPOINT } from "@/lib/constants";
 import type { ChatRequest, SSEDoneEvent } from "@/types";
@@ -124,14 +124,17 @@ export function useVoiceMode() {
       appendCleoTranscript(sentence);
 
       try {
-        console.log("[VoiceMode] Synthesizing sentence:", sentence);
         const audioBlob = await synthesizeSpeech(
           sentence,
           {},
           ttsAbortRef.current?.signal,
         );
-        console.log("[VoiceMode] Audio synthesized successfully:", audioBlob.size, "bytes");
-        enqueueAudio(audioBlob);
+        
+        if (audioBlob.size === 0) {
+          await speakWithBrowserTTS(sentence);
+        } else {
+          enqueueAudio(audioBlob);
+        }
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         console.error("[VoiceMode] TTS synthesis failed:", err);
@@ -306,9 +309,7 @@ export function useVoiceMode() {
       clearTimeout(silenceTimerRef.current);
     }
 
-    console.log("[VoiceMode] Resetting silence timer...");
     silenceTimerRef.current = setTimeout(() => {
-      console.log("[VoiceMode] Silence detected, automatically sending message...");
       sendVoiceMessage();
       silenceTimerRef.current = null;
     }, 2800); // 2.8 seconds of silence

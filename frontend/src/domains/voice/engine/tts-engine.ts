@@ -75,8 +75,14 @@ export function speakWithBrowserTTS(text: string): Promise<void> {
     utterance.volume = 1.0;
 
     utterance.onend = () => resolve();
-    utterance.onerror = (event) =>
-      reject(new Error(`Browser TTS error: ${event.error}`));
+    utterance.onerror = (event) => {
+      // "canceled" happens normally when we start a new turn.
+      if (event.error === "canceled") {
+        resolve();
+      } else {
+        reject(new Error(`Browser TTS error: ${event.error}`));
+      }
+    };
 
     window.speechSynthesis.speak(utterance);
   });

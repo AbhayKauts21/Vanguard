@@ -23,17 +23,6 @@ router = APIRouter(
     tags=["voice"],
 )
 
-@router.post("/reset", summary="Reset TTS synthesizer settings")
-async def reset_voice():
-    """Force a reset of the Azure Speech synthesizer to pick up new .env changes."""
-    from app.adapters.azure_speech_client import azure_speech_client
-    azure_speech_client.reset_client()
-    return {
-        "status": "reset",
-        "region": settings.AZURE_SPEECH_REGION,
-        "voice": settings.AZURE_TTS_VOICE,
-        "format": settings.AZURE_TTS_OUTPUT_FORMAT
-    }
 
 _rate = f"{settings.RATE_LIMIT_PER_MINUTE}/minute"
 
@@ -110,7 +99,6 @@ async def tts(request: Request, body: TTSRequest):
         "request.completed",
         endpoint="/voice/tts",
         status=200,
-        audio_bytes=len(audio_bytes),
         text=body.text[:20],
         duration_ms=round((time.perf_counter() - t0) * 1000, 1),
     )
@@ -125,7 +113,6 @@ async def tts(request: Request, body: TTSRequest):
         headers={
             "Content-Disposition": "inline",
             "Content-Length": str(len(audio_bytes)),
-            "X-Audio-Bytes": str(len(audio_bytes)), # Added for easy header inspection
             "Cache-Control": "no-cache",
         },
     )

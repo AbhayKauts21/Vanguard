@@ -639,7 +639,7 @@ jobs:
 
             # Request wildcard cert for *.andinolabs.tech
             sudo certbot certonly \
-              --dns-godaddy \
+              --authenticator dns-godaddy \
               --dns-godaddy-credentials /etc/letsencrypt/godaddy.ini \
               --dns-godaddy-propagation-seconds 60 \
               -d '*.andinolabs.tech' \
@@ -648,7 +648,14 @@ jobs:
               --agree-tos \
               --non-interactive \
               --keep-until-expiring
-            echo 'SSL certificate obtained'
+
+            # Verify cert was actually created
+            if [ ! -f /etc/letsencrypt/live/andinolabs.tech/fullchain.pem ]; then
+              echo 'ERROR: Certificate not found after certbot run'
+              sudo ls /etc/letsencrypt/live/ || true
+              exit 1
+            fi
+            echo 'SSL certificate obtained and verified'
           "
 
       - name: Upgrade NGINX to HTTPS

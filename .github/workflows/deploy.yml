@@ -35,17 +35,17 @@ on:
         description: "Frontend domain"
         required: false
         type: string
-        default: cleo.andinolabs.ai
+        default: cleo.andinolabs.tech
       backend_domain:
         description: "Backend domain"
         required: false
         type: string
-        default: api.andinolabs.ai
+        default: api.andinolabs.tech
       grafana_domain:
         description: "Grafana domain"
         required: false
         type: string
-        default: grafana.andinolabs.ai
+        default: grafana.andinolabs.tech
 
 env:
   TF_WORKING_DIR: terraform/env/dev

@@ -259,14 +259,23 @@ jobs:
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            if [ -d ~/cleo ]; then
+            # If docker-compose file exists, update. Otherwise fresh clone.
+            if [ -f ~/cleo/docker-compose.observability.yml ]; then
               echo 'Updating repo...'
               cd ~/cleo && git fetch origin && git reset --hard origin/main
             else
-              echo 'Cloning repo...'
+              echo 'Fresh clone...'
+              rm -rf ~/cleo
               git clone https://github.com/${{ github.repository }}.git ~/cleo
             fi
-            ls ~/cleo/docker-compose.observability.yml && echo 'docker-compose found' || echo 'WARNING: docker-compose not found'
+            # Verify
+            if [ -f ~/cleo/docker-compose.observability.yml ]; then
+              echo 'docker-compose.observability.yml found — repo ready'
+            else
+              echo 'ERROR: docker-compose.observability.yml not found after clone'
+              ls ~/cleo/
+              exit 1
+            fi
           "
 
       - name: Cleanup SSH key

@@ -20,12 +20,12 @@ on:
           - backend
           - frontend
       backend_version:
-        description: "Backend service version (e.g. v1.2.0)"
+        description: "Backend version (e.g. v1.2.0 or latest)"
         required: false
         type: string
         default: latest
       frontend_version:
-        description: "Frontend service version (e.g. v1.3.0)"
+        description: "Frontend version (e.g. v1.3.0 or latest)"
         required: false
         type: string
         default: latest
@@ -45,23 +45,40 @@ on:
         type: string
         default: grafana.andinolabs.ai
 
+env:
+  TF_WORKING_DIR: terraform/env/dev
+
+# ─────────────────────────────────────────────
+# JOB 1: validate
+# ─────────────────────────────────────────────
 jobs:
-  deploy:
+  validate:
+    name: Validate Inputs & JSON
     runs-on: ubuntu-latest
-    env:
-      TF_WORKING_DIR: terraform/env/dev
-
+    if: inputs.action == 'deploy'
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate JSON inputs
-        if: inputs.action == 'deploy'
+      - name: Validate GitHub variable JSON
         run: |
           echo "Validating BACKEND_ENV_JSON..."
           echo '${{ vars.BACKEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: BACKEND_ENV_JSON is not valid JSON"; exit 1; }
           echo "Validating FRONTEND_ENV_JSON..."
           echo '${{ vars.FRONTEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: FRONTEND_ENV_JSON is not valid JSON"; exit 1; }
           echo "JSON validation passed."
+
+# ─────────────────────────────────────────────
+# JOB 2: provision (terraform)
+# ─────────────────────────────────────────────
+  provision:
+    name: Provision Infrastructure
+    runs-on: ubuntu-latest
+    needs: [validate]
+    if: inputs.action == 'deploy' && needs.validate.result == 'success'
+    outputs:
+      vm_ip: ${{ steps.resolve_ip.outputs.vm_ip }}
+      vm_exists: ${{ steps.vm_check.outputs.vm_exists }}
+
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Azure Login
         uses: azure/login@v2
@@ -82,8 +99,10 @@ jobs:
         id: vm_check
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          VM_IP=$(terraform output -raw vm_public_ip 2>/dev/null || echo "")
-          if [ -n "$VM_IP" ]; then
+          # Use state list to avoid capturing terraform warning text into VM_IP
+          RESOURCE_COUNT=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$RESOURCE_COUNT" -gt "0" ]; then
+            VM_IP=$(terraform output -raw vm_public_ip 2>/dev/null | head -1 | tr -d '[:space:]')
             echo "vm_exists=true" >> $GITHUB_OUTPUT
             echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
             echo "VM already exists at $VM_IP"
@@ -94,26 +113,25 @@ jobs:
           fi
 
       - name: Validate deploy_target for new VM
-        if: inputs.action == 'deploy' && steps.vm_check.outputs.vm_exists == 'false' && inputs.deploy_target != 'all'
+        if: steps.vm_check.outputs.vm_exists == 'false' && inputs.deploy_target != 'all'
         run: |
-          echo "ERROR: deploy_target must be 'all' for the first deploy. VM does not exist yet."
+          echo "ERROR: deploy_target must be 'all' for the first deploy."
           exit 1
 
       - name: Terraform Plan
-        id: plan
-        if: inputs.action == 'deploy' && steps.vm_check.outputs.vm_exists == 'false'
+        if: steps.vm_check.outputs.vm_exists == 'false'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
         run: terraform plan -out=tfplan.binary
 
-      - name: Convert Terraform plan to JSON
-        if: inputs.action == 'deploy' && steps.vm_check.outputs.vm_exists == 'false'
+      - name: Convert plan to JSON
+        if: steps.vm_check.outputs.vm_exists == 'false'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform show -json tfplan.binary > tfplan.json
 
       - name: Install Trivy
-        if: inputs.action == 'deploy' && steps.vm_check.outputs.vm_exists == 'false'
+        if: steps.vm_check.outputs.vm_exists == 'false'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y wget apt-transport-https gnupg lsb-release
@@ -123,24 +141,23 @@ jobs:
           sudo apt-get install -y trivy
 
       - name: Trivy Security Scan
-        if: inputs.action == 'deploy' && steps.vm_check.outputs.vm_exists == 'false'
+        if: steps.vm_check.outputs.vm_exists == 'false'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: trivy config --exit-code 0 --severity HIGH,CRITICAL --format table tfplan.json
 
       - name: Terraform Apply
         id: apply
-        if: inputs.action == 'deploy' && steps.vm_check.outputs.vm_exists == 'false'
+        if: steps.vm_check.outputs.vm_exists == 'false'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
         run: |
           terraform apply -auto-approve tfplan.binary
-          VM_IP=$(terraform output -raw vm_public_ip)
+          VM_IP=$(terraform output -raw vm_public_ip | tr -d '[:space:]')
           echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
-          echo "Provisioned VM at $VM_IP"
 
       - name: Save SSH key as GitHub secret
-        if: inputs.action == 'deploy' && steps.vm_check.outputs.vm_exists == 'false'
+        if: steps.vm_check.outputs.vm_exists == 'false'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
@@ -148,103 +165,103 @@ jobs:
         run: |
           SSH_KEY=$(terraform output -raw ssh_private_key)
           echo "::add-mask::$SSH_KEY"
-
-          # Get repo public key for secret encryption
           REPO_KEY_RESPONSE=$(curl -s -H "Authorization: token $GH_PAT" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/public-key")
           KEY_ID=$(echo "$REPO_KEY_RESPONSE" | jq -r '.key_id')
           REPO_PUBLIC_KEY=$(echo "$REPO_KEY_RESPONSE" | jq -r '.key')
-
-          # Encrypt the SSH key using Python + PyNaCl (libsodium)
           pip install PyNaCl -q
           ENCRYPTED=$(python3 -c "
-          import base64, json, sys
-          from nacl import encoding, public
-
-          public_key = '$REPO_PUBLIC_KEY'
-          secret_value = '''$SSH_KEY'''
-
-          public_key_bytes = base64.b64decode(public_key)
-          sealed_box = public.SealedBox(public.PublicKey(public_key_bytes))
-          encrypted = sealed_box.encrypt(secret_value.encode('utf-8'))
-          print(base64.b64encode(encrypted).decode('utf-8'))
+          import base64
+          from nacl import public
+          pk = base64.b64decode('$REPO_PUBLIC_KEY')
+          box = public.SealedBox(public.PublicKey(pk))
+          enc = box.encrypt('''$SSH_KEY'''.encode())
+          print(base64.b64encode(enc).decode())
           ")
-
-          # Store as GitHub secret
           curl -s -X PUT \
             -H "Authorization: token $GH_PAT" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/VM_SSH_PRIVATE_KEY" \
             -d "{\"encrypted_value\": \"$ENCRYPTED\", \"key_id\": \"$KEY_ID\"}"
-
           echo "SSH key saved as VM_SSH_PRIVATE_KEY secret"
 
-      - name: Setup SSH key
-        id: ssh_setup
-        if: inputs.action == 'deploy'
+      - name: Resolve final VM IP
+        id: resolve_ip
         run: |
-          # Use key from Terraform output (first deploy) or from secret (re-deploy)
           if [ "${{ steps.vm_check.outputs.vm_exists }}" = "false" ]; then
-            SSH_KEY=$(cd ${{ env.TF_WORKING_DIR }} && terraform output -raw ssh_private_key)
+            echo "vm_ip=${{ steps.apply.outputs.vm_ip }}" >> $GITHUB_OUTPUT
           else
-            SSH_KEY="${{ secrets.VM_SSH_PRIVATE_KEY }}"
+            echo "vm_ip=${{ steps.vm_check.outputs.vm_ip }}" >> $GITHUB_OUTPUT
           fi
-          echo "::add-mask::$SSH_KEY"
-          echo "$SSH_KEY" > /tmp/vm_key.pem
+
+# ─────────────────────────────────────────────
+# JOB 3: setup-vm (wait for cloud-init, sync repo)
+# ─────────────────────────────────────────────
+  setup-vm:
+    name: Setup VM
+    runs-on: ubuntu-latest
+    needs: [provision]
+    if: inputs.action == 'deploy'
+
+    steps:
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
           chmod 600 /tmp/vm_key.pem
 
-          # Determine VM IP
-          if [ "${{ steps.vm_check.outputs.vm_exists }}" = "false" ]; then
-            VM_IP="${{ steps.apply.outputs.vm_ip }}"
-          else
-            VM_IP="${{ steps.vm_check.outputs.vm_ip }}"
-          fi
-          echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
-          echo "SSH key configured for VM at $VM_IP"
-
       - name: Wait for cloud-init
-        if: inputs.action == 'deploy' && steps.vm_check.outputs.vm_exists == 'false'
+        if: needs.provision.outputs.vm_exists == 'false'
         run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          echo "Waiting for cloud-init to complete on $VM_IP..."
-          MAX_ATTEMPTS=20
-          ATTEMPT=0
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            ATTEMPT=$((ATTEMPT + 1))
-            echo "Attempt $ATTEMPT/$MAX_ATTEMPTS..."
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          MAX=20
+          for i in $(seq 1 $MAX); do
+            echo "Attempt $i/$MAX..."
             if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
                 azureuser@$VM_IP "test -f /var/log/cloud-init-complete.log" 2>/dev/null; then
-              echo "cloud-init complete!"
-              ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "docker --version"
+              echo "cloud-init complete"
               exit 0
             fi
-            echo "Not ready yet, waiting 30s..."
             sleep 30
           done
-          echo "ERROR: Timed out waiting for cloud-init after 10 minutes. VM IP: $VM_IP"
+          echo "ERROR: Timed out waiting for cloud-init"
           exit 1
 
       - name: Sync repository to VM
-        if: inputs.action == 'deploy'
         run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          REPO_URL="https://github.com/${{ github.repository }}.git"
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             if [ -d ~/cleo ]; then
-              echo 'Updating existing repo...'
               cd ~/cleo && git fetch origin && git reset --hard origin/main
             else
-              echo 'Cloning repo...'
-              git clone $REPO_URL ~/cleo
+              git clone https://github.com/${{ github.repository }}.git ~/cleo
             fi
-            test -f ~/cleo/docker-compose.observability.yml || { echo 'ERROR: docker-compose.observability.yml not found'; exit 1; }
             echo 'Repo sync complete'
           "
 
-      - name: Inject backend env file
-        if: inputs.action == 'deploy'
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f /tmp/vm_key.pem
+
+# ─────────────────────────────────────────────
+# JOB 4a: deploy-backend
+# JOB 4b: deploy-frontend
+# (run in parallel after setup-vm)
+# ─────────────────────────────────────────────
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: [provision, setup-vm]
+    if: inputs.action == 'deploy' && (inputs.deploy_target == 'all' || inputs.deploy_target == 'backend')
+
+    steps:
+      - name: Setup SSH key
         run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          chmod 600 /tmp/vm_key.pem
+
+      - name: Inject backend .env
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
           BACKEND_ENV_CONTENT=$(echo '${{ vars.BACKEND_ENV_JSON }}' | \
             jq --arg ip "$VM_IP" \
                --arg db "${{ secrets.POSTGRES_DB }}" \
@@ -261,10 +278,50 @@ jobs:
             echo 'backend/.env written'
           "
 
-      - name: Inject frontend env file
-        if: inputs.action == 'deploy'
+      - name: Start backend
         run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            cd ~/cleo
+            BACKEND_VERSION=${{ inputs.backend_version }} \
+            docker compose -f docker-compose.observability.yml up --build --no-cache -d backend
+          "
+
+      - name: Health check — backend
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          for i in $(seq 1 12); do
+            if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
+                "curl -sf http://localhost:8000/health" 2>/dev/null; then
+              echo "Backend healthy"
+              exit 0
+            fi
+            echo "Attempt $i/12 — waiting 5s..."
+            sleep 5
+          done
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
+            "cd ~/cleo && docker compose -f docker-compose.observability.yml logs backend --tail=50"
+          exit 1
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f /tmp/vm_key.pem
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [provision, setup-vm]
+    if: inputs.action == 'deploy' && (inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend')
+
+    steps:
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          chmod 600 /tmp/vm_key.pem
+
+      - name: Inject frontend .env
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
           FRONTEND_ENV_CONTENT=$(echo '${{ vars.FRONTEND_ENV_JSON }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"')
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             mkdir -p ~/cleo/frontend
@@ -275,212 +332,187 @@ jobs:
             echo 'frontend/.env.local written'
           "
 
-      - name: Install and configure NGINX
-        if: inputs.action == 'deploy' && inputs.deploy_target == 'all'
+      - name: Start frontend
         run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          FRONTEND_DOMAIN="${{ inputs.frontend_domain }}"
-          BACKEND_DOMAIN="${{ inputs.backend_domain }}"
-          GRAFANA_DOMAIN="${{ inputs.grafana_domain }}"
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            cd ~/cleo
+            FRONTEND_VERSION=${{ inputs.frontend_version }} \
+            docker compose -f docker-compose.observability.yml up --build --no-cache -d frontend
+          "
 
-          # Generate NGINX config
-          NGINX_CONF="server {
-          listen 80;
-          server_name $FRONTEND_DOMAIN;
-          location / {
+      - name: Health check — frontend
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          for i in $(seq 1 12); do
+            if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
+                "curl -sf http://localhost:3000" 2>/dev/null; then
+              echo "Frontend reachable"
+              exit 0
+            fi
+            echo "Attempt $i/12 — waiting 5s..."
+            sleep 5
+          done
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
+            "cd ~/cleo && docker compose -f docker-compose.observability.yml logs frontend --tail=50"
+          exit 1
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f /tmp/vm_key.pem
+
+# ─────────────────────────────────────────────
+# JOB 5: configure-nginx (after both deploys)
+# ─────────────────────────────────────────────
+  configure-nginx:
+    name: Configure NGINX
+    runs-on: ubuntu-latest
+    needs: [provision, deploy-backend, deploy-frontend]
+    if: inputs.action == 'deploy' && inputs.deploy_target == 'all'
+
+    steps:
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          chmod 600 /tmp/vm_key.pem
+
+      - name: Install and configure NGINX
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            which nginx || sudo apt-get install -y nginx
+            sudo tee /etc/nginx/sites-available/cleo > /dev/null << 'NGINXEOF'
+          server {
+            listen 80;
+            server_name ${{ inputs.frontend_domain }};
+            location / {
               proxy_pass http://localhost:3000;
               proxy_http_version 1.1;
               proxy_set_header Upgrade \$http_upgrade;
               proxy_set_header Connection 'upgrade';
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
-              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            }
           }
-          }
-
           server {
-          listen 80;
-          server_name $BACKEND_DOMAIN;
-          location / {
+            listen 80;
+            server_name ${{ inputs.backend_domain }};
+            location / {
               proxy_pass http://localhost:8000;
               proxy_http_version 1.1;
-              proxy_set_header Upgrade \$http_upgrade;
-              proxy_set_header Connection 'upgrade';
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
-              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
               proxy_buffering off;
+            }
           }
-          }
-
           server {
-          listen 80;
-          server_name $GRAFANA_DOMAIN;
-          location / {
+            listen 80;
+            server_name ${{ inputs.grafana_domain }};
+            location / {
               proxy_pass http://localhost:3002;
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
-              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+            }
           }
-          }"
-
-          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            which nginx || sudo apt-get install -y nginx
-            sudo tee /etc/nginx/sites-available/cleo > /dev/null << 'NGINXEOF'
-          $NGINX_CONF
           NGINXEOF
             sudo ln -sf /etc/nginx/sites-available/cleo /etc/nginx/sites-enabled/cleo
-            sudo nginx -t || { echo 'ERROR: NGINX config validation failed'; exit 1; }
-            sudo systemctl reload nginx
-            echo 'NGINX configured and reloaded'
+            sudo nginx -t && sudo systemctl reload nginx
+            echo 'NGINX configured'
           "
 
-      - name: Docker Compose up
-        if: inputs.action == 'deploy'
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f /tmp/vm_key.pem
+
+# ─────────────────────────────────────────────
+# JOB 6: summary
+# ─────────────────────────────────────────────
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [provision, deploy-backend, deploy-frontend, configure-nginx]
+    if: |
+      always() &&
+      inputs.action == 'deploy' &&
+      needs.provision.result == 'success' &&
+      (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
+      (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&
+      (needs.configure-nginx.result == 'success' || needs.configure-nginx.result == 'skipped')
+
+    steps:
+      - name: Write summary
         run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          DEPLOY_TARGET="${{ inputs.deploy_target }}"
-          BACKEND_VERSION="${{ inputs.backend_version }}"
-          FRONTEND_VERSION="${{ inputs.frontend_version }}"
-
-          if [ "$DEPLOY_TARGET" = "all" ]; then
-            SERVICE_ARGS=""
-          elif [ "$DEPLOY_TARGET" = "backend" ]; then
-            SERVICE_ARGS="backend"
-          elif [ "$DEPLOY_TARGET" = "frontend" ]; then
-            SERVICE_ARGS="frontend"
-          fi
-
-          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            cd ~/cleo
-            BACKEND_VERSION=$BACKEND_VERSION FRONTEND_VERSION=$FRONTEND_VERSION \
-            docker compose -f docker-compose.observability.yml up --build --no-cache -d $SERVICE_ARGS
-            echo 'Docker Compose up complete'
-          "
-
-      - name: Health check — backend
-        if: inputs.action == 'deploy' && (inputs.deploy_target == 'all' || inputs.deploy_target == 'backend')
-        run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          echo "Checking backend health..."
-          MAX=12
-          for i in $(seq 1 $MAX); do
-            if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
-                "curl -sf http://localhost:8000/health" 2>/dev/null; then
-              echo "Backend is healthy"
-              exit 0
-            fi
-            echo "Attempt $i/$MAX — waiting 5s..."
-            sleep 5
-          done
-          echo "ERROR: Backend health check failed"
-          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
-            "cd ~/cleo && docker compose -f docker-compose.observability.yml logs backend --tail=50"
-          exit 1
-
-      - name: Health check — frontend
-        if: inputs.action == 'deploy' && (inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend')
-        run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          echo "Checking frontend health..."
-          MAX=12
-          for i in $(seq 1 $MAX); do
-            if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
-                "curl -sf http://localhost:3000" 2>/dev/null; then
-              echo "Frontend is reachable"
-              exit 0
-            fi
-            echo "Attempt $i/$MAX — waiting 5s..."
-            sleep 5
-          done
-          echo "ERROR: Frontend health check failed"
-          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
-            "cd ~/cleo && docker compose -f docker-compose.observability.yml logs frontend --tail=50"
-          exit 1
-
-      - name: Health check — grafana
-        if: inputs.action == 'deploy' && inputs.deploy_target == 'all'
-        run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          echo "Checking Grafana health..."
-          MAX=12
-          for i in $(seq 1 $MAX); do
-            if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
-                "curl -sf http://localhost:3002" 2>/dev/null; then
-              echo "Grafana is reachable"
-              exit 0
-            fi
-            echo "Attempt $i/$MAX — waiting 5s..."
-            sleep 5
-          done
-          echo "ERROR: Grafana health check failed"
-          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
-            "cd ~/cleo && docker compose -f docker-compose.observability.yml logs grafana --tail=50"
-          exit 1
-
-      - name: Write deploy summary
-        if: inputs.action == 'deploy'
-        run: |
-          VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
           cat >> $GITHUB_STEP_SUMMARY << EOF
           ## Deployment Summary
 
           | Field | Value |
           |---|---|
-          | Action | deploy |
           | Deploy Target | ${{ inputs.deploy_target }} |
           | VM Public IP | $VM_IP |
           | Backend Version | ${{ inputs.backend_version }} |
           | Frontend Version | ${{ inputs.frontend_version }} |
 
-          ### DNS Records (create A records pointing to VM IP)
+          ### DNS — point these A records to $VM_IP
 
-          | Domain | IP |
+          | Domain | Record |
           |---|---|
-          | ${{ inputs.frontend_domain }} | $VM_IP |
-          | ${{ inputs.backend_domain }} | $VM_IP |
-          | ${{ inputs.grafana_domain }} | $VM_IP |
+          | ${{ inputs.frontend_domain }} | A → $VM_IP |
+          | ${{ inputs.backend_domain }} | A → $VM_IP |
+          | ${{ inputs.grafana_domain }} | A → $VM_IP |
           EOF
 
+# ─────────────────────────────────────────────
+# JOB: destroy
+# ─────────────────────────────────────────────
+  destroy:
+    name: Destroy Infrastructure
+    runs-on: ubuntu-latest
+    if: inputs.action == 'destroy'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.12.2'
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
       - name: SSH app teardown
-        if: inputs.action == 'destroy' && steps.vm_check.outputs.vm_exists == 'true'
         continue-on-error: true
         run: |
-          VM_IP="${{ steps.vm_check.outputs.vm_ip }}"
-          SSH_KEY="${{ secrets.VM_SSH_PRIVATE_KEY }}"
-          echo "::add-mask::$SSH_KEY"
-          echo "$SSH_KEY" > /tmp/vm_key.pem
-          chmod 600 /tmp/vm_key.pem
+          RESOURCE_COUNT=$(cd ${{ env.TF_WORKING_DIR }} && terraform state list 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$RESOURCE_COUNT" -gt "0" ]; then
+            VM_IP=$(cd ${{ env.TF_WORKING_DIR }} && terraform output -raw vm_public_ip 2>/dev/null | head -1 | tr -d '[:space:]')
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+            chmod 600 /tmp/vm_key.pem
+            ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=30 azureuser@$VM_IP "
+              cd ~/cleo 2>/dev/null || true
+              docker compose -f docker-compose.observability.yml down --volumes --remove-orphans 2>/dev/null || true
+              sudo rm -f /etc/nginx/sites-enabled/cleo /etc/nginx/sites-available/cleo
+              sudo systemctl reload nginx 2>/dev/null || true
+              echo 'App teardown complete'
+            " || echo "WARNING: SSH teardown failed, continuing to terraform destroy"
+            rm -f /tmp/vm_key.pem
+          fi
 
-          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=30 azureuser@$VM_IP "
-            cd ~/cleo 2>/dev/null || true
-            docker compose -f docker-compose.observability.yml down --volumes --remove-orphans 2>/dev/null || true
-            sudo rm -f /etc/nginx/sites-enabled/cleo /etc/nginx/sites-available/cleo
-            sudo systemctl reload nginx 2>/dev/null || true
-            rm -f ~/cleo/backend/.env ~/cleo/frontend/.env.local
-            echo 'App teardown complete'
-          " || echo "WARNING: SSH teardown failed (VM may already be gone). Proceeding to terraform destroy."
-
-      - name: Terraform destroy
-        if: inputs.action == 'destroy'
+      - name: Terraform Destroy
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
         run: terraform destroy -auto-approve
 
       - name: Write destroy summary
-        if: inputs.action == 'destroy'
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << EOF
-          ## Destroy Summary
-
-          All CLEO infrastructure and application services have been destroyed.
-
-          - Docker Compose services stopped and removed
-          - NGINX configuration removed
-          - Azure VM and all related resources destroyed via Terraform
-          EOF
-
-      - name: Cleanup SSH key
-        if: always()
-        run: rm -f /tmp/vm_key.pem
+          echo "## Destroy Complete" >> $GITHUB_STEP_SUMMARY
+          echo "All CLEO infrastructure has been destroyed." >> $GITHUB_STEP_SUMMARY

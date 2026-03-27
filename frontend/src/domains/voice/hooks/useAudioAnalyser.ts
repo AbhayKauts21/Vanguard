@@ -60,6 +60,11 @@ export function useAudioAnalyser() {
     setAudioLevel(0);
   }, [setAudioLevel]);
 
+  /** Resume the audio context (required for autoplay policy). */
+  const resumeAudio = useCallback(async () => {
+    await getQueue().resume();
+  }, [getQueue]);
+
   /** Whether audio is currently playing or queued. */
   const isPlaying = useCallback((): boolean => {
     return queueRef.current?.active ?? false;
@@ -77,6 +82,7 @@ export function useAudioAnalyser() {
     enqueueAudio,
     stopAudio,
     resetAudio,
+    resumeAudio,
     isPlaying,
   };
 }

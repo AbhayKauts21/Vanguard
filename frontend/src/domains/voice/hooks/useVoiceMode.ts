@@ -29,7 +29,7 @@ import type { ChatRequest, SSEDoneEvent } from "@/types";
  */
 export function useVoiceMode() {
   const { start: startSTT, stop: stopSTT } = useSpeechRecognition();
-  const { enqueueAudio, stopAudio, resetAudio, isPlaying } = useAudioAnalyser();
+  const { enqueueAudio, stopAudio, resetAudio, resumeAudio, isPlaying } = useAudioAnalyser();
 
   // Voice store actions
   const startVoiceMode = useVoiceStore((s) => s.startVoiceMode);
@@ -61,10 +61,11 @@ export function useVoiceMode() {
   const activate = useCallback(() => {
     startVoiceMode();
     resetAudio();
+    resumeAudio(); // Explicitly resume AudioContext on user gesture
     setCleoTranscript("");
     useVoiceStore.getState().setUserTranscript(""); // Clear user transcript on fresh activation
     startSTT();
-  }, [startVoiceMode, resetAudio, setCleoTranscript, startSTT]);
+  }, [startVoiceMode, resetAudio, resumeAudio, setCleoTranscript, startSTT]);
 
   /**
    * Stop listening and send the captured transcript to the chat pipeline.

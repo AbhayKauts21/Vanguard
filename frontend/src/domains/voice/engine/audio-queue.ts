@@ -1,43 +1,28 @@
 /**
- * Audio Queue — sequential playback of audio chunks.
+ * Audio Queue — sequential playback of audio chunks using Web Audio API.
  *
- * TTS sentences are synthesized independently and arrive as audio Blobs.
- * This queue ensures they play back in order without overlapping, and
- * provides real-time audio level data via a Web Audio API AnalyserNode
- * for energy core avatar synchronization.
- *
- * Features:
- * - Sequential FIFO playback (no overlaps)
- * - AnalyserNode for real-time frequency data → avatar sync
- * - Graceful stop + flush
- * - Pause/resume support
- * - Callback on audio level change (60fps)
+ * This version uses AudioBufferSourceNode for maximum reliability and
+ * precision across all browsers (including Safari).
  */
 
 export interface AudioQueueCallbacks {
-  /** Called ~60fps with normalized audio level 0-1. */
   onAudioLevel: (level: number) => void;
-  /** Called when all queued audio has finished playing. */
   onQueueDrained: () => void;
-  /** Called when a chunk starts playing. */
   onChunkStart: (index: number) => void;
-  /** Called on playback error. */
   onError: (error: string) => void;
 }
 
 interface QueueItem {
-  blob: Blob;
+  arrayBuffer: ArrayBuffer;
   index: number;
 }
 
 export class AudioQueue {
   private queue: QueueItem[] = [];
-  private isPlaying = false;
-  private currentAudio: HTMLAudioElement | null = null;
-  private currentObjectUrl: string | null = null;
+  private isProcessing = false;
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
-  private sourceNode: MediaElementAudioSourceNode | null = null;
+  private currentSource: AudioBufferSourceNode | null = null;
   private animationFrameId: number | null = null;
   private callbacks: AudioQueueCallbacks;
   private itemCounter = 0;
@@ -49,141 +34,113 @@ export class AudioQueue {
 
   /**
    * Enqueue an audio blob for playback.
-   * If nothing is currently playing, starts immediately.
    */
-  enqueue(blob: Blob): void {
+  async enqueue(blob: Blob): Promise<void> {
     if (this.stopped) return;
 
-    this.queue.push({ blob, index: this.itemCounter++ });
+    if (blob.size === 0) {
+      console.warn("[AudioQueue] Received empty blob, ignoring.");
+      return;
+    }
 
-    if (!this.isPlaying) {
-      this.playNext();
+    try {
+      const arrayBuffer = await blob.arrayBuffer();
+      this.queue.push({ arrayBuffer, index: this.itemCounter++ });
+
+      if (!this.isProcessing) {
+        this.processQueue();
+      }
+    } catch (err) {
+      console.error("[AudioQueue] Failed to prepare audio buffer:", err);
+      this.callbacks.onError("Failed to prepare audio data.");
     }
   }
 
-  /**
-   * Stop all playback, clear the queue, release resources.
-   */
   stop(): void {
     this.stopped = true;
     this.queue = [];
-    this.isPlaying = false;
+    this.isProcessing = false;
 
     this.stopAnalyserLoop();
 
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-      this.currentAudio.src = "";
-      this.currentAudio = null;
+    if (this.currentSource) {
+      try { this.currentSource.stop(); } catch { /* ignore */ }
+      this.currentSource = null;
     }
 
-    if (this.currentObjectUrl) {
-      URL.revokeObjectURL(this.currentObjectUrl);
-      this.currentObjectUrl = null;
-    }
-
-    if (this.sourceNode) {
-      try { this.sourceNode.disconnect(); } catch { /* safe */ }
-      this.sourceNode = null;
-    }
-
-    if (this.analyser) {
-      try { this.analyser.disconnect(); } catch { /* safe */ }
-      this.analyser = null;
-    }
-
-    if (this.audioContext) {
-      try { this.audioContext.close(); } catch { /* safe */ }
+    if (this.audioContext && this.audioContext.state !== "closed") {
+      try { this.audioContext.close(); } catch { /* ignore */ }
       this.audioContext = null;
     }
 
     this.callbacks.onAudioLevel(0);
   }
 
-  /**
-   * Reset the queue for reuse (e.g. new voice turn).
-   */
   reset(): void {
     this.stop();
     this.stopped = false;
     this.itemCounter = 0;
   }
 
-  /** True if audio is currently playing or queued. */
+  async resume(): Promise<void> {
+    await this.ensureAudioContext();
+  }
+
   get active(): boolean {
-    return this.isPlaying || this.queue.length > 0;
+    return this.isProcessing || this.queue.length > 0;
   }
 
-  /** Number of items waiting in the queue (not including current). */
-  get pending(): number {
-    return this.queue.length;
-  }
-
-  // ────────────────────────────────────────────────
-
-  private async playNext(): Promise<void> {
+  private async processQueue(): Promise<void> {
     if (this.stopped || this.queue.length === 0) {
-      this.isPlaying = false;
+      this.isProcessing = false;
       this.callbacks.onAudioLevel(0);
       this.callbacks.onQueueDrained();
       return;
     }
 
-    this.isPlaying = true;
+    this.isProcessing = true;
     const item = this.queue.shift()!;
 
     try {
-      // Create audio element
-      const objectUrl = URL.createObjectURL(item.blob);
-      this.currentObjectUrl = objectUrl;
-
-      const audio = new Audio(objectUrl);
-      audio.preload = "auto";
-      this.currentAudio = audio;
+      await this.ensureAudioContext();
+      if (!this.audioContext) throw new Error("AudioContext not available.");
 
       this.callbacks.onChunkStart(item.index);
 
-      // Ensure audio context is ready
-      await this.ensureAudioContext();
+      // Decode the audio data
+      const audioBuffer = await this.audioContext.decodeAudioData(item.arrayBuffer);
+      
+      // Create source node
+      const source = this.audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      this.currentSource = source;
 
-      // Connect to analyser for level data
-      this.connectAnalyser(audio);
-
-      // Start analyser animation loop
+      // Connect to analyser and then destination
+      source.connect(this.analyser!);
+      
+      // Start analyser loop
       this.startAnalyserLoop();
 
-      // Wait for the audio to finish
-      await new Promise<void>((resolve, reject) => {
-        audio.onended = () => resolve();
-        audio.onerror = () => reject(new Error("Audio playback failed."));
-
-        audio.play().catch(reject);
+      // Play and wait
+      await new Promise<void>((resolve) => {
+        source.onended = () => resolve();
+        source.start(0);
       });
 
-      // Cleanup this chunk
       this.stopAnalyserLoop();
-      URL.revokeObjectURL(objectUrl);
-      this.currentObjectUrl = null;
-      this.currentAudio = null;
+      this.currentSource = null;
 
-      if (this.sourceNode) {
-        try { this.sourceNode.disconnect(); } catch { /* safe */ }
-        this.sourceNode = null;
-      }
-
-      // Play next in queue
-      this.playNext();
+      // Play next
+      this.processQueue();
     } catch (err) {
-      this.isPlaying = false;
-      this.callbacks.onAudioLevel(0);
-      this.callbacks.onError(
-        err instanceof Error ? err.message : "Audio playback error.",
-      );
-
-      // Try to continue with next chunk despite error
+      console.error(`[AudioQueue] Error processing chunk ${item.index}:`, err);
+      this.callbacks.onError(err instanceof Error ? err.message : "Audio processing error.");
+      
+      this.stopAnalyserLoop();
       if (this.queue.length > 0) {
-        this.playNext();
+        this.processQueue();
       } else {
+        this.isProcessing = false;
         this.callbacks.onQueueDrained();
       }
     }
@@ -191,28 +148,20 @@ export class AudioQueue {
 
   private async ensureAudioContext(): Promise<void> {
     if (this.audioContext && this.audioContext.state !== "closed") {
-      // Resume if suspended (browser autoplay policy)
       if (this.audioContext.state === "suspended") {
         await this.audioContext.resume();
       }
       return;
     }
 
-    this.audioContext = new AudioContext();
-    this.analyser = this.audioContext.createAnalyser();
-    this.analyser.fftSize = 256;
-    this.analyser.smoothingTimeConstant = 0.8;
-    this.analyser.connect(this.audioContext.destination);
-  }
-
-  private connectAnalyser(audio: HTMLAudioElement): void {
-    if (!this.audioContext || !this.analyser) return;
-
     try {
-      this.sourceNode = this.audioContext.createMediaElementSource(audio);
-      this.sourceNode.connect(this.analyser);
-    } catch {
-      // MediaElementSource can only be created once per element — fallback
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+      this.analyser.smoothingTimeConstant = 0.8;
+      this.analyser.connect(this.audioContext.destination);
+    } catch (err) {
+      console.error("[AudioQueue] Failed to initialize AudioContext:", err);
     }
   }
 
@@ -229,7 +178,6 @@ export class AudioQueue {
 
       this.analyser.getByteFrequencyData(dataArray);
 
-      // Calculate RMS-style average level, normalized to 0-1
       let sum = 0;
       for (let i = 0; i < dataArray.length; i++) {
         sum += dataArray[i];
@@ -249,5 +197,6 @@ export class AudioQueue {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+    this.callbacks.onAudioLevel(0);
   }
 }

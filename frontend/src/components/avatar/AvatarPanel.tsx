@@ -9,11 +9,16 @@ import { useEnergyCoreState } from "@/domains/avatar/hooks/useEnergyCoreState";
 import { useEnergyCoreTelemetry } from "@/domains/avatar/hooks/useEnergyCoreTelemetry";
 import { useDetailedHealth } from "@/domains/system/hooks/useDetailedHealth";
 import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
+import { useVoiceStore } from "@/domains/voice/model";
 
 const CORE_STATUS = {
   idle: {
     className: "text-blue-300/90 border-blue-400/30",
     label: "[IDLE]",
+  },
+  listening: {
+    className: "text-purple-300/90 border-purple-400/30",
+    label: "[LISTENING]",
   },
   syncing: {
     className: "text-amber-300/90 border-amber-400/30",
@@ -34,6 +39,7 @@ export function AvatarPanel() {
   const coreTelemetry = useEnergyCoreTelemetry();
   const lastLatencyMs = useTelemetryStore((s) => s.lastLatencyMs);
   const vectorCount = useTelemetryStore((s) => s.vectorCount);
+  const audioLevel = useVoiceStore((s) => s.audioLevel);
 
   const latencyDisplay = lastLatencyMs !== null
     ? lastLatencyMs < 1000
@@ -54,7 +60,7 @@ export function AvatarPanel() {
       id="avatar-layer"
       style={{ zIndex: 101 }}
     >
-      <EnergyCoreCanvas state={coreState} />
+      <EnergyCoreCanvas state={coreState} audioLevel={audioLevel} />
 
       <div className="pointer-events-none absolute inset-px rounded-[inherit]">
         <span className="absolute left-0 top-0 h-5 w-5 rounded-tl-xl border-l border-t border-white/20" />

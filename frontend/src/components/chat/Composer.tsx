@@ -2,16 +2,26 @@
 
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { VoiceModeButton } from "@/components/voice";
 
 interface ComposerProps {
   onSend: (message: string) => void;
   disabled?: boolean;
+  /** Voice mode controls injected from parent. */
+  voice?: {
+    isVoiceMode: boolean;
+    isSupported: boolean;
+    phase: string;
+    onActivate: () => void;
+    onDeactivate: () => void;
+    onSendVoiceMessage: () => void;
+  };
 }
 
 /**
  * Chat input composer — rounded input pill with Stitch-style glow aura.
  */
-export function Composer({ onSend, disabled = false }: ComposerProps) {
+export function Composer({ onSend, disabled = false, voice }: ComposerProps) {
   const t = useTranslations("chat");
   const [value, setValue] = useState("");
 
@@ -56,6 +66,16 @@ export function Composer({ onSend, disabled = false }: ComposerProps) {
           >
             <span className="material-symbols-outlined font-light">arrow_upward</span>
           </button>
+
+          {voice?.isSupported && (
+            <VoiceModeButton
+              isVoiceMode={voice.isVoiceMode}
+              phase={voice.phase as "idle" | "listening" | "processing" | "speaking"}
+              onActivate={voice.onActivate}
+              onDeactivate={voice.onDeactivate}
+              onSend={voice.onSendVoiceMessage}
+            />
+          )}
         </div>
       </form>
     </div>

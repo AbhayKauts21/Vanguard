@@ -337,10 +337,10 @@ jobs:
             cd ~/cleo
             RUNNING=\$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
             if [ \"\$RUNNING\" = \"0\" ]; then
-              echo 'No containers running — starting all services'
+              echo 'No containers running — starting ALL services from full docker-compose'
               docker compose -f docker-compose.observability.yml up --build -d
             else
-              echo 'Restarting backend only'
+              echo 'Services already running — restarting backend only'
               docker compose -f docker-compose.observability.yml up --build -d backend
             fi
           "
@@ -401,10 +401,10 @@ jobs:
             cd ~/cleo
             RUNNING=\$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
             if [ \"\$RUNNING\" = \"0\" ]; then
-              echo 'No containers running — starting all services'
+              echo 'No containers running — starting ALL services from full docker-compose'
               docker compose -f docker-compose.observability.yml up --build -d
             else
-              echo 'Restarting frontend only'
+              echo 'Services already running — restarting frontend only'
               docker compose -f docker-compose.observability.yml up --build -d frontend
             fi
           "

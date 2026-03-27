@@ -20,6 +20,7 @@ on:
           - backend
           - frontend
           - observability
+          - nginx
       backend_version:
         description: "Backend version (e.g. v1.2.0 or latest)"
         required: false
@@ -533,9 +534,11 @@ jobs:
     if: |
       always() &&
       inputs.action == 'deploy' &&
-      inputs.deploy_target == 'all' &&
-      needs.provision.outputs.vm_exists == 'false' &&
-      needs.deploy-backend.result == 'success'
+      (inputs.deploy_target == 'nginx' || (
+        inputs.deploy_target == 'all' &&
+        needs.provision.outputs.vm_exists == 'false' &&
+        needs.deploy-backend.result == 'success'
+      ))
 
     steps:
       - name: Write SSH key

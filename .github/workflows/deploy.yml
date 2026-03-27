@@ -29,14 +29,6 @@ on:
         required: false
         type: string
         default: latest
-      backend_env:
-        description: "Backend env vars as JSON object"
-        required: false
-        type: string
-      frontend_env:
-        description: "Frontend env vars as JSON object"
-        required: false
-        type: string
       frontend_domain:
         description: "Frontend domain"
         required: false
@@ -65,10 +57,10 @@ jobs:
       - name: Validate JSON inputs
         if: inputs.action == 'deploy'
         run: |
-          echo "Validating backend_env..."
-          echo '${{ inputs.backend_env }}' | jq . > /dev/null || { echo "ERROR: backend_env is not valid JSON"; exit 1; }
-          echo "Validating frontend_env..."
-          echo '${{ inputs.frontend_env }}' | jq . > /dev/null || { echo "ERROR: frontend_env is not valid JSON"; exit 1; }
+          echo "Validating BACKEND_ENV_JSON..."
+          echo '${{ vars.BACKEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: BACKEND_ENV_JSON is not valid JSON"; exit 1; }
+          echo "Validating FRONTEND_ENV_JSON..."
+          echo '${{ vars.FRONTEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: FRONTEND_ENV_JSON is not valid JSON"; exit 1; }
           echo "JSON validation passed."
 
       - name: Azure Login
@@ -253,8 +245,7 @@ jobs:
         if: inputs.action == 'deploy'
         run: |
           VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          # Merge VM IP and postgres credentials — overrides any placeholder values
-          BACKEND_ENV_CONTENT=$(echo '${{ inputs.backend_env }}' | \
+          BACKEND_ENV_CONTENT=$(echo '${{ vars.BACKEND_ENV_JSON }}' | \
             jq --arg ip "$VM_IP" \
                --arg db "${{ secrets.POSTGRES_DB }}" \
                --arg user "${{ secrets.POSTGRES_USER }}" \
@@ -274,7 +265,7 @@ jobs:
         if: inputs.action == 'deploy'
         run: |
           VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          FRONTEND_ENV_CONTENT=$(echo '${{ inputs.frontend_env }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"')
+          FRONTEND_ENV_CONTENT=$(echo '${{ vars.FRONTEND_ENV_JSON }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"')
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             mkdir -p ~/cleo/frontend
             cat > ~/cleo/frontend/.env.local << 'ENVEOF'

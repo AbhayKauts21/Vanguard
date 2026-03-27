@@ -66,6 +66,8 @@ module "vm" {
   public_ip_name      = var.public_ip_name
   nic_name            = var.nic_name
   postgres_password   = var.postgres_password
+  postgres_db         = var.postgres_db
+  postgres_user       = var.postgres_user
   tags                = var.tags
 
   depends_on = [

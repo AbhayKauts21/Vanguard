@@ -626,21 +626,23 @@ jobs:
               --email manu@andinolabs.com \
               --agree-tos \
               --non-interactive \
+              --expand \
               --keep-until-expiring
 
-            if [ ! -f "/etc/letsencrypt/live/cleo.andinolabs.tech/fullchain.pem" ] && \
-               [ ! -f "/etc/letsencrypt/live/${{ inputs.frontend_domain }}/fullchain.pem" ]; then
-              echo 'ERROR: Certificate not found — DNS A records must point to $VM_IP'
-              sudo ls /etc/letsencrypt/live/ 2>/dev/null || echo 'No certs directory'
+            # Cert is stored under the first domain name
+            CERT_DIR=/etc/letsencrypt/live/${{ inputs.frontend_domain }}
+            if [ ! -f \"\$CERT_DIR/fullchain.pem\" ]; then
+              echo 'ERROR: Certificate not found at '\$CERT_DIR
+              sudo ls /etc/letsencrypt/live/
               exit 1
             fi
-            echo 'SSL certificate obtained successfully'
+            echo \"SSL certificate ready at \$CERT_DIR\"
           "
 
       - name: Upgrade NGINX to HTTPS
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
-          CERT_BASE=/etc/letsencrypt/live/cleo.andinolabs.tech
+          CERT_BASE=/etc/letsencrypt/live/${{ inputs.frontend_domain }}
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             sudo tee /etc/nginx/sites-available/cleo > /dev/null << 'NGINXEOF'
           # ── Frontend ──────────────────────────────────────────

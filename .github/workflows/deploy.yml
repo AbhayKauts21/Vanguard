@@ -319,14 +319,21 @@ jobs:
             echo 'All services started'
           "
 
-      - name: Restart backend only (re-deploy)
+      - name: Start or restart backend (re-deploy)
         if: needs.provision.outputs.vm_exists == 'true'
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            docker compose -f docker-compose.observability.yml up --build -d backend
-            echo 'Backend restarted'
+            # Check if any containers are running — if not, start everything
+            RUNNING=$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
+            if [ \"\$RUNNING\" = \"0\" ]; then
+              echo 'No containers running — starting all services'
+              docker compose -f docker-compose.observability.yml up --build -d
+            else
+              echo 'Containers running — restarting backend only'
+              docker compose -f docker-compose.observability.yml up --build -d backend
+            fi
           "
 
       - name: Health check — backend
@@ -386,8 +393,15 @@ jobs:
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            docker compose -f docker-compose.observability.yml up --build -d frontend
-            echo 'Frontend restarted'
+            # Check if any containers are running — if not, start everything
+            RUNNING=$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
+            if [ \"\$RUNNING\" = \"0\" ]; then
+              echo 'No containers running — starting all services'
+              docker compose -f docker-compose.observability.yml up --build -d
+            else
+              echo 'Containers running — restarting frontend only'
+              docker compose -f docker-compose.observability.yml up --build -d frontend
+            fi
           "
 
       - name: Health check — frontend

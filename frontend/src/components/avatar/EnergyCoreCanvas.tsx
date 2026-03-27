@@ -19,28 +19,28 @@ interface EnergyCoreProfile {
 
 const ENERGY_CORE_PROFILES: Record<EnergyCoreVisualState, EnergyCoreProfile> = {
   idle: {
-    color: 0x162d8f,
-    speed: 0.062,
-    noise: 0.036,
+    color: 0x4c7fff,
+    speed: 0.050,
+    noise: 0.028,
     scale: 1,
     breathAmplitude: 0.006,
-    breathSpeed: 0.72,
+    breathSpeed: 0.65,
   },
   syncing: {
-    color: 0xc26109,
-    speed: 0.132,
-    noise: 0.061,
+    color: 0xff9f1c,
+    speed: 0.105,
+    noise: 0.050,
     scale: 1.01,
     breathAmplitude: 0.011,
-    breathSpeed: 0.98,
+    breathSpeed: 0.85,
   },
   speech: {
-    color: 0x10968a,
-    speed: 0.148,
-    noise: 0.068,
+    color: 0x22d3c5,
+    speed: 0.115,
+    noise: 0.055,
     scale: 1.014,
     breathAmplitude: 0.014,
-    breathSpeed: 1.08,
+    breathSpeed: 0.92,
   },
 };
 
@@ -218,12 +218,12 @@ export function EnergyCoreCanvas({ state }: EnergyCoreCanvasProps) {
       targetColor.set(targetProfile.color);
       (material.uniforms.uColor.value as THREE.Color).lerp(
         targetColor,
-        0.0055,
+        0.004,
       );
       material.uniforms.uSpeed.value = THREE.MathUtils.lerp(
         material.uniforms.uSpeed.value,
         targetProfile.speed,
-        0.0055,
+        0.004,
       );
       material.uniforms.uNoiseIntensity.value = THREE.MathUtils.lerp(
         material.uniforms.uNoiseIntensity.value,

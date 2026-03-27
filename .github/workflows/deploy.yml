@@ -311,7 +311,7 @@ jobs:
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
             BACKEND_VERSION=${{ inputs.backend_version }} \
-            docker compose -f docker-compose.observability.yml up --build --no-cache -d backend
+            docker compose -f docker-compose.observability.yml up --build -d backend
           "
 
       - name: Health check — backend
@@ -365,7 +365,7 @@ jobs:
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
             FRONTEND_VERSION=${{ inputs.frontend_version }} \
-            docker compose -f docker-compose.observability.yml up --build --no-cache -d frontend
+            docker compose -f docker-compose.observability.yml up --build -d frontend
           "
 
       - name: Health check — frontend

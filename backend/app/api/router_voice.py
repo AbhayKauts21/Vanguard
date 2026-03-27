@@ -23,6 +23,18 @@ router = APIRouter(
     tags=["voice"],
 )
 
+@router.post("/reset", summary="Reset TTS synthesizer settings")
+async def reset_voice():
+    """Force a reset of the Azure Speech synthesizer to pick up new .env changes."""
+    from app.adapters.azure_speech_client import azure_speech_client
+    azure_speech_client.reset_client()
+    return {
+        "status": "reset",
+        "region": settings.AZURE_SPEECH_REGION,
+        "voice": settings.AZURE_TTS_VOICE,
+        "format": settings.AZURE_TTS_OUTPUT_FORMAT
+    }
+
 _rate = f"{settings.RATE_LIMIT_PER_MINUTE}/minute"
 
 # Map our config string to an HTTP Content-Type.
@@ -84,19 +96,28 @@ async def tts(request: Request, body: TTSRequest):
         )
 
     # Full body response.
-    audio_bytes = await tts_service.synthesize(
-        text=body.text,
-        voice=body.voice,
-        language=body.language,
-    )
+    try:
+        audio_bytes = await tts_service.synthesize(
+            text=body.text,
+            voice=body.voice,
+            language=body.language,
+        )
+    except Exception as e:
+        rlog.error("request.failed", endpoint="/voice/tts", error=str(e))
+        return Response(content=str(e), status_code=500)
 
     rlog.info(
         "request.completed",
         endpoint="/voice/tts",
         status=200,
         audio_bytes=len(audio_bytes),
+        text=body.text[:20],
         duration_ms=round((time.perf_counter() - t0) * 1000, 1),
     )
+
+    if not audio_bytes:
+        rlog.warning("request.empty_audio", endpoint="/voice/tts", text=body.text)
+        # We still return 200 but zero length, which helps debug if it's arriving as zero.
 
     return Response(
         content=audio_bytes,
@@ -104,6 +125,7 @@ async def tts(request: Request, body: TTSRequest):
         headers={
             "Content-Disposition": "inline",
             "Content-Length": str(len(audio_bytes)),
+            "X-Audio-Bytes": str(len(audio_bytes)), # Added for easy header inspection
             "Cache-Control": "no-cache",
         },
     )

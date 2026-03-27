@@ -8,6 +8,7 @@ used by other CLEO adapters (AzureOpenAIClient, etc.).
 from __future__ import annotations
 
 import io
+import asyncio
 from typing import Optional
 
 from loguru import logger
@@ -92,65 +93,71 @@ class AzureSpeechClient:
         voice: Optional[str] = None,
         language: Optional[str] = None,
     ) -> bytes:
-        """Synthesize *text* into audio bytes (MP3).
+        """Synthesize *text* into audio bytes (MP3) using SSML.
 
-        Parameters
-        ----------
-        text:
-            Plain text to convert to speech.
-        voice:
-            Override the default Azure TTS voice for this request.
-        language:
-            Optional language hint (e.g. ``en-US``). Currently used for
-            SSML wrapping when a voice override is provided.
-
-        Returns
-        -------
-        bytes
-            Raw audio data in the configured output format.
-
-        Raises
-        ------
-        AzureSpeechSynthesisError
-            If the SDK returns a cancellation or error result.
+        SSML is used for every request to ensure consistent voice selection
+        and language tagging, which is required for premium 'Dragon' voices.
         """
-        synth = self._get_synthesizer()
-
-        # If caller overrides voice, build a minimal SSML document.
-        if voice and voice != settings.AZURE_TTS_VOICE:
-            lang = language or "en-US"
-            ssml = (
-                f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="{lang}">'
-                f'<voice name="{voice}">{_escape_xml(text)}</voice>'
-                f"</speak>"
-            )
-            logger.debug("azure_speech.ssml_override", voice=voice, text_length=len(text))
-            result = synth.speak_ssml(ssml)
-        else:
-            result = synth.speak_text(text)
-
         import azure.cognitiveservices.speech as speechsdk
+        
+        synth = self._get_synthesizer()
+        effective_voice = voice or settings.AZURE_TTS_VOICE
+        effective_lang = language or "en-US"
+
+        # Construct a robust SSML string.
+        ssml = (
+            f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="{effective_lang}">'
+            f'<voice name="{effective_voice}">{_escape_xml(text)}</voice>'
+            f"</speak>"
+        )
+
+        logger.debug(
+            "azure_speech.synthesizing",
+            voice=effective_voice,
+            lang=effective_lang,
+            text_snippet=text[:40],
+        )
+
+        # Use speak_ssml_async and wait in a thread-safe way for the SDK result.
+        # This prevents blocking the FastAPI event loop.
+        result = await asyncio.to_thread(synth.speak_ssml_async(ssml).get)
 
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
             audio_data = result.audio_data
-            logger.info(
-                "azure_speech.synthesis_ok",
-                text_length=len(text),
-                audio_bytes=len(audio_data),
-            )
+            if not audio_data or len(audio_data) == 0:
+                logger.warning(
+                    "azure_speech.empty_audio", 
+                    voice=effective_voice, 
+                    text=text[:40],
+                    ssml=ssml
+                )
+            else:
+                logger.info(
+                    "azure_speech.synthesis_ok",
+                    text_length=len(text),
+                    audio_bytes=len(audio_data),
+                )
             return audio_data
 
-        # Handle errors
+        # Handle errors and cancellations
         cancellation = result.cancellation_details
-        if cancellation:
-            error_detail = (
-                f"Speech synthesis failed: {cancellation.reason} — "
-                f"{cancellation.error_details} (ErrorCode: {cancellation.error_code})"
-            )
-        else:
-            error_detail = f"Speech synthesis failed with reason code: {result.reason}"
+        error_detail = "Unknown error"
         
-        logger.error("azure_speech.synthesis_error", detail=error_detail, voice=settings.AZURE_TTS_VOICE)
+        if result.reason == speechsdk.ResultReason.Canceled:
+            if cancellation:
+                error_detail = (
+                    f"Canceled: {cancellation.reason} — {cancellation.error_details} "
+                    f"(ErrorCode: {cancellation.error_code})"
+                )
+        else:
+            error_detail = f"Failed with reason: {result.reason}"
+        
+        logger.error(
+            "azure_speech.synthesis_error",
+            detail=error_detail,
+            voice=effective_voice,
+            ssml=ssml
+        )
         raise AzureSpeechSynthesisError(detail=error_detail)
 
     async def synthesize_stream(

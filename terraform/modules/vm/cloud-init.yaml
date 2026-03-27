@@ -11,6 +11,7 @@ packages:
   - lsb-release
   - software-properties-common
   - wget
+  - netcat-openbsd
 
 runcmd:
   # Install Docker
@@ -24,22 +25,22 @@ runcmd:
   - usermod -aG docker ${admin_username}
   - docker --version
 
-  # Install PostgreSQL
+  # Install PostgreSQL (version-agnostic)
   - echo "=== Installing PostgreSQL ==="
   - apt-get install -y postgresql postgresql-contrib
   - systemctl enable postgresql
   - systemctl start postgresql
+  - sleep 5
   - sudo -u postgres psql -c "ALTER USER postgres PASSWORD '${postgres_password}';"
   - sudo -u postgres psql -c "CREATE DATABASE vanguard;"
-  - echo "host all all 0.0.0.0/0 md5" >> /etc/postgresql/14/main/pg_hba.conf
-  - sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/g" /etc/postgresql/14/main/postgresql.conf
+  - PG_VERSION=$(pg_lsclusters -h | awk '{print $1}' | head -1)
+  - PG_CONF_DIR="/etc/postgresql/$PG_VERSION/main"
+  - echo "host all all 0.0.0.0/0 md5" >> $PG_CONF_DIR/pg_hba.conf
+  - sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/g" $PG_CONF_DIR/postgresql.conf
   - systemctl restart postgresql
   - psql --version
 
-  # Note: Grafana is deployed via Docker Compose, not on VM
-  # See docker-compose.observability.yml for Grafana configuration
-
-  # Create a status file
+  # Mark installation complete
   - echo "Docker and PostgreSQL installation completed at $(date)" > /var/log/cloud-init-complete.log
   - echo "=== Installation Complete ==="
 

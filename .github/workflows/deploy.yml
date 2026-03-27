@@ -123,6 +123,8 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+          TF_VAR_postgres_db: ${{ secrets.POSTGRES_DB }}
+          TF_VAR_postgres_user: ${{ secrets.POSTGRES_USER }}
         run: terraform plan -out=tfplan.binary
 
       - name: Convert plan to JSON
@@ -151,39 +153,61 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           TF_VAR_postgres_password: ${{ secrets.POSTGRES_PASSWORD }}
+          TF_VAR_postgres_db: ${{ secrets.POSTGRES_DB }}
+          TF_VAR_postgres_user: ${{ secrets.POSTGRES_USER }}
         run: |
           terraform apply -auto-approve tfplan.binary
           VM_IP=$(terraform output -raw vm_public_ip | tr -d '[:space:]')
           echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
 
-      - name: Save SSH key as GitHub secret
+      - name: Save SSH key and DB secrets to GitHub
         if: steps.vm_check.outputs.vm_exists == 'false'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
+          VM_IP=$(terraform output -raw vm_public_ip | tr -d '[:space:]')
           SSH_KEY=$(terraform output -raw ssh_private_key)
           echo "::add-mask::$SSH_KEY"
+
+          # Get repo public key for encryption
           REPO_KEY_RESPONSE=$(curl -s -H "Authorization: token $GH_PAT" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/public-key")
           KEY_ID=$(echo "$REPO_KEY_RESPONSE" | jq -r '.key_id')
           REPO_PUBLIC_KEY=$(echo "$REPO_KEY_RESPONSE" | jq -r '.key')
+
           pip install PyNaCl -q
-          ENCRYPTED=$(python3 -c "
+
+          encrypt_secret() {
+            local VALUE="$1"
+            python3 -c "
           import base64
           from nacl import public
           pk = base64.b64decode('$REPO_PUBLIC_KEY')
           box = public.SealedBox(public.PublicKey(pk))
-          enc = box.encrypt('''$SSH_KEY'''.encode())
+          enc = box.encrypt('''$VALUE'''.encode())
           print(base64.b64encode(enc).decode())
-          ")
-          curl -s -X PUT \
-            -H "Authorization: token $GH_PAT" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/VM_SSH_PRIVATE_KEY" \
-            -d "{\"encrypted_value\": \"$ENCRYPTED\", \"key_id\": \"$KEY_ID\"}"
-          echo "SSH key saved as VM_SSH_PRIVATE_KEY secret"
+          "
+          }
+
+          save_secret() {
+            local NAME="$1"
+            local ENCRYPTED="$2"
+            curl -s -X PUT \
+              -H "Authorization: token $GH_PAT" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/$NAME" \
+              -d "{\"encrypted_value\": \"$ENCRYPTED\", \"key_id\": \"$KEY_ID\"}"
+            echo "Saved secret: $NAME"
+          }
+
+          save_secret "VM_SSH_PRIVATE_KEY" "$(encrypt_secret "$SSH_KEY")"
+          save_secret "POSTGRES_HOST"      "$(encrypt_secret "$VM_IP")"
+          save_secret "POSTGRES_DB"        "$(encrypt_secret "${{ secrets.POSTGRES_DB }}")"
+          save_secret "POSTGRES_USER"      "$(encrypt_secret "${{ secrets.POSTGRES_USER }}")"
+          save_secret "POSTGRES_PASSWORD"  "$(encrypt_secret "${{ secrets.POSTGRES_PASSWORD }}")"
+          echo "All secrets saved"
 
       - name: Resolve final VM IP
         id: resolve_ip
@@ -305,13 +329,24 @@ jobs:
             echo 'backend/.env written'
           "
 
-      - name: Start backend
+      - name: Start all services (first deploy)
+        if: needs.provision.outputs.vm_exists == 'false'
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            BACKEND_VERSION=${{ inputs.backend_version }} \
+            docker compose -f docker-compose.observability.yml up --build -d
+            echo 'All services started'
+          "
+
+      - name: Restart backend only (re-deploy)
+        if: needs.provision.outputs.vm_exists == 'true'
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            cd ~/cleo
             docker compose -f docker-compose.observability.yml up --build -d backend
+            echo 'Backend restarted'
           "
 
       - name: Health check — backend
@@ -359,13 +394,14 @@ jobs:
             echo 'frontend/.env.local written'
           "
 
-      - name: Start frontend
+      - name: Restart frontend only (re-deploy)
+        if: needs.provision.outputs.vm_exists == 'true'
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            FRONTEND_VERSION=${{ inputs.frontend_version }} \
             docker compose -f docker-compose.observability.yml up --build -d frontend
+            echo 'Frontend restarted'
           "
 
       - name: Health check — frontend
@@ -395,7 +431,7 @@ jobs:
     name: Configure NGINX
     runs-on: ubuntu-latest
     needs: [provision, deploy-backend, deploy-frontend]
-    if: inputs.action == 'deploy' && inputs.deploy_target == 'all'
+    if: inputs.action == 'deploy' && inputs.deploy_target == 'all' && needs.provision.outputs.vm_exists == 'false'
 
     steps:
       - name: Setup SSH key

@@ -32,7 +32,9 @@ runcmd:
   - systemctl start postgresql
   - sleep 5
   - sudo -u postgres psql -c "ALTER USER postgres PASSWORD '${postgres_password}';"
-  - sudo -u postgres psql -c "CREATE DATABASE vanguard;"
+  - sudo -u postgres psql -c "CREATE USER ${postgres_user} WITH PASSWORD '${postgres_password}';"
+  - sudo -u postgres psql -c "CREATE DATABASE ${postgres_db} OWNER ${postgres_user};"
+  - sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${postgres_db} TO ${postgres_user};"
   - PG_VERSION=$(pg_lsclusters -h | awk '{print $1}' | head -1)
   - PG_CONF_DIR="/etc/postgresql/$PG_VERSION/main"
   - echo "host all all 0.0.0.0/0 md5" >> $PG_CONF_DIR/pg_hba.conf

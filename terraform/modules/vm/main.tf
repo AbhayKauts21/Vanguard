@@ -70,6 +70,8 @@ resource "azurerm_linux_virtual_machine" "vm" {
   custom_data = base64encode(templatefile("${path.module}/cloud-init.yaml", {
     admin_username    = var.admin_username
     postgres_password = var.postgres_password
+    postgres_db       = var.postgres_db
+    postgres_user     = var.postgres_user
   }))
 
   tags = var.tags

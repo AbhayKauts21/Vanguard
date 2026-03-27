@@ -93,3 +93,15 @@ variable "postgres_password" {
   sensitive   = true
   default     = "Postgres@123"
 }
+
+variable "postgres_db" {
+  description = "PostgreSQL database name"
+  type        = string
+  default     = "cleo-dev"
+}
+
+variable "postgres_user" {
+  description = "PostgreSQL application user"
+  type        = string
+  default     = "cleouser"
+}

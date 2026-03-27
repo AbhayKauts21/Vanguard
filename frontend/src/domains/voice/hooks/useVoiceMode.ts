@@ -62,6 +62,7 @@ export function useVoiceMode() {
     startVoiceMode();
     resetAudio();
     setCleoTranscript("");
+    useVoiceStore.getState().setUserTranscript(""); // Clear user transcript on fresh activation
     startSTT();
   }, [startVoiceMode, resetAudio, setCleoTranscript, startSTT]);
 
@@ -95,6 +96,7 @@ export function useVoiceMode() {
     setThinking(true);
     setErrorType(null);
     setCleoTranscript("");
+    useVoiceStore.getState().setUserTranscript(""); // Clear it after sending to prevent auto-re-trigger
 
     // Prepare conversation history
     const history = messages
@@ -287,8 +289,10 @@ export function useVoiceMode() {
    * Silence detection — automatically send message after user stops speaking.
    */
   useEffect(() => {
-    // Only monitor silence during the listening phase
-    if (!isVoiceMode || phase !== "listening" || !userTranscript.trim()) {
+    // Only monitor silence during the listening phase and for non-empty transcript
+    // Minimum length check (3 chars) to avoid triggering on ambient noise/breathing
+    const trimmed = userTranscript.trim();
+    if (!isVoiceMode || phase !== "listening" || trimmed.length < 3) {
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
@@ -306,7 +310,7 @@ export function useVoiceMode() {
       console.log("[VoiceMode] Silence detected, automatically sending message...");
       sendVoiceMessage();
       silenceTimerRef.current = null;
-    }, 2500); // 2.5 seconds of silence
+    }, 2800); // 2.8 seconds of silence
 
     return () => {
       if (silenceTimerRef.current) {

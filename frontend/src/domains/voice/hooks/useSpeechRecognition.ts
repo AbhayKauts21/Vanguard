@@ -45,6 +45,10 @@ export function useSpeechRecognition() {
 
     engine.start({
       onResult: (result: STTResult) => {
+        // Guard: ignore results if not in listening phase to prevent "hallucinations"
+        const state = useVoiceStore.getState();
+        if (state.phase !== "listening") return;
+
         setUserTranscript(result.transcript);
 
         if (result.isFinal) {

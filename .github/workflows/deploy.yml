@@ -40,12 +40,12 @@ on:
         description: "Backend domain"
         required: false
         type: string
-        default: api.andinolabs.tech
+        default: cleoapi.andinolabs.tech
       grafana_domain:
         description: "Grafana domain"
         required: false
         type: string
-        default: grafana.andinolabs.tech
+        default: cleografana.andinolabs.tech
 
 env:
   TF_WORKING_DIR: terraform/env/dev
@@ -595,16 +595,20 @@ jobs:
           echo "   ${{ inputs.backend_domain }}  → $VM_IP"
           echo "   ${{ inputs.grafana_domain }}  → $VM_IP"
           echo ""
-          echo "Waiting for DNS to propagate (checking every 30s, up to 10 min)..."
+          echo "Waiting for all 3 domains to resolve (checking every 30s, up to 10 min)..."
           for i in $(seq 1 20); do
-            RESOLVED=$(dig +short ${{ inputs.frontend_domain }} | tail -1)
-            echo "Attempt $i/20 — ${{ inputs.frontend_domain }} resolves to: $RESOLVED"
-            if [ "$RESOLVED" = "$VM_IP" ]; then
-              echo "DNS resolved correctly"
+            F=$(dig +short ${{ inputs.frontend_domain }} | tail -1)
+            B=$(dig +short ${{ inputs.backend_domain }} | tail -1)
+            G=$(dig +short ${{ inputs.grafana_domain }} | tail -1)
+            echo "Attempt $i/20 — frontend: $F | backend: $B | grafana: $G"
+            if [ "$F" = "$VM_IP" ] && [ "$B" = "$VM_IP" ] && [ "$G" = "$VM_IP" ]; then
+              echo "All 3 DNS records resolved correctly"
               break
             fi
             if [ "$i" = "20" ]; then
-              echo "WARNING: DNS not yet propagated — proceeding anyway (certbot may fail)"
+              echo "ERROR: DNS not propagated for all domains after 10 min"
+              echo "Add A records in GoDaddy: cleo, api, grafana → $VM_IP"
+              exit 1
             fi
             sleep 30
           done

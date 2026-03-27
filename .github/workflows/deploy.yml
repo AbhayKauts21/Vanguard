@@ -271,20 +271,23 @@ jobs:
       - name: Sync repo to VM
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          CLONE_URL="https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             if [ -f ~/cleo/docker-compose.observability.yml ]; then
               echo 'Updating repo...'
-              cd ~/cleo && git fetch origin && git reset --hard origin/main
+              cd ~/cleo
+              git remote set-url origin $CLONE_URL
+              git fetch origin && git reset --hard origin/main
             else
               echo 'Fresh clone...'
               rm -rf ~/cleo
-              git clone https://github.com/${{ github.repository }}.git ~/cleo
+              git clone $CLONE_URL ~/cleo
             fi
             if [ -f ~/cleo/docker-compose.observability.yml ]; then
               echo 'Repo ready'
             else
               echo 'ERROR: docker-compose.observability.yml not found'
-              ls ~/cleo/
+              ls ~/cleo/ || true
               exit 1
             fi
           "

@@ -199,6 +199,21 @@ jobs:
           encrypt_and_save "POSTGRES_PASSWORD"  "${{ secrets.POSTGRES_PASSWORD }}"
           echo "All secrets saved"
 
+          # Verify each secret was actually stored
+          echo ""
+          echo "=== Verifying secrets were saved ==="
+          for SECRET_NAME in VM_SSH_PRIVATE_KEY POSTGRES_HOST POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: token $GH_PAT" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/$SECRET_NAME")
+            if [ "$RESPONSE" = "200" ]; then
+              echo "✅ $SECRET_NAME — saved successfully"
+            else
+              echo "❌ $SECRET_NAME — NOT found (HTTP $RESPONSE)"
+            fi
+          done
+
       - name: Resolve final VM IP
         id: resolve_ip
         run: |
@@ -212,15 +227,21 @@ jobs:
         id: resolve_ssh
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          if [ "${{ steps.vm_check.outputs.vm_exists }}" = "false" ]; then
-            # First deploy — read from terraform output (secret not available yet this run)
-            SSH_KEY=$(terraform output -raw ssh_private_key)
-          else
-            # Re-deploy — use the stored secret
-            SSH_KEY="${{ secrets.VM_SSH_PRIVATE_KEY }}"
+          # Try stored secret first (works for re-deploys and subsequent runs)
+          SSH_KEY="${{ secrets.VM_SSH_PRIVATE_KEY }}"
+
+          # If secret is empty (first deploy — secret not available same run), read from terraform
+          if [ -z "$SSH_KEY" ]; then
+            echo "VM_SSH_PRIVATE_KEY secret empty — reading from terraform output"
+            SSH_KEY=$(terraform output -raw ssh_private_key 2>/dev/null || echo "")
           fi
+
+          if [ -z "$SSH_KEY" ]; then
+            echo "ERROR: Could not resolve SSH key from secret or terraform output"
+            exit 1
+          fi
+
           echo "::add-mask::$SSH_KEY"
-          # Encode to base64 to safely pass multiline key as job output
           SSH_KEY_B64=$(echo "$SSH_KEY" | base64 -w 0)
           echo "ssh_key=$SSH_KEY_B64" >> $GITHUB_OUTPUT
 

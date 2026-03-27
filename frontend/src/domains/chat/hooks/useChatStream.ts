@@ -2,10 +2,12 @@
 
 import { useCallback, useRef } from "react";
 import { useChatStore } from "@/domains/chat/model";
+import { useAuthStore } from "@/domains/auth/model";
 import { useAvatarStore } from "@/domains/avatar/model/avatar-store";
 import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
 import { api, consumeSSEStream } from "@/lib/api";
-import { CHAT_STREAM_ENDPOINT } from "@/lib/constants";
+import { createPersistedChat } from "@/domains/chat/api";
+import { CHATS_ENDPOINT, CHAT_STREAM_ENDPOINT } from "@/lib/constants";
 import type { ChatRequest, SSEDoneEvent } from "@/types";
 
 /* Hook for streaming chat via SSE with token-by-token rendering. */
@@ -15,14 +17,17 @@ export function useChatStream() {
   const startAssistantMessage = useChatStore((s) => s.startAssistantMessage);
   const appendToken = useChatStore((s) => s.appendToken);
   const finishAssistantMessage = useChatStore((s) => s.finishAssistantMessage);
-  const addAssistantMessage = useChatStore((s) => s.addAssistantMessage);
+  const setActiveChat = useChatStore((s) => s.setActiveChat);
+  const upsertChatSummary = useChatStore((s) => s.upsertChatSummary);
   const setErrorType = useChatStore((s) => s.setErrorType);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const abortRef = useRef<AbortController | null>(null);
 
   const sendStream = useCallback(
     async (message: string) => {
-      const { messages, conversationId } = useChatStore.getState();
+      const state = useChatStore.getState();
+      const { messages, conversationId } = state;
       const history = messages
         .filter(m => !m.isStreaming) // Don't send partial states
         .slice(-10)
@@ -35,6 +40,26 @@ export function useChatStream() {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+
+      let chatId = state.activeChatId;
+      let streamPath = CHAT_STREAM_ENDPOINT;
+      let body: ChatRequest | { message: string } = {
+        message,
+        conversation_id: conversationId,
+        conversation_history: history,
+      };
+
+      if (isAuthenticated) {
+        if (!chatId) {
+          const summary = await createPersistedChat();
+          upsertChatSummary(summary);
+          setActiveChat(summary.id, []);
+          chatId = summary.id;
+        }
+
+        streamPath = `${CHATS_ENDPOINT}/${chatId}/messages/stream`;
+        body = { message };
+      }
 
       addUserMessage(message);
       setThinking(true);
@@ -51,12 +76,7 @@ export function useChatStream() {
       let firstTokenRecorded = false;
 
       try {
-        const body: ChatRequest = { 
-          message,
-          conversation_id: conversationId,
-          conversation_history: history,
-        };
-        const response = await api.stream(CHAT_STREAM_ENDPOINT, body, controller.signal);
+        const response = await api.stream(streamPath, body, controller.signal);
 
         startAssistantMessage();
 
@@ -83,6 +103,10 @@ export function useChatStream() {
               max_confidence: event.max_confidence || 0,
               what_i_found: event.what_i_found
             });
+
+            if (event.chat_summary) {
+              upsertChatSummary(event.chat_summary);
+            }
 
             // Trigger the HeyGen avatar speech once the text pipeline unloads
             const store = useAvatarStore.getState();
@@ -124,11 +148,14 @@ export function useChatStream() {
     },
     [
       addUserMessage,
+      isAuthenticated,
       setThinking,
       startAssistantMessage,
       appendToken,
       finishAssistantMessage,
+      setActiveChat,
       setErrorType,
+      upsertChatSummary,
     ],
   );
 

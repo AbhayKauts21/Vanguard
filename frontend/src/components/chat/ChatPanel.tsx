@@ -1,6 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+
 import { SessionStatus } from "./SessionStatus";
+import { ChatHistoryRail } from "./ChatHistoryRail";
 import { MessageList, type ChatMessage } from "./MessageList";
 import { EmptyState } from "./EmptyState";
 import { TypingIndicator } from "./TypingIndicator";
@@ -9,12 +13,21 @@ import { OfflineBanner } from "./OfflineBanner";
 import { SuggestedPromptRail } from "./SuggestedPromptRail";
 import { VoiceTranscript } from "@/components/voice";
 import { useChatStore } from "@/domains/chat/model";
+import type { ChatSummary } from "@/types";
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   isThinking: boolean;
   onSend: (message: string) => void;
   disabled?: boolean;
+  history?: {
+    isVisible: boolean;
+    chats: ChatSummary[];
+    activeChatId: string | null;
+    isLoading?: boolean;
+    onSelectChat: (chatId: string) => void;
+    onCreateChat: () => void;
+  };
   /** Voice mode controls forwarded to Composer. */
   voice?: {
     isVoiceMode: boolean;
@@ -59,10 +72,18 @@ function ErrorBanner({ errorType }: { errorType: string | null }) {
  * Biometric neural activity bar on left edge, glass panel container,
  * uplink status, message area, typing indicator, input composer.
  */
-export function ChatPanel({ messages, isThinking, onSend, disabled, voice }: ChatPanelProps) {
+export function ChatPanel({ messages, isThinking, onSend, disabled, history, voice }: ChatPanelProps) {
+  const t = useTranslations("chat");
   const hasMessages = messages.length > 0;
   const errorType = useChatStore((s) => s.errorType);
   const shouldShowPromptRail = hasMessages && messages.length <= 4 && !isThinking;
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (!history?.isVisible) {
+      setIsHistoryCollapsed(false);
+    }
+  }, [history?.isVisible]);
 
   return (
     <div className="flex-1 flex flex-col glass-panel rounded-xl overflow-hidden shadow-2xl panel-boundary transition-all duration-1000 relative">
@@ -70,24 +91,54 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, voice }: Cha
         <span className="absolute left-0 top-0 h-5 w-5 rounded-tl-xl border-l border-t border-white/20" />
       </div>
 
-      <SessionStatus />
+      <SessionStatus onNewChat={history?.onCreateChat} />
 
-      <ErrorBanner errorType={errorType} />
-      <OfflineBanner />
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {history?.isVisible && !isHistoryCollapsed ? (
+          <ChatHistoryRail
+            chats={history.chats}
+            activeChatId={history.activeChatId}
+            isLoading={history.isLoading}
+            onSelectChat={history.onSelectChat}
+            onCreateChat={history.onCreateChat}
+            onToggleCollapse={() => setIsHistoryCollapsed(true)}
+          />
+        ) : null}
 
-      {hasMessages ? <MessageList messages={messages} /> : <EmptyState onSend={onSend} disabled={disabled} />}
+        <div className="flex min-h-0 flex-1 flex-col">
+          {history?.isVisible && isHistoryCollapsed ? (
+            <button
+              type="button"
+              onClick={() => setIsHistoryCollapsed(false)}
+              aria-label={t("historyExpand")}
+              title={t("historyExpand")}
+              className="absolute left-0 top-1/2 z-20 inline-flex -translate-x-1/3 -translate-y-1/2 items-center gap-2 rounded-r-2xl border border-white/10 border-l-0 bg-black/65 px-3 py-3 text-[10px] font-medium uppercase tracking-[0.18em] text-white/70 shadow-xl backdrop-blur-md transition-colors hover:border-white/20 hover:bg-black/80 hover:text-white"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined text-[16px] font-light">
+                left_panel_open
+              </span>
+              <span className="[writing-mode:vertical-rl] rotate-180">{t("historyHidden")}</span>
+            </button>
+          ) : null}
 
-      {shouldShowPromptRail && (
-        <SuggestedPromptRail
-          onSend={onSend}
-          disabled={disabled}
-          className="px-8 pb-4"
-        />
-      )}
+          <ErrorBanner errorType={errorType} />
+          <OfflineBanner />
 
-      {isThinking && <TypingIndicator />}
+          {hasMessages ? <MessageList messages={messages} /> : <EmptyState onSend={onSend} disabled={disabled} />}
 
-      <Composer onSend={onSend} disabled={disabled} voice={voice} />
+          {shouldShowPromptRail && (
+            <SuggestedPromptRail
+              onSend={onSend}
+              disabled={disabled}
+              className="px-8 pb-4"
+            />
+          )}
+
+          {isThinking && <TypingIndicator />}
+
+          <Composer onSend={onSend} disabled={disabled} voice={voice} />
+        </div>
+      </div>
 
       {/* Voice transcript overlay — localized to chat panel now */}
       {voice?.isVoiceMode && <VoiceTranscript onDeactivate={voice.onDeactivate} />}

@@ -7,6 +7,15 @@ export interface ChatRequest {
   conversation_history?: { role: string; content: string }[];
 }
 
+export interface ChatSummary {
+  id: string;
+  title?: string | null;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+  last_message_preview?: string | null;
+}
+
 export interface Citation {
   page_id: number;
   page_title: string;
@@ -30,6 +39,37 @@ export interface ChatResponse {
   conversation_id?: string;
 }
 
+export interface ChatListResponse {
+  items: ChatSummary[];
+  has_more: boolean;
+}
+
+export interface PersistedChatMessage {
+  id: string;
+  chat_id: string;
+  sender: "user" | "assistant";
+  content: string;
+  created_at: string;
+  primary_citations: Citation[];
+  secondary_citations: Citation[];
+  all_citations: Citation[];
+  hidden_sources_count: number;
+  mode_used?: "rag" | "uncertain" | "azure_fallback" | null;
+  max_confidence?: number | null;
+  what_i_found?: { page_title: string; score: number }[] | null;
+}
+
+export interface ChatMessagesResponse {
+  chat: ChatSummary;
+  items: PersistedChatMessage[];
+}
+
+export interface ChatSendResponse {
+  chat: ChatSummary;
+  user_message: PersistedChatMessage;
+  assistant_message: PersistedChatMessage;
+}
+
 /* --- SSE stream events --- */
 export interface SSETokenEvent {
   type: "token";
@@ -45,6 +85,7 @@ export interface SSEDoneEvent {
   mode_used: 'rag' | 'uncertain' | 'azure_fallback';
   max_confidence: number;
   what_i_found?: { page_title: string; score: number }[];
+  chat_summary?: ChatSummary;
 }
 
 export type SSEEvent = SSETokenEvent | SSEDoneEvent;

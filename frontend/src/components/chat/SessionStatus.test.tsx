@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { renderToString } from "react-dom/server";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SessionStatus } from "./SessionStatus";
 import { useChatStore } from "@/domains/chat/model";
@@ -12,14 +12,15 @@ const messages = {
   },
   header: {
     newSession: "New Session",
+    newChat: "New Chat",
     clearThread: "Clear Thread",
   },
 };
 
-function renderWithIntl() {
+function renderWithIntl(onNewChat?: () => void) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <SessionStatus />
+      <SessionStatus onNewChat={onNewChat} />
     </NextIntlClientProvider>,
   );
 }
@@ -28,11 +29,15 @@ describe("SessionStatus", () => {
   beforeEach(() => {
     sessionStorage.clear();
     useChatStore.setState({
+      mode: "guest",
       messages: [],
+      guestMessages: [],
+      conversationId: "fd8092da-1234-5678-9abc-def012345678",
+      guestConversationId: "fd8092da-1234-5678-9abc-def012345678",
+      activeChatId: null,
       isThinking: false,
       streamingMessageId: null,
       errorType: null,
-      conversationId: "fd8092da-1234-5678-9abc-def012345678",
     });
   });
 
@@ -54,9 +59,11 @@ describe("SessionStatus", () => {
     });
   });
 
-  it("renders chat actions and clears the thread from the panel header", () => {
+  it("renders guest actions and clears the thread from the panel header", () => {
     useChatStore.setState({
+      mode: "guest",
       messages: [{ id: "msg-1", role: "user", content: "hello" }],
+      guestMessages: [{ id: "msg-1", role: "user", content: "hello" }],
     });
 
     renderWithIntl();
@@ -65,5 +72,21 @@ describe("SessionStatus", () => {
 
     expect(useChatStore.getState().messages).toEqual([]);
     expect(screen.getByRole("button", { name: "New Session" })).toBeInTheDocument();
+  });
+
+  it("uses the user chat action when authenticated mode is active", () => {
+    const onNewChat = vi.fn();
+    useChatStore.setState({
+      mode: "user",
+      conversationId: "chat-1234",
+      messages: [{ id: "msg-1", role: "assistant", content: "Saved" }],
+    });
+
+    renderWithIntl(onNewChat);
+
+    fireEvent.click(screen.getByRole("button", { name: "New Chat" }));
+
+    expect(onNewChat).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Clear Thread" })).not.toBeInTheDocument();
   });
 });

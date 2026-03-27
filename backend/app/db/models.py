@@ -79,6 +79,11 @@ class User(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    chat_sessions: Mapped[list["ChatSession"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 
 class Role(Base):
@@ -155,6 +160,53 @@ class PasswordResetCode(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="password_reset_codes", lazy="selectin")
+
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+    __table_args__ = (
+        Index("ix_chat_sessions_user_updated_at", "user_id", "updated_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=func.now(),
+    )
+
+    user: Mapped[User] = relationship(back_populates="chat_sessions", lazy="selectin")
+    messages: Mapped[list["ChatMessageRecord"]] = relationship(
+        back_populates="chat",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="ChatMessageRecord.created_at.asc()",
+    )
+
+
+class ChatMessageRecord(Base):
+    __tablename__ = "chat_messages"
+    __table_args__ = (
+        Index("ix_chat_messages_chat_created_at", "chat_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    chat_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False)
+    sender: Mapped[str] = mapped_column(String(32), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow, server_default=func.now()
+    )
+
+    chat: Mapped[ChatSession] = relationship(back_populates="messages", lazy="selectin")
 
 
 class DocumentSource(Base):

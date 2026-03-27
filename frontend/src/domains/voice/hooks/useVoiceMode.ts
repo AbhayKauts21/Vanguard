@@ -131,7 +131,10 @@ export function useVoiceMode() {
         );
         
         if (audioBlob.size === 0) {
-          await speakWithBrowserTTS(sentence);
+          const isFallbackEnabled = process.env.NEXT_PUBLIC_ENABLE_TTS_FALLBACK !== "false";
+          if (isFallbackEnabled) {
+            await speakWithBrowserTTS(sentence);
+          }
         } else {
           enqueueAudio(audioBlob);
         }

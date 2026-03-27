@@ -99,14 +99,6 @@ class Settings(BaseSettings):
 settings = Settings()
 
 
-def build_azure_openai_base_url(endpoint: str) -> str:
-    """Normalize Azure resource endpoint into the SDK base_url format."""
-    normalized = endpoint.rstrip("/")
-    if not normalized:
-        return ""
-    return f"{normalized}/openai/v1/"
-
-
 def validate_azure_openai_settings(cfg: Settings) -> None:
     """Fail fast when Azure direct-chat settings are incomplete or unsupported."""
     missing = [

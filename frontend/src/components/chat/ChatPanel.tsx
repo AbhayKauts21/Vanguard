@@ -7,6 +7,7 @@ import { TypingIndicator } from "./TypingIndicator";
 import { Composer } from "./Composer";
 import { OfflineBanner } from "./OfflineBanner";
 import { SuggestedPromptRail } from "./SuggestedPromptRail";
+import { VoiceTranscript } from "@/components/voice";
 import { useChatStore } from "@/domains/chat/model";
 
 interface ChatPanelProps {
@@ -14,6 +15,15 @@ interface ChatPanelProps {
   isThinking: boolean;
   onSend: (message: string) => void;
   disabled?: boolean;
+  /** Voice mode controls forwarded to Composer. */
+  voice?: {
+    isVoiceMode: boolean;
+    isSupported: boolean;
+    phase: string;
+    onActivate: () => void;
+    onDeactivate: () => void;
+    onSendVoiceMessage: () => void;
+  };
 }
 
 /**
@@ -49,7 +59,7 @@ function ErrorBanner({ errorType }: { errorType: string | null }) {
  * Biometric neural activity bar on left edge, glass panel container,
  * uplink status, message area, typing indicator, input composer.
  */
-export function ChatPanel({ messages, isThinking, onSend, disabled }: ChatPanelProps) {
+export function ChatPanel({ messages, isThinking, onSend, disabled, voice }: ChatPanelProps) {
   const hasMessages = messages.length > 0;
   const errorType = useChatStore((s) => s.errorType);
   const shouldShowPromptRail = hasMessages && messages.length <= 4 && !isThinking;
@@ -77,7 +87,10 @@ export function ChatPanel({ messages, isThinking, onSend, disabled }: ChatPanelP
 
       {isThinking && <TypingIndicator />}
 
-      <Composer onSend={onSend} disabled={disabled} />
+      <Composer onSend={onSend} disabled={disabled} voice={voice} />
+
+      {/* Voice transcript overlay — localized to chat panel now */}
+      {voice?.isVoiceMode && <VoiceTranscript onDeactivate={voice.onDeactivate} />}
     </div>
   );
 }

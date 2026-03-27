@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChatStore } from "@/domains/chat/model";
 import { useAvatarStore } from "../model/avatar-store";
+import { useVoiceStore } from "@/domains/voice/model";
 import { deriveEnergyCoreState, type EnergyCoreVisualState } from "../model/energy-core";
 
 export const ENERGY_CORE_SPEECH_HOLD_MS = 6000;
@@ -16,6 +17,7 @@ export function useEnergyCoreState(): EnergyCoreVisualState {
   const isThinking = useChatStore((s) => s.isThinking);
   const streamingMessageId = useChatStore((s) => s.streamingMessageId);
   const avatarState = useAvatarStore((s) => s.currentState);
+  const voicePhase = useVoiceStore((s) => s.isVoiceMode ? s.phase : "idle");
 
   const [hasSpeechHold, setHasSpeechHold] = useState(false);
   const previousAssistantSignatureRef = useRef<string | null>(null);
@@ -85,5 +87,6 @@ export function useEnergyCoreState(): EnergyCoreVisualState {
     isThinking,
     hasStreamingMessage: Boolean(streamingMessageId),
     hasSpeechHold,
+    voicePhase,
   });
 }

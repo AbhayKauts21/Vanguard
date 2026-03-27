@@ -159,5 +159,23 @@
     "backendLabel": "Backend",
     "latencyLabel": "Avg Latency",
     "buildInfo": "CLEO Systems // Build 5.0.0-Dynamic // Protocol 99"
+  },
+  "voice": {
+    "activateVoice": "Start voice mode",
+    "deactivateVoice": "Stop voice mode",
+    "sendVoice": "Stop listening and send",
+    "cancelSpeaking": "Stop CLEO speaking",
+    "processing": "Processing voice input",
+    "listening": "Listening",
+    "speaking": "Speaking",
+    "ready": "Ready",
+    "operator": "Operator",
+    "cleoCore": "CLEO Core",
+    "micDenied": "Microphone access was denied. Please allow microphone permissions.",
+    "notSupported": "Voice mode is not supported in this browser.",
+    "noMicrophone": "No microphone detected. Please connect a microphone.",
+    "networkError": "Network error during speech recognition. Check your connection.",
+    "ttsError": "Text-to-speech failed. Showing text response only.",
+    "keyboardShortcut": "Ctrl+Shift+V to toggle voice mode"
   }
 }

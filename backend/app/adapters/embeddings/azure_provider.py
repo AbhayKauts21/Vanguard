@@ -6,7 +6,6 @@ from loguru import logger
 
 from app.adapters.embeddings.base import EmbeddingProvider
 from app.core.config import (
-    build_azure_openai_base_url,
     settings,
     validate_azure_embedding_settings,
 )
@@ -28,20 +27,17 @@ class AzureEmbeddingProvider(EmbeddingProvider):
         validate_azure_embedding_settings(settings)
 
         if self._client is None:
-            from openai import OpenAI
+            from openai import AzureOpenAI
 
             client_options: Dict[str, Any] = {
                 "api_key": settings.AZURE_OPENAI_API_KEY,
-                "base_url": build_azure_openai_base_url(settings.AZURE_OPENAI_ENDPOINT),
+                "azure_endpoint": settings.AZURE_OPENAI_ENDPOINT,
+                "api_version": settings.AZURE_OPENAI_API_VERSION,
                 "timeout": settings.AZURE_OPENAI_TIMEOUT_SECONDS,
                 "max_retries": settings.AZURE_OPENAI_MAX_RETRIES,
             }
-            if settings.AZURE_OPENAI_API_VERSION:
-                client_options["default_query"] = {
-                    "api-version": settings.AZURE_OPENAI_API_VERSION
-                }
 
-            self._client = OpenAI(**client_options)
+            self._client = AzureOpenAI(**client_options)
 
         return self._client
 

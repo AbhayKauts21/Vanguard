@@ -223,6 +223,18 @@ class AzureChatMessage(BaseModel):
     content: str
 
 
+# --- Voice / TTS DTOs ---
+
+class TTSRequest(BaseModel):
+    """Request body for the text-to-speech endpoint."""
+
+    text: str = Field(..., min_length=1, max_length=5000, description="Text to synthesize.")
+    voice: Optional[str] = Field(default=None, description="Override the default Azure TTS voice name.")
+    language: Optional[str] = Field(default=None, description="Language hint (e.g. en-US) for SSML.")
+    stream: bool = Field(default=True, description="If true, return chunked streaming audio.")
+
+
+
 # --- Auth & RBAC DTOs ---
 
 class PermissionResponse(BaseModel):

@@ -132,6 +132,22 @@
 .animate-pulse-slow { animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 .animate-token-pulse { animation: tokenPulse 0.65s cubic-bezier(0.22, 1, 0.36, 1) 1; }
 
+/* Voice mode: mic listening ring pulse (purple) */
+@keyframes voiceListenPulse {
+  0% { transform: scale(1); opacity: 0.5; box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.35); }
+  50% { transform: scale(1.1); opacity: 0.8; box-shadow: 0 0 20px 4px rgba(168, 85, 247, 0.15); }
+  100% { transform: scale(1); opacity: 0.5; box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
+}
+
+/* Voice mode: audio-reactive bar scale for waveform */
+@keyframes voiceBarPulse {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+.animate-voice-listen-pulse { animation: voiceListenPulse 2s ease-in-out infinite; }
+.animate-voice-bar-pulse { animation: voiceBarPulse 0.6s ease-in-out infinite; }
+
 .message-bloom {
   animation: bloom 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   opacity: 0;
@@ -149,6 +165,8 @@
   .animate-waveform,
   .animate-pulse-slow,
   .animate-token-pulse,
+  .animate-voice-listen-pulse,
+  .animate-voice-bar-pulse,
   .message-bloom {
     animation: none;
   }

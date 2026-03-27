@@ -1,8 +1,11 @@
 import { api } from "@/lib/api/client";
 import type {
   AuthSessionResponse,
+  ForgotPasswordRequest,
   LoginRequest,
   RegisterRequest,
+  ResetPasswordRequest,
+  StatusMessageResponse,
 } from "@/types";
 
 export const authApi = {
@@ -12,8 +15,14 @@ export const authApi = {
   register: (body: RegisterRequest) =>
     api.post<AuthSessionResponse>("/api/v1/auth/register", body),
 
+  forgotPassword: (body: ForgotPasswordRequest) =>
+    api.post<StatusMessageResponse>("/api/v1/auth/forgot-password", body),
+
+  resetPassword: (body: ResetPasswordRequest) =>
+    api.post<StatusMessageResponse>("/api/v1/auth/reset-password", body),
+
   logout: (refreshToken: string) =>
-    api.post<{ status: string; detail: string }>("/api/v1/auth/logout", {
+    api.post<StatusMessageResponse>("/api/v1/auth/logout", {
       refresh_token: refreshToken,
     }),
 

@@ -25,15 +25,38 @@ function safeSessionStorage() {
   }
 }
 
-export function getPersistedAccessToken(): string | null {
+interface PersistedAuthState {
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  user?: AuthUser | null;
+  isAuthenticated?: boolean;
+}
+
+function readPersistedState(): PersistedAuthState | null {
   try {
     const raw = safeSessionStorage().getItem(AUTH_STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { state?: { accessToken?: string | null } };
-    return parsed.state?.accessToken ?? null;
+    const parsed = JSON.parse(raw) as { state?: PersistedAuthState };
+    return parsed.state ?? null;
   } catch {
     return null;
   }
+}
+
+export function getPersistedAccessToken(): string | null {
+  return readPersistedState()?.accessToken ?? null;
+}
+
+export function getPersistedRefreshToken(): string | null {
+  return readPersistedState()?.refreshToken ?? null;
+}
+
+export function persistSession(session: AuthSessionResponse): void {
+  useAuthStore.getState().setSession(session);
+}
+
+export function clearPersistedSession(): void {
+  useAuthStore.getState().clearSession();
 }
 
 export const useAuthStore = create<AuthState>()(

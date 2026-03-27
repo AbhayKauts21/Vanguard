@@ -8,6 +8,7 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -15,8 +16,9 @@ from app.api.router_admin import router as admin_router
 from app.api.router_auth import router as auth_router
 from app.api.router_rbac import router as rbac_router
 from app.core.exceptions import CleoError, cleo_exception_handler, http_exception_handler
+from app.core.security import hash_password
 from app.db.base import Base
-from app.db.models import Permission, Role, User
+from app.db.models import PasswordResetCode, Permission, Role, User
 from app.db.session import get_db_session
 
 
@@ -186,6 +188,100 @@ async def test_login_me_refresh_and_logout_flow(auth_test_context):
     revoked_refresh = await client.post(
         "/api/v1/auth/refresh",
         json={"refresh_token": refresh_payload["refresh_token"]},
+    )
+    assert revoked_refresh.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_resets_password_and_revokes_refresh_tokens(auth_test_context):
+    client: httpx.AsyncClient = auth_test_context["client"]
+    session_factory = auth_test_context["session_factory"]
+
+    register_response = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "recover@example.com",
+            "password": "StrongPass123",
+            "full_name": "Recover User",
+        },
+    )
+    assert register_response.status_code == 201
+
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "recover@example.com", "password": "StrongPass123"},
+    )
+    assert login_response.status_code == 200
+    refresh_token = login_response.json()["refresh_token"]
+
+    forgot_response = await client.post(
+        "/api/v1/auth/forgot-password",
+        json={"email": "recover@example.com"},
+    )
+    assert forgot_response.status_code == 200
+    assert forgot_response.json()["status"] == "ok"
+
+    async with session_factory() as session:
+        user_result = await session.execute(
+            select(User).where(User.email == "recover@example.com")
+        )
+        user = user_result.scalars().first()
+        assert user is not None
+
+        code_result = await session.execute(
+            select(PasswordResetCode)
+            .where(PasswordResetCode.user_id == user.id)
+            .order_by(PasswordResetCode.created_at.desc())
+        )
+        reset_code = code_result.scalars().first()
+        assert reset_code is not None
+
+    invalid_reset = await client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "email": "recover@example.com",
+            "code": "000000",
+            "new_password": "NewStrongPass123",
+        },
+    )
+    assert invalid_reset.status_code == 401
+
+    async with session_factory() as session:
+        code_result = await session.execute(
+            select(PasswordResetCode).order_by(PasswordResetCode.created_at.desc())
+        )
+        latest_code = code_result.scalars().first()
+        assert latest_code is not None
+        latest_code.code_hash = hash_password("654321")
+        session.add(latest_code)
+        await session.commit()
+
+    reset_response = await client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "email": "recover@example.com",
+            "code": "654321",
+            "new_password": "NewStrongPass123",
+        },
+    )
+    assert reset_response.status_code == 200
+    assert reset_response.json()["status"] == "ok"
+
+    old_login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "recover@example.com", "password": "StrongPass123"},
+    )
+    assert old_login_response.status_code == 401
+
+    new_login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "recover@example.com", "password": "NewStrongPass123"},
+    )
+    assert new_login_response.status_code == 200
+
+    revoked_refresh = await client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
     )
     assert revoked_refresh.status_code == 401
 

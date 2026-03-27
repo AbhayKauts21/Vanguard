@@ -108,6 +108,21 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  code: string;
+  new_password: string;
+}
+
+export interface StatusMessageResponse {
+  status: string;
+  detail: string;
+}
+
 /* --- RFC 7807 error --- */
 export interface ProblemDetail {
   type: string;

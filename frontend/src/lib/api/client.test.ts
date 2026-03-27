@@ -120,4 +120,124 @@ describe("api client", () => {
       expect.objectContaining({ method: "POST", body: undefined }),
     );
   });
+
+  it("refreshes the access token and retries once on 401", async () => {
+    sessionStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          accessToken: "expired-access",
+          refreshToken: "refresh-123",
+          user: null,
+          isAuthenticated: true,
+        },
+      }),
+    );
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+        json: () =>
+          Promise.resolve({
+            type: "https://httpstatuses.com/401",
+            title: "Unauthorized",
+            detail: "Invalid or expired token.",
+            status: 401,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            access_token: "new-access",
+            refresh_token: "new-refresh",
+            token_type: "bearer",
+            access_token_expires_in: 1800,
+            refresh_token_expires_in: 1209600,
+            user: {
+              id: "user-1",
+              email: "admin@example.com",
+              full_name: "Admin",
+              is_active: true,
+              created_at: new Date().toISOString(),
+              last_login_at: null,
+              roles: [],
+              permissions: [],
+            },
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: "ok" }),
+      });
+
+    const result = await api.get("/api/v1/admin/sync/status");
+
+    expect(result).toEqual({ status: "ok" });
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("/api/v1/auth/refresh"),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ refresh_token: "refresh-123" }),
+      }),
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining("/api/v1/admin/sync/status"),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer new-access",
+        }),
+      }),
+    );
+  });
+
+  it("clears the session when refresh fails", async () => {
+    sessionStorage.setItem(
+      AUTH_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          accessToken: "expired-access",
+          refreshToken: "refresh-123",
+          user: null,
+          isAuthenticated: true,
+        },
+      }),
+    );
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+        json: () =>
+          Promise.resolve({
+            type: "https://httpstatuses.com/401",
+            title: "Unauthorized",
+            detail: "Invalid or expired token.",
+            status: 401,
+          }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+        json: () =>
+          Promise.resolve({
+            type: "https://httpstatuses.com/401",
+            title: "Unauthorized",
+            detail: "Refresh token expired.",
+            status: 401,
+          }),
+      });
+
+    await expect(api.get("/api/v1/admin/sync/status")).rejects.toThrow(ApiError);
+
+    const stored = sessionStorage.getItem(AUTH_STORAGE_KEY);
+    expect(stored).toContain("\"accessToken\":null");
+    expect(stored).toContain("\"refreshToken\":null");
+  });
 });

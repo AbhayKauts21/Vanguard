@@ -4,6 +4,7 @@ import { SyncStatusCard } from "./SyncStatusCard";
 import { SyncControls } from "./SyncControls";
 import { HealthGrid } from "./HealthGrid";
 import { SyncLog } from "./SyncLog";
+import { UserAccessPanel } from "./UserAccessPanel";
 
 export function AdminPanel() {
   return (
@@ -40,6 +41,10 @@ export function AdminPanel() {
             <div className="absolute -left-[100%] top-1/2 h-[2px] w-[200%] -translate-y-1/2 animate-[spin_10s_linear_infinite] bg-gradient-to-r from-transparent via-indigo-500/20 to-transparent blur-md"></div>
           </div>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <UserAccessPanel />
       </div>
     </div>
   );

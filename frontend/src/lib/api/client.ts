@@ -1,6 +1,11 @@
 import { env } from "@/lib/env";
-import { getPersistedAccessToken } from "@/domains/auth/model";
-import type { ProblemDetail } from "@/types";
+import {
+  clearPersistedSession,
+  getPersistedAccessToken,
+  getPersistedRefreshToken,
+  persistSession,
+} from "@/domains/auth/model";
+import type { AuthSessionResponse, ProblemDetail } from "@/types";
 
 /* Lightweight typed fetch wrapper for backend communication. */
 
@@ -19,9 +24,69 @@ function url(path: string): string {
   return `${env.apiBaseUrl}${path}`;
 }
 
+const REFRESH_PATH = "/api/v1/auth/refresh";
+let refreshInFlight: Promise<string | null> | null = null;
+
+function shouldAttemptRefresh(path: string): boolean {
+  return ![
+    "/api/v1/auth/login",
+    "/api/v1/auth/register",
+    "/api/v1/auth/refresh",
+    "/api/v1/auth/logout",
+  ].includes(path);
+}
+
+async function parseProblem(res: Response): Promise<ProblemDetail> {
+  return res.json().catch(() => ({
+    type: `https://httpstatuses.com/${res.status}`,
+    title: res.statusText,
+    status: res.status,
+  }));
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = getPersistedRefreshToken();
+  if (!refreshToken) {
+    clearPersistedSession();
+    return null;
+  }
+
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+
+  refreshInFlight = (async () => {
+    const res = await fetch(url(REFRESH_PATH), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!res.ok) {
+      clearPersistedSession();
+      return null;
+    }
+
+    const session = (await res.json()) as AuthSessionResponse;
+    persistSession(session);
+    return session.access_token;
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
+
+interface RequestOptions {
+  allowRefresh?: boolean;
+  accessTokenOverride?: string | null;
+}
+
 /* Generic JSON request helper. */
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const accessToken = getPersistedAccessToken();
+async function request<T>(path: string, init?: RequestInit, options?: RequestOptions): Promise<T> {
+  const accessToken = options?.accessTokenOverride ?? getPersistedAccessToken();
   const { headers: initHeaders, ...restInit } = init ?? {};
   const res = await fetch(url(path), {
     ...restInit,
@@ -39,11 +104,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!res.ok) {
-    const problem: ProblemDetail = await res.json().catch(() => ({
-      type: `https://httpstatuses.com/${res.status}`,
-      title: res.statusText,
-      status: res.status,
-    }));
+    if (res.status === 401 && options?.allowRefresh !== false && shouldAttemptRefresh(path)) {
+      const refreshedAccessToken = await refreshAccessToken();
+      if (refreshedAccessToken) {
+        return request<T>(path, init, {
+          allowRefresh: false,
+          accessTokenOverride: refreshedAccessToken,
+        });
+      }
+    }
+
+    const problem = await parseProblem(res);
     throw new ApiError(res.status, problem);
   }
 
@@ -62,10 +133,9 @@ export const api = {
     }),
 
   /* Return raw Response for SSE streaming. */
-  stream: (path: string, body: unknown, signal?: AbortSignal) =>
-    {
-      const accessToken = getPersistedAccessToken();
-      return fetch(url(path), {
+  stream: async (path: string, body: unknown, signal?: AbortSignal) => {
+    const makeRequest = (accessToken: string | null) =>
+      fetch(url(path), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -74,5 +144,17 @@ export const api = {
         body: JSON.stringify(body),
         signal,
       });
-    },
+
+    let accessToken = getPersistedAccessToken();
+    let res = await makeRequest(accessToken);
+
+    if (res.status === 401 && shouldAttemptRefresh(path)) {
+      accessToken = await refreshAccessToken();
+      if (accessToken) {
+        res = await makeRequest(accessToken);
+      }
+    }
+
+    return res;
+  },
 };

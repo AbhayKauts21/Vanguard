@@ -257,9 +257,15 @@ jobs:
     steps:
       - name: Write SSH key
         run: |
-          echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          # On re-deploy use stored secret directly; on first deploy use job output
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
           chmod 600 /tmp/vm_key.pem
-          head -1 /tmp/vm_key.pem | grep -q "BEGIN" || { echo "ERROR: SSH key invalid"; exit 1; }
+          head -1 /tmp/vm_key.pem | grep -q "BEGIN" || { echo "ERROR: SSH key invalid"; cat /tmp/vm_key.pem | head -3; exit 1; }
+          echo "SSH key written successfully"
 
       - name: Wait for cloud-init (first deploy only)
         if: needs.provision.outputs.vm_exists == 'false'
@@ -329,8 +335,13 @@ jobs:
     steps:
       - name: Write SSH key
         run: |
-          echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
           chmod 600 /tmp/vm_key.pem
+          echo "SSH key written"
 
       - name: Inject backend .env
         run: |
@@ -398,8 +409,13 @@ jobs:
     steps:
       - name: Write SSH key
         run: |
-          echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
           chmod 600 /tmp/vm_key.pem
+          echo "SSH key written"
 
       - name: Inject frontend .env
         run: |
@@ -467,8 +483,13 @@ jobs:
     steps:
       - name: Write SSH key
         run: |
-          echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
           chmod 600 /tmp/vm_key.pem
+          echo "SSH key written"
 
       - name: Install and configure NGINX
         run: |

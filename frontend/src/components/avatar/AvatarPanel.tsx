@@ -5,6 +5,7 @@ import { AvatarSourceNodes } from "./AvatarSourceNodes";
 import { AvatarTelemetry } from "./AvatarTelemetry";
 import { EnergyCoreCanvas } from "./EnergyCoreCanvas";
 import { ResponseWaveform } from "./ResponseWaveform";
+import { VoiceWaveform } from "@/components/voice";
 import { useEnergyCoreState } from "@/domains/avatar/hooks/useEnergyCoreState";
 import { useEnergyCoreTelemetry } from "@/domains/avatar/hooks/useEnergyCoreTelemetry";
 import { useDetailedHealth } from "@/domains/system/hooks/useDetailedHealth";
@@ -77,6 +78,7 @@ export function AvatarPanel() {
           {currentStatus.label}
         </div>
         <ResponseWaveform />
+        <VoiceWaveform />
       </div>
 
       <AvatarBadge

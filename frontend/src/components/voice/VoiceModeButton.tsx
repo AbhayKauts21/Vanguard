@@ -7,8 +7,8 @@ interface VoiceModeButtonProps {
   onActivate: () => void;
   /** Called when the user clicks stop to send the voice message. */
   onSend: () => void;
-  /** Called when the user cancels voice mode. */
-  onCancel: () => void;
+  /** Called when the user cancels/deactivates voice mode. */
+  onDeactivate: () => void;
   /** Whether the button should be disabled (e.g. during text chat). */
   disabled?: boolean;
 }
@@ -25,7 +25,7 @@ interface VoiceModeButtonProps {
 export function VoiceModeButton({
   onActivate,
   onSend,
-  onCancel,
+  onDeactivate,
   disabled = false,
 }: VoiceModeButtonProps) {
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
@@ -47,7 +47,7 @@ export function VoiceModeButton({
     } else if (isListening) {
       onSend();
     } else if (isSpeaking) {
-      onCancel();
+      onDeactivate();
     }
   }
 

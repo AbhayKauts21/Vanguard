@@ -69,11 +69,10 @@ export function Composer({ onSend, disabled = false, voice }: ComposerProps) {
 
           {voice?.isSupported && (
             <VoiceModeButton
-              isVoiceMode={voice.isVoiceMode}
-              phase={voice.phase as "idle" | "listening" | "processing" | "speaking"}
               onActivate={voice.onActivate}
               onDeactivate={voice.onDeactivate}
               onSend={voice.onSendVoiceMessage}
+              disabled={disabled}
             />
           )}
         </div>

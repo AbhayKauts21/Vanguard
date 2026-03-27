@@ -254,8 +254,20 @@ export function EnergyCoreCanvas({ state, audioLevel = 0 }: EnergyCoreCanvasProp
 
       targetScale.set(targetScaleValue, targetScaleValue, targetScaleValue);
       globe.scale.lerp(targetScale, 0.012);
-      innerTargetScale.setScalar(1 + breathWave * 0.45);
+      const innerScaleBoost = currentAudioLevel * 0.08;
+      innerTargetScale.setScalar(1 + breathWave * 0.45 + innerScaleBoost);
       innerSphere.scale.lerp(innerTargetScale, 0.015);
+
+      // Tint inner sphere toward the active profile color for glow effect
+      (innerMaterial.color as THREE.Color).lerp(targetColor, 0.003);
+
+      // Audio-reactive inner sphere glow: opacity and scale pulse with voice
+      const innerGlowOpacity = 0.05 + currentAudioLevel * 0.12;
+      innerMaterial.opacity = THREE.MathUtils.lerp(
+        innerMaterial.opacity,
+        innerGlowOpacity,
+        0.08,
+      );
 
       globe.rotation.y += 0.00068;
       globe.rotation.x += 0.00018;

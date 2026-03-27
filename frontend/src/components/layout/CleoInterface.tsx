@@ -23,11 +23,10 @@ export default function CleoInterface() {
   const handleSend = env.enableStreaming ? sendStream : send;
 
   /* Voice mode orchestration. */
-  const { activate, deactivate, sendVoiceMessage, isSupported } = useVoiceMode();
+  const { activate, deactivate, sendVoiceMessage } = useVoiceMode();
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
   const voicePhase = useVoiceStore((s) => s.phase);
-  const userTranscript = useVoiceStore((s) => s.userTranscript);
-  const cleoTranscript = useVoiceStore((s) => s.cleoTranscript);
+  const isSupported = useVoiceStore((s) => s.isSupported);
 
   const voiceProps = {
     isVoiceMode,
@@ -55,13 +54,7 @@ export default function CleoInterface() {
       />
 
       {/* Voice transcript overlay — floats above the interface during voice mode */}
-      {isVoiceMode && (
-        <VoiceTranscript
-          phase={voicePhase}
-          userTranscript={userTranscript}
-          cleoTranscript={cleoTranscript}
-        />
-      )}
+      {isVoiceMode && <VoiceTranscript />}
 
       <FooterStatusBar />
     </AppShell>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useVoiceStore } from "@/domains/voice/model";
 import { useChatStore } from "@/domains/chat/model";
 import { useAvatarStore } from "@/domains/avatar/model/avatar-store";
@@ -244,6 +244,28 @@ export function useVoiceMode() {
     chunkerRef.current?.reset();
     stopVoiceMode();
   }, [stopSTT, stopAudio, stopVoiceMode]);
+
+  /**
+   * Keyboard shortcut: Ctrl+Shift+V toggles voice mode.
+   */
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.ctrlKey && e.shiftKey && e.key === "V") {
+        e.preventDefault();
+        const { isVoiceMode, isSupported } = useVoiceStore.getState();
+        if (!isSupported) return;
+
+        if (isVoiceMode) {
+          deactivate();
+        } else {
+          activate();
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activate, deactivate]);
 
   return {
     /** Enter voice mode (start listening). */

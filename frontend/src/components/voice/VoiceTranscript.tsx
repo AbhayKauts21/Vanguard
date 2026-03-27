@@ -7,9 +7,12 @@ import { AnimatePresence, motion } from "framer-motion";
  * Voice transcript overlay — displays real-time user speech and CLEO response
  * during voice mode with production-grade glass-morphism aesthetics.
  *
+ * Reads all data directly from the voice store (no props needed).
+ *
  * Layout:
  * - User transcript: right-aligned, purple glow (listening phase)
  * - CLEO transcript: left-aligned, emerald glow (speaking phase)
+ * - Error banner: red, dismissible
  * - Phase status pill: center-bottom with pulsing dot
  */
 export function VoiceTranscript() {
@@ -17,6 +20,8 @@ export function VoiceTranscript() {
   const phase = useVoiceStore((s) => s.phase);
   const userTranscript = useVoiceStore((s) => s.userTranscript);
   const cleoTranscript = useVoiceStore((s) => s.cleoTranscript);
+  const error = useVoiceStore((s) => s.error);
+  const setError = useVoiceStore((s) => s.setError);
 
   if (!isVoiceMode) return null;
 
@@ -64,6 +69,36 @@ export function VoiceTranscript() {
 
           {/* Transcript area */}
           <div className="relative z-10 flex flex-col gap-6 max-h-[70%] overflow-y-auto pb-20">
+            {/* Error banner */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="mx-auto max-w-md"
+                >
+                  <div className="flex items-center gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-2.5 backdrop-blur-md">
+                    <span className="material-symbols-outlined text-red-400 text-base shrink-0">
+                      warning
+                    </span>
+                    <span className="text-red-300/90 text-[12px] font-light flex-1">
+                      {error}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setError(null)}
+                      className="text-red-400/60 hover:text-red-300 transition-colors pointer-events-auto"
+                      aria-label="Dismiss voice error"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* User transcript */}
             <AnimatePresence>
               {userTranscript && (

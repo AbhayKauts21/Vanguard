@@ -300,17 +300,18 @@ jobs:
       - name: Sync repo to VM
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          BRANCH="${{ github.ref_name }}"
           CLONE_URL="https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             if [ -f ~/cleo/docker-compose.observability.yml ]; then
-              echo 'Updating repo...'
+              echo 'Updating repo on branch $BRANCH...'
               cd ~/cleo
               git remote set-url origin $CLONE_URL
-              git fetch origin && git reset --hard origin/feature/pipeline_setup
+              git fetch origin && git reset --hard origin/$BRANCH
             else
-              echo 'Fresh clone...'
+              echo 'Fresh clone on branch $BRANCH...'
               rm -rf ~/cleo
-              git clone -b feature/pipeline_setup $CLONE_URL ~/cleo
+              git clone -b $BRANCH $CLONE_URL ~/cleo
             fi
             if [ -f ~/cleo/docker-compose.observability.yml ]; then
               echo 'Repo ready'

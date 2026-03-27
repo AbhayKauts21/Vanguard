@@ -519,10 +519,15 @@ jobs:
         run: rm -f /tmp/vm_key.pem
 
 # ─────────────────────────────────────────────
-# JOB 5: configure-nginx (first deploy only)
+# JOB 5: configure-nginx
+# - Installs NGINX + Certbot
+# - HTTP config first (needed for cert challenge)
+# - Gets wildcard cert for *.andinolabs.tech via DNS challenge
+# - Upgrades to HTTPS
+# - Runs on first deploy AND when re-triggered with deploy_target=all
 # ─────────────────────────────────────────────
   configure-nginx:
-    name: Configure NGINX
+    name: Configure NGINX + HTTPS
     runs-on: ubuntu-latest
     needs: [provision, deploy-backend, deploy-frontend]
     if: |
@@ -543,15 +548,24 @@ jobs:
           chmod 600 /tmp/vm_key.pem
           echo "SSH key written"
 
-      - name: Install and configure NGINX
+      - name: Install NGINX and Certbot
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            which nginx || sudo apt-get install -y nginx
+            sudo apt-get update -qq
+            sudo apt-get install -y nginx certbot python3-certbot-dns-godaddy
+          "
+
+      - name: Configure NGINX (HTTP — needed for cert issuance)
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             sudo tee /etc/nginx/sites-available/cleo > /dev/null << 'NGINXEOF'
+          # Frontend
           server {
             listen 80;
             server_name ${{ inputs.frontend_domain }};
+            location /.well-known/acme-challenge/ { root /var/www/certbot; }
             location / {
               proxy_pass http://localhost:3000;
               proxy_http_version 1.1;
@@ -560,35 +574,171 @@ jobs:
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
               proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto \$scheme;
             }
           }
+          # Backend API
           server {
             listen 80;
             server_name ${{ inputs.backend_domain }};
+            location /.well-known/acme-challenge/ { root /var/www/certbot; }
             location / {
               proxy_pass http://localhost:8000;
               proxy_http_version 1.1;
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
               proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto \$scheme;
               proxy_buffering off;
+              proxy_read_timeout 300s;
             }
           }
+          # Grafana
           server {
             listen 80;
             server_name ${{ inputs.grafana_domain }};
+            location /.well-known/acme-challenge/ { root /var/www/certbot; }
             location / {
               proxy_pass http://localhost:3002;
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
+              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto \$scheme;
             }
           }
           NGINXEOF
+            sudo mkdir -p /var/www/certbot
             sudo ln -sf /etc/nginx/sites-available/cleo /etc/nginx/sites-enabled/cleo
             sudo rm -f /etc/nginx/sites-enabled/default
             sudo nginx -t && sudo systemctl reload nginx
-            echo 'NGINX configured'
+            echo 'HTTP NGINX configured'
           "
+
+      - name: Obtain wildcard SSL cert (Let's Encrypt + GoDaddy DNS)
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            # Write GoDaddy credentials for certbot DNS plugin
+            sudo mkdir -p /etc/letsencrypt
+            sudo tee /etc/letsencrypt/godaddy.ini > /dev/null << 'CREDSEOF'
+          dns_godaddy_secret = ${{ secrets.GODADDY_API_SECRET }}
+          dns_godaddy_key = ${{ secrets.GODADDY_API_KEY }}
+          CREDSEOF
+            sudo chmod 600 /etc/letsencrypt/godaddy.ini
+
+            # Request wildcard cert for *.andinolabs.tech
+            sudo certbot certonly \
+              --dns-godaddy \
+              --dns-godaddy-credentials /etc/letsencrypt/godaddy.ini \
+              --dns-godaddy-propagation-seconds 60 \
+              -d '*.andinolabs.tech' \
+              -d 'andinolabs.tech' \
+              --email manu@andinolabs.com \
+              --agree-tos \
+              --non-interactive \
+              --keep-until-expiring
+            echo 'SSL certificate obtained'
+          "
+
+      - name: Upgrade NGINX to HTTPS
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            sudo tee /etc/nginx/sites-available/cleo > /dev/null << 'NGINXEOF'
+          # ── Frontend ──────────────────────────────────────────
+          server {
+            listen 80;
+            server_name ${{ inputs.frontend_domain }};
+            return 301 https://\$host\$request_uri;
+          }
+          server {
+            listen 443 ssl http2;
+            server_name ${{ inputs.frontend_domain }};
+            ssl_certificate     /etc/letsencrypt/live/andinolabs.tech/fullchain.pem;
+            ssl_certificate_key /etc/letsencrypt/live/andinolabs.tech/privkey.pem;
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_ciphers HIGH:!aNULL:!MD5;
+            ssl_prefer_server_ciphers on;
+            add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains' always;
+            location / {
+              proxy_pass http://localhost:3000;
+              proxy_http_version 1.1;
+              proxy_set_header Upgrade \$http_upgrade;
+              proxy_set_header Connection 'upgrade';
+              proxy_set_header Host \$host;
+              proxy_set_header X-Real-IP \$remote_addr;
+              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto https;
+            }
+          }
+          # ── Backend API ───────────────────────────────────────
+          server {
+            listen 80;
+            server_name ${{ inputs.backend_domain }};
+            return 301 https://\$host\$request_uri;
+          }
+          server {
+            listen 443 ssl http2;
+            server_name ${{ inputs.backend_domain }};
+            ssl_certificate     /etc/letsencrypt/live/andinolabs.tech/fullchain.pem;
+            ssl_certificate_key /etc/letsencrypt/live/andinolabs.tech/privkey.pem;
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_ciphers HIGH:!aNULL:!MD5;
+            add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains' always;
+            location / {
+              proxy_pass http://localhost:8000;
+              proxy_http_version 1.1;
+              proxy_set_header Host \$host;
+              proxy_set_header X-Real-IP \$remote_addr;
+              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto https;
+              proxy_buffering off;
+              proxy_read_timeout 300s;
+            }
+          }
+          # ── Grafana ───────────────────────────────────────────
+          server {
+            listen 80;
+            server_name ${{ inputs.grafana_domain }};
+            return 301 https://\$host\$request_uri;
+          }
+          server {
+            listen 443 ssl http2;
+            server_name ${{ inputs.grafana_domain }};
+            ssl_certificate     /etc/letsencrypt/live/andinolabs.tech/fullchain.pem;
+            ssl_certificate_key /etc/letsencrypt/live/andinolabs.tech/privkey.pem;
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_ciphers HIGH:!aNULL:!MD5;
+            add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains' always;
+            location / {
+              proxy_pass http://localhost:3002;
+              proxy_set_header Host \$host;
+              proxy_set_header X-Real-IP \$remote_addr;
+              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto https;
+            }
+          }
+          NGINXEOF
+            sudo nginx -t && sudo systemctl reload nginx
+            echo 'HTTPS NGINX configured'
+
+            # Set up auto-renewal cron
+            (sudo crontab -l 2>/dev/null; echo '0 3 * * * certbot renew --quiet && systemctl reload nginx') | sudo crontab -
+            echo 'Auto-renewal cron set'
+          "
+
+      - name: Verify HTTPS
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          echo "Waiting 10s for NGINX to reload..."
+          sleep 10
+          for DOMAIN in "${{ inputs.frontend_domain }}" "${{ inputs.backend_domain }}" "${{ inputs.grafana_domain }}"; do
+            if curl -sf --max-time 10 "https://$DOMAIN" > /dev/null 2>&1; then
+              echo "✅ https://$DOMAIN — OK"
+            else
+              echo "⚠️  https://$DOMAIN — not reachable yet (DNS may still be propagating)"
+            fi
+          done
 
       - name: Cleanup SSH key
         if: always()
@@ -627,9 +777,9 @@ jobs:
           ### Service URLs
           | Service | URL |
           |---|---|
-          | Frontend | http://$VM_IP:3000 |
-          | Backend API | http://$VM_IP:8000 |
-          | Grafana | http://$VM_IP:3002 |
+          | Frontend | https://${{ inputs.frontend_domain }} |
+          | Backend API | https://${{ inputs.backend_domain }} |
+          | Grafana | https://${{ inputs.grafana_domain }} |
 
           ### DNS — point A records to \`$VM_IP\`
           | Domain | Record |

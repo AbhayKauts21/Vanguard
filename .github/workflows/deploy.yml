@@ -48,10 +48,11 @@ on:
 env:
   TF_WORKING_DIR: terraform/env/dev
 
+jobs:
+
 # ─────────────────────────────────────────────
 # JOB 1: validate
 # ─────────────────────────────────────────────
-jobs:
   validate:
     name: Validate Inputs & JSON
     runs-on: ubuntu-latest
@@ -59,16 +60,12 @@ jobs:
     steps:
       - name: Validate GitHub variable JSON
         run: |
-          echo "Validating BACKEND_ENV_JSON..."
-          echo '${{ vars.BACKEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: BACKEND_ENV_JSON is not valid JSON"; exit 1; }
-          echo "Validating FRONTEND_ENV_JSON..."
-          echo '${{ vars.FRONTEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: FRONTEND_ENV_JSON is not valid JSON"; exit 1; }
+          echo '${{ vars.BACKEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: BACKEND_ENV_JSON invalid JSON"; exit 1; }
+          echo '${{ vars.FRONTEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: FRONTEND_ENV_JSON invalid JSON"; exit 1; }
           echo "JSON validation passed."
 
 # ─────────────────────────────────────────────
 # JOB 2: provision
-# Runs Terraform only when VM doesn't exist yet.
-# On re-deploy it just reads the existing VM IP.
 # ─────────────────────────────────────────────
   provision:
     name: Provision Infrastructure
@@ -78,6 +75,8 @@ jobs:
     outputs:
       vm_ip: ${{ steps.resolve_ip.outputs.vm_ip }}
       vm_exists: ${{ steps.vm_check.outputs.vm_exists }}
+      # SSH key passed as output so downstream jobs can use it in same run
+      ssh_key: ${{ steps.resolve_ssh.outputs.ssh_key }}
 
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +105,7 @@ jobs:
             VM_IP=$(terraform output -raw vm_public_ip 2>/dev/null | head -1 | tr -d '[:space:]')
             echo "vm_exists=true" >> $GITHUB_OUTPUT
             echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
-            echo "VM already exists at $VM_IP — skipping Terraform"
+            echo "VM already exists at $VM_IP"
           else
             echo "vm_exists=false" >> $GITHUB_OUTPUT
             echo "vm_ip=" >> $GITHUB_OUTPUT
@@ -172,7 +171,6 @@ jobs:
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/public-key")
           KEY_ID=$(echo "$REPO_KEY_RESPONSE" | jq -r '.key_id')
           REPO_PUBLIC_KEY=$(echo "$REPO_KEY_RESPONSE" | jq -r '.key')
-
           pip install PyNaCl -q
 
           encrypt_and_save() {
@@ -210,10 +208,24 @@ jobs:
             echo "vm_ip=${{ steps.vm_check.outputs.vm_ip }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Resolve SSH key for this run
+        id: resolve_ssh
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          if [ "${{ steps.vm_check.outputs.vm_exists }}" = "false" ]; then
+            # First deploy — read from terraform output (secret not available yet this run)
+            SSH_KEY=$(terraform output -raw ssh_private_key)
+          else
+            # Re-deploy — use the stored secret
+            SSH_KEY="${{ secrets.VM_SSH_PRIVATE_KEY }}"
+          fi
+          echo "::add-mask::$SSH_KEY"
+          # Encode to base64 to safely pass multiline key as job output
+          SSH_KEY_B64=$(echo "$SSH_KEY" | base64 -w 0)
+          echo "ssh_key=$SSH_KEY_B64" >> $GITHUB_OUTPUT
+
 # ─────────────────────────────────────────────
 # JOB 3: setup-vm
-# Waits for cloud-init (first deploy only).
-# Always syncs the repo to the VM.
 # ─────────────────────────────────────────────
   setup-vm:
     name: Setup VM
@@ -224,8 +236,9 @@ jobs:
     steps:
       - name: Write SSH key
         run: |
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
           chmod 600 /tmp/vm_key.pem
+          head -1 /tmp/vm_key.pem | grep -q "BEGIN" || { echo "ERROR: SSH key invalid"; exit 1; }
 
       - name: Wait for cloud-init (first deploy only)
         if: needs.provision.outputs.vm_exists == 'false'
@@ -259,7 +272,6 @@ jobs:
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            # If docker-compose file exists, update. Otherwise fresh clone.
             if [ -f ~/cleo/docker-compose.observability.yml ]; then
               echo 'Updating repo...'
               cd ~/cleo && git fetch origin && git reset --hard origin/main
@@ -268,11 +280,10 @@ jobs:
               rm -rf ~/cleo
               git clone https://github.com/${{ github.repository }}.git ~/cleo
             fi
-            # Verify
             if [ -f ~/cleo/docker-compose.observability.yml ]; then
-              echo 'docker-compose.observability.yml found — repo ready'
+              echo 'Repo ready'
             else
-              echo 'ERROR: docker-compose.observability.yml not found after clone'
+              echo 'ERROR: docker-compose.observability.yml not found'
               ls ~/cleo/
               exit 1
             fi
@@ -284,8 +295,6 @@ jobs:
 
 # ─────────────────────────────────────────────
 # JOB 4a: deploy-backend
-# First deploy  → starts ALL docker compose services
-# Re-deploy     → injects fresh .env, restarts backend only
 # ─────────────────────────────────────────────
   deploy-backend:
     name: Deploy Backend
@@ -296,7 +305,7 @@ jobs:
     steps:
       - name: Write SSH key
         run: |
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
           chmod 600 /tmp/vm_key.pem
 
       - name: Inject backend .env
@@ -318,29 +327,17 @@ jobs:
             echo 'backend/.env written'
           "
 
-      - name: Start ALL services (first deploy)
-        if: needs.provision.outputs.vm_exists == 'false'
+      - name: Start services
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            docker compose -f docker-compose.observability.yml up --build -d
-            echo 'All services started'
-          "
-
-      - name: Start or restart backend (re-deploy)
-        if: needs.provision.outputs.vm_exists == 'true'
-        run: |
-          VM_IP="${{ needs.provision.outputs.vm_ip }}"
-          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            cd ~/cleo
-            # Check if any containers are running — if not, start everything
-            RUNNING=$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
+            RUNNING=\$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
             if [ \"\$RUNNING\" = \"0\" ]; then
               echo 'No containers running — starting all services'
               docker compose -f docker-compose.observability.yml up --build -d
             else
-              echo 'Containers running — restarting backend only'
+              echo 'Restarting backend only'
               docker compose -f docker-compose.observability.yml up --build -d backend
             fi
           "
@@ -367,8 +364,6 @@ jobs:
 
 # ─────────────────────────────────────────────
 # JOB 4b: deploy-frontend
-# First deploy  → skipped (backend job starts all services)
-# Re-deploy     → injects fresh .env.local, restarts frontend only
 # ─────────────────────────────────────────────
   deploy-frontend:
     name: Deploy Frontend
@@ -379,7 +374,7 @@ jobs:
     steps:
       - name: Write SSH key
         run: |
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
           chmod 600 /tmp/vm_key.pem
 
       - name: Inject frontend .env
@@ -396,19 +391,17 @@ jobs:
             echo 'frontend/.env.local written'
           "
 
-      - name: Restart frontend only (re-deploy)
-        if: needs.provision.outputs.vm_exists == 'true'
+      - name: Start services
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            # Check if any containers are running — if not, start everything
-            RUNNING=$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
+            RUNNING=\$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
             if [ \"\$RUNNING\" = \"0\" ]; then
               echo 'No containers running — starting all services'
               docker compose -f docker-compose.observability.yml up --build -d
             else
-              echo 'Containers running — restarting frontend only'
+              echo 'Restarting frontend only'
               docker compose -f docker-compose.observability.yml up --build -d frontend
             fi
           "
@@ -434,8 +427,7 @@ jobs:
         run: rm -f /tmp/vm_key.pem
 
 # ─────────────────────────────────────────────
-# JOB 5: configure-nginx
-# Only runs on first deploy (vm_exists == false)
+# JOB 5: configure-nginx (first deploy only)
 # ─────────────────────────────────────────────
   configure-nginx:
     name: Configure NGINX
@@ -451,7 +443,7 @@ jobs:
     steps:
       - name: Write SSH key
         run: |
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
           chmod 600 /tmp/vm_key.pem
 
       - name: Install and configure NGINX
@@ -533,9 +525,8 @@ jobs:
           | VM Public IP | \`$VM_IP\` |
           | Backend Version | ${{ inputs.backend_version }} |
           | Frontend Version | ${{ inputs.frontend_version }} |
-          | First Deploy | ${{ needs.provision.outputs.vm_exists == 'false' && 'Yes' || 'No' }} |
 
-          ### Service URLs (direct IP)
+          ### Service URLs
           | Service | URL |
           |---|---|
           | Frontend | http://$VM_IP:3000 |
@@ -590,7 +581,7 @@ jobs:
               sudo rm -f /etc/nginx/sites-enabled/cleo /etc/nginx/sites-available/cleo
               sudo systemctl reload nginx 2>/dev/null || true
               echo 'App teardown complete'
-            " || echo "WARNING: SSH teardown failed — continuing to terraform destroy"
+            " || echo "WARNING: SSH teardown failed — continuing"
             rm -f /tmp/vm_key.pem
           fi
 

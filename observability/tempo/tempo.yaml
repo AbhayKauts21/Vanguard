@@ -32,7 +32,7 @@ storage:
 
 querier:
   frontend_worker:
-    frontend_address: tempo:9095
+    frontend_address: ""
 
 query_frontend:
   search:

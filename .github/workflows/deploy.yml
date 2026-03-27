@@ -563,7 +563,8 @@ jobs:
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             sudo apt-get update -qq
-            sudo apt-get install -y nginx certbot python3-certbot-dns-godaddy
+            sudo apt-get install -y nginx certbot python3-pip
+            sudo pip3 install certbot-dns-godaddy --quiet
           "
 
       - name: Configure NGINX (HTTP — needed for cert issuance)

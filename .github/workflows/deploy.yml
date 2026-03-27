@@ -304,11 +304,11 @@ jobs:
               echo 'Updating repo...'
               cd ~/cleo
               git remote set-url origin $CLONE_URL
-              git fetch origin && git reset --hard origin/main
+              git fetch origin && git reset --hard origin/feature/pipeline_setup
             else
               echo 'Fresh clone...'
               rm -rf ~/cleo
-              git clone $CLONE_URL ~/cleo
+              git clone -b feature/pipeline_setup $CLONE_URL ~/cleo
             fi
             if [ -f ~/cleo/docker-compose.observability.yml ]; then
               echo 'Repo ready'

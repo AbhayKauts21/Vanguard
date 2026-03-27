@@ -371,11 +371,14 @@ jobs:
             cd ~/cleo
             RUNNING=\$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
             if [ \"\$RUNNING\" = \"0\" ]; then
-              echo 'No containers running — starting ALL services from full docker-compose'
-              docker compose -f docker-compose.observability.yml up --build -d
+              echo 'No containers running — starting ALL services'
+              docker compose -f docker-compose.observability.yml up --build --force-recreate --remove-orphans -d
             else
-              echo 'Services already running — restarting backend only'
-              docker compose -f docker-compose.observability.yml up --build -d backend
+              echo 'Rolling update — backend only'
+              # Pull/build new image first
+              docker compose -f docker-compose.observability.yml build backend
+              # Force recreate only backend replicas — zero downtime via replica overlap
+              docker compose -f docker-compose.observability.yml up --force-recreate --remove-orphans -d backend
             fi
           "
 
@@ -440,11 +443,12 @@ jobs:
             cd ~/cleo
             RUNNING=\$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
             if [ \"\$RUNNING\" = \"0\" ]; then
-              echo 'No containers running — starting ALL services from full docker-compose'
-              docker compose -f docker-compose.observability.yml up --build -d
+              echo 'No containers running — starting ALL services'
+              docker compose -f docker-compose.observability.yml up --build --force-recreate --remove-orphans -d
             else
-              echo 'Services already running — restarting frontend only'
-              docker compose -f docker-compose.observability.yml up --build -d frontend
+              echo 'Rolling update — frontend only'
+              docker compose -f docker-compose.observability.yml build frontend
+              docker compose -f docker-compose.observability.yml up --force-recreate --remove-orphans -d frontend
             fi
           "
 
@@ -494,7 +498,7 @@ jobs:
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            docker compose -f docker-compose.observability.yml up -d \
+            docker compose -f docker-compose.observability.yml up --force-recreate --remove-orphans -d \
               grafana otel-collector tempo loki prometheus
             echo 'Observability stack restarted'
           "

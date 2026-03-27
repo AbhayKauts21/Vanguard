@@ -20,12 +20,15 @@ jobs:
   terraform:
     name: Scan & Deploy Terraform
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: read
       pull-requests: write
       issues: write
-    
+
+    outputs:
+      vm_public_ip: ${{ steps.tf_outputs.outputs.vm_public_ip }}
+
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIR }}

@@ -253,7 +253,14 @@ jobs:
         if: inputs.action == 'deploy'
         run: |
           VM_IP="${{ steps.ssh_setup.outputs.vm_ip }}"
-          BACKEND_ENV_CONTENT=$(echo '${{ inputs.backend_env }}' | jq -r 'to_entries[] | "\(.key)=\(.value)"')
+          # Merge VM IP and postgres credentials — overrides any placeholder values
+          BACKEND_ENV_CONTENT=$(echo '${{ inputs.backend_env }}' | \
+            jq --arg ip "$VM_IP" \
+               --arg db "${{ secrets.POSTGRES_DB }}" \
+               --arg user "${{ secrets.POSTGRES_USER }}" \
+               --arg pass "${{ secrets.POSTGRES_PASSWORD }}" \
+            '. + {POSTGRES_HOST: $ip, POSTGRES_DB: $db, POSTGRES_USER: $user, POSTGRES_PASSWORD: $pass}' | \
+            jq -r 'to_entries[] | "\(.key)=\(.value)"')
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             mkdir -p ~/cleo/backend
             cat > ~/cleo/backend/.env << 'ENVEOF'

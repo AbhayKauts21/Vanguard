@@ -616,6 +616,7 @@ jobs:
       - name: Obtain SSL cert (Let's Encrypt — webroot)
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          FRONTEND="${{ inputs.frontend_domain }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             sudo certbot certonly \
               --webroot \
@@ -627,16 +628,13 @@ jobs:
               --agree-tos \
               --non-interactive \
               --expand \
-              --keep-until-expiring
+              --keep-until-expiring || true
 
-            # Cert is stored under the first domain name
-            CERT_DIR=/etc/letsencrypt/live/${{ inputs.frontend_domain }}
-            if [ ! -f \"\$CERT_DIR/fullchain.pem\" ]; then
-              echo 'ERROR: Certificate not found at '\$CERT_DIR
-              sudo ls /etc/letsencrypt/live/
-              exit 1
-            fi
-            echo \"SSL certificate ready at \$CERT_DIR\"
+            # Check cert exists — certbot stores under first domain
+            sudo ls /etc/letsencrypt/live/
+            sudo test -f /etc/letsencrypt/live/${{ inputs.frontend_domain }}/fullchain.pem && \
+              echo 'SSL certificate ready' || \
+              { echo 'ERROR: cert missing'; exit 1; }
           "
 
       - name: Upgrade NGINX to HTTPS

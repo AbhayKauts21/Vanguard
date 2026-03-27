@@ -2,21 +2,14 @@
 # CLEO - Full Observability Stack with OpenTelemetry + Grafana
 # ========================================================================
 #
-# This docker-compose file sets up:
-# - Frontend (Next.js) - 2 replicas
-# - Backend (FastAPI) - 3 replicas  
-# - PostgreSQL database
-# - OpenTelemetry Collector
-# - Grafana Stack (Tempo, Loki, Prometheus)
-# - Grafana dashboard
+# Services: Frontend (2 replicas), Backend (3 replicas),
+#           OTel Collector, Tempo, Loki, Prometheus, Grafana
 #
 # Usage:
-#   docker-compose up --build
-#   Access Grafana: http://localhost:3001 (admin/admin)
-#
+#   docker compose up --build
+#   Access Grafana: http://localhost:3002 (admin/admin)
 # ========================================================================
 
-version: '3.9'
 
 networks:
   cleo-network:

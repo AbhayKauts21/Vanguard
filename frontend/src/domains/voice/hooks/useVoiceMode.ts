@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useVoiceStore } from "@/domains/voice/model";
 import { useChatStore } from "@/domains/chat/model";
+import { useAuthStore } from "@/domains/auth/model";
+import { createPersistedChat } from "@/domains/chat/api";
 import { useAvatarStore } from "@/domains/avatar/model/avatar-store";
 import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
 import { useSpeechRecognition } from "./useSpeechRecognition";
 import { useAudioAnalyser } from "./useAudioAnalyser";
 import { SentenceChunker, synthesizeSpeech, speakWithBrowserTTS } from "@/domains/voice/engine";
 import { api, consumeSSEStream } from "@/lib/api";
-import { CHAT_STREAM_ENDPOINT } from "@/lib/constants";
+import { CHATS_ENDPOINT, CHAT_STREAM_ENDPOINT } from "@/lib/constants";
 import type { ChatRequest, SSEDoneEvent } from "@/types";
 
 /**
@@ -45,7 +47,10 @@ export function useVoiceMode() {
   const startAssistantMessage = useChatStore((s) => s.startAssistantMessage);
   const appendToken = useChatStore((s) => s.appendToken);
   const finishAssistantMessage = useChatStore((s) => s.finishAssistantMessage);
+  const setActiveChat = useChatStore((s) => s.setActiveChat);
+  const upsertChatSummary = useChatStore((s) => s.upsertChatSummary);
   const setErrorType = useChatStore((s) => s.setErrorType);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const abortRef = useRef<AbortController | null>(null);
   const chunkerRef = useRef<SentenceChunker | null>(null);
@@ -92,7 +97,8 @@ export function useVoiceMode() {
     }
 
     // Add user message to chat (also visible in text mode)
-    const { messages, conversationId } = useChatStore.getState();
+    const state = useChatStore.getState();
+    const { messages, conversationId } = state;
     addUserMessage(finalTranscript);
     setThinking(true);
     setErrorType(null);
@@ -117,6 +123,13 @@ export function useVoiceMode() {
     // TTFT measurement
     const sendTimestamp = performance.now();
     let firstTokenRecorded = false;
+    let chatId = state.activeChatId;
+    let streamPath = CHAT_STREAM_ENDPOINT;
+    let body: ChatRequest | { message: string } = {
+      message: finalTranscript,
+      conversation_id: conversationId,
+      conversation_history: history,
+    };
 
     // Sentence chunker → TTS per sentence
     chunkerRef.current = new SentenceChunker(async (sentence: string) => {
@@ -146,14 +159,19 @@ export function useVoiceMode() {
     });
 
     try {
-      const body: ChatRequest = {
-        message: finalTranscript,
-        conversation_id: conversationId,
-        conversation_history: history,
-      };
+      if (isAuthenticated) {
+        if (!chatId) {
+          const summary = await createPersistedChat();
+          upsertChatSummary(summary);
+          setActiveChat(summary.id, []);
+          chatId = summary.id;
+        }
+        streamPath = `${CHATS_ENDPOINT}/${chatId}/messages/stream`;
+        body = { message: finalTranscript };
+      }
 
       const response = await api.stream(
-        CHAT_STREAM_ENDPOINT,
+        streamPath,
         body,
         controller.signal,
       );
@@ -188,6 +206,10 @@ export function useVoiceMode() {
             max_confidence: event.max_confidence || 0,
             what_i_found: event.what_i_found,
           });
+
+          if (event.chat_summary) {
+            upsertChatSummary(event.chat_summary);
+          }
 
           // Wait for audio queue to drain, then return to listening for to-and-fro conversation
           const waitForAudio = () => {
@@ -250,9 +272,12 @@ export function useVoiceMode() {
     startAssistantMessage,
     appendToken,
     finishAssistantMessage,
+    setActiveChat,
     enqueueAudio,
+    isAuthenticated,
     isPlaying,
     setError,
+    upsertChatSummary,
   ]);
 
   /**

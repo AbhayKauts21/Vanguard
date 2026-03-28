@@ -43,6 +43,11 @@ class WebhookEvent(str, Enum):
     PAGE_DELETE = "page_delete"
 
 
+class ChatMessageSender(str, Enum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
 # --- BookStack Domain Models ---
 
 class BookStackPage(BaseModel):
@@ -174,6 +179,54 @@ class ChatResponse(BaseModel):
     max_confidence: float = 0.0
     what_i_found: Optional[List[Dict[str, Any]]] = None
     conversation_id: Optional[str] = None
+
+
+class ChatCreateRequest(BaseModel):
+    title: Optional[str] = Field(default=None, max_length=255)
+
+
+class ChatMessageCreateRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000)
+
+
+class ChatSummaryResponse(BaseModel):
+    id: UUID
+    title: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    message_count: int = 0
+    last_message_preview: Optional[str] = None
+
+
+class ChatListResponse(BaseModel):
+    items: List[ChatSummaryResponse] = Field(default_factory=list)
+    has_more: bool = False
+
+
+class ChatMessageResponse(BaseModel):
+    id: UUID
+    chat_id: UUID
+    sender: ChatMessageSender
+    content: str
+    created_at: datetime
+    primary_citations: List[Citation] = Field(default_factory=list)
+    secondary_citations: List[Citation] = Field(default_factory=list)
+    all_citations: List[Citation] = Field(default_factory=list)
+    hidden_sources_count: int = 0
+    mode_used: Optional[str] = None
+    max_confidence: Optional[float] = None
+    what_i_found: Optional[List[Dict[str, Any]]] = None
+
+
+class ChatMessagesResponse(BaseModel):
+    chat: ChatSummaryResponse
+    items: List[ChatMessageResponse] = Field(default_factory=list)
+
+
+class ChatSendResponse(BaseModel):
+    chat: ChatSummaryResponse
+    user_message: ChatMessageResponse
+    assistant_message: ChatMessageResponse
 
 
 class AzureChatParams(BaseModel):

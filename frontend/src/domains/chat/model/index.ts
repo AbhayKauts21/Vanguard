@@ -1,1 +1,1 @@
-export { useChatStore } from "./chat-store";
+export { mapPersistedMessageToChatMessage, useChatStore } from "./chat-store";

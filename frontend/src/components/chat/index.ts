@@ -1,5 +1,6 @@
 export { ChatPanel } from "./ChatPanel";
 export { ChatPanelSkeleton } from "./ChatPanelSkeleton";
+export { ChatHistoryRail } from "./ChatHistoryRail";
 export { MessageBubble } from "./MessageBubble";
 export { MessageList, type ChatMessage } from "./MessageList";
 export { Composer } from "./Composer";

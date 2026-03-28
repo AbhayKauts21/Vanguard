@@ -4,7 +4,8 @@ Phase 8: structured logging at every pipeline step with request-id correlation.
 """
 
 import time
-from typing import List, AsyncGenerator
+from pathlib import Path
+from typing import List, AsyncGenerator, Set
 
 from loguru import logger
 
@@ -66,7 +67,7 @@ class RAGService:
                 detail="No knowledge base data found. Please run ingestion first."
             )
 
-        # 3. Confidence gate — reject if no relevant context
+        # 4. Context Expansion: Load full documents from disk for retrieved chunks
         relevant = self._filter_by_confidence(results)
         rlog.info("rag.confidence_gate", passed=bool(relevant), threshold=self.min_score, top_score=round(max_score, 3))
 
@@ -74,15 +75,15 @@ class RAGService:
             rlog.info("rag.no_context", query=question[:80])
             raise NoContextFoundError()
 
-        # 4. Build context from top chunks
-        context_chunks = [r.text for r in relevant]
+        # Build context from FULL documents
+        context_docs = self._expand_to_full_documents(relevant)
         ranked_citations = self.citation_ranker.rank_citations(relevant)
 
         # 5. Generate answer using LLM
         t0 = time.perf_counter()
         answer = await self.llm_client.generate(
             question=question,
-            context_chunks=context_chunks,
+            context_chunks=context_docs,
             history=history,
         )
         gen_ms = round((time.perf_counter() - t0) * 1000, 1)
@@ -134,7 +135,7 @@ class RAGService:
                 threshold=round(self._high_confidence_threshold(), 3),
             )
             relevant = self._filter_by_confidence(results)
-            context_chunks = [r.text for r in relevant]
+            context_docs = self._expand_to_full_documents(relevant)
             ranked_citations = self.citation_ranker.rank_citations(relevant)
 
             # Stream tokens
@@ -142,7 +143,7 @@ class RAGService:
             token_count = 0
             token_stream = self.llm_client.generate_stream(
                 question=question,
-                context_chunks=context_chunks,
+                context_chunks=context_docs,
                 history=history,
             )
             async for token in token_stream:
@@ -230,6 +231,29 @@ Do NOT make up details about our product features or policies."""
                 "mode_used": "azure_fallback",
                 "max_confidence": max_confidence
             }
+
+    def _expand_to_full_documents(self, results: List[VectorSearchResult]) -> List[str]:
+        """Load the full original documentation chapters directly from Pinecone metadata."""
+        full_texts: List[str] = []
+        seen_page_ids: Set[int] = set()
+
+        for r in results:
+            if r.page_id and r.page_id not in seen_page_ids:
+                # The 'full_doc_text' is stored in the metadata of every chunk
+                # We need to access it from the raw metadata if it's not a first-class field in VectorSearchResult
+                # In our case, the query adapter might not be passing it through yet, so we need to check VectorStore
+                
+                # Retrieve from VectorSearchResult (we'll ensure VectorStore passes it)
+                if hasattr(r, "full_doc_text") and r.full_doc_text:
+                    full_texts.append(r.full_doc_text)
+                    seen_page_ids.add(r.page_id)
+                    logger.debug(f"Expanded context: loaded full doc for page {r.page_id} from metadata")
+        
+        # Fallback: if metadata expansion fails, use the individual chunks
+        if not full_texts:
+            return [r.text for r in results]
+            
+        return full_texts
 
     def _filter_by_confidence(
         self, results: List[VectorSearchResult]

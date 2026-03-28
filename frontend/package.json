@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "prepare": "cd .. && frontend/node_modules/.bin/husky .husky"
+    "prepare": "node -e \"const fs=require('fs'); const {spawnSync}=require('child_process'); if(!fs.existsSync('../.git')) process.exit(0); const result=spawnSync('frontend/node_modules/.bin/husky',['.husky'],{cwd:'..',stdio:'inherit',shell:true}); process.exit(result.status ?? 0);\""
   },
   "dependencies": {
     "@heygen/streaming-avatar": "^2.1.0",

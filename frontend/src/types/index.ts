@@ -62,6 +62,8 @@ export interface PersistedChatMessage {
 export interface ChatMessagesResponse {
   chat: ChatSummary;
   items: PersistedChatMessage[];
+  has_more: boolean;
+  next_before?: string | null;
 }
 
 export interface ChatSendResponse {

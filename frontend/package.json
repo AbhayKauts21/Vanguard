@@ -6,11 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint src --quiet",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepare": "cd .. && frontend/node_modules/.bin/husky .husky"
   },
   "dependencies": {
     "@heygen/streaming-avatar": "^2.1.0",
@@ -67,6 +68,7 @@
     "@vitest/coverage-istanbul": "^4.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
+    "husky": "^9.1.7",
     "jsdom": "^29.0.0",
     "prettier": "^3.8.1",
     "tailwindcss": "^4",

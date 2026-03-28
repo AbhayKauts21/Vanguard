@@ -19,6 +19,7 @@ from app.api.router_chat import router as chat_router
 from app.api.router_azure_chat import router as azure_chat_router
 from app.api.router_admin import router as admin_router
 from app.api.router_auth import router as auth_router
+from app.api.router_bookstack import router as bookstack_router
 from app.api.router_chats import router as chats_router
 from app.api.router_rbac import router as rbac_router
 from app.api.router_voice import router as voice_router
@@ -141,6 +142,7 @@ def get_application() -> FastAPI:
     _app.include_router(chat_router, prefix=settings.API_V1_STR)
     _app.include_router(azure_chat_router, prefix=settings.API_V1_STR)
     _app.include_router(auth_router, prefix=settings.API_V1_STR)
+    _app.include_router(bookstack_router, prefix=settings.API_V1_STR)
     _app.include_router(chats_router, prefix=settings.API_V1_STR)
     _app.include_router(rbac_router, prefix=settings.API_V1_STR)
     _app.include_router(admin_router, prefix=settings.API_V1_STR)

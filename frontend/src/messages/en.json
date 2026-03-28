@@ -123,6 +123,8 @@
     "historyCollapse": "Hide history",
     "historyExpand": "Show history",
     "historyHidden": "Chat history hidden",
+    "newChat": "New chat",
+    "hideHistory": "Hide history",
     "untitledChat": "New chat",
     "sourcesSummary": "{count} grounded sources",
     "sourcesDrawerTitle": "Grounded retrieval",

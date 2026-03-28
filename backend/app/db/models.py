@@ -84,6 +84,10 @@ class User(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    bookstack_sync_configs: Mapped[list["BookStackSyncConfig"]] = relationship(
+        back_populates="user",
+        lazy="selectin",
+    )
 
 
 class Role(Base):
@@ -245,6 +249,42 @@ class DocumentSource(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    bookstack_sync_configs: Mapped[list["BookStackSyncConfig"]] = relationship(
+        back_populates="source",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class BookStackSyncConfig(Base):
+    __tablename__ = "bookstack_sync_config"
+    __table_args__ = (
+        UniqueConstraint("source_id", "user_id", "target_key", name="uq_bookstack_sync_config_target"),
+        Index("ix_bookstack_sync_config_source_enabled", "source_id", "is_enabled"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    source_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("document_sources.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    target_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    book_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    chapter_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    page_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow, server_default=func.now()
+    )
+
+    source: Mapped[DocumentSource] = relationship(back_populates="bookstack_sync_configs", lazy="selectin")
+    user: Mapped[User | None] = relationship(back_populates="bookstack_sync_configs", lazy="selectin")
 
 
 class NormalizedDocumentRecord(Base):

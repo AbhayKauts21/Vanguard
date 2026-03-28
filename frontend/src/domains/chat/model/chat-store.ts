@@ -23,6 +23,7 @@ interface ChatState {
   chatSummaries: ChatSummary[];
   activeChatId: string | null;
   messageCache: Record<string, ChatMessage[]>;
+  messagePageInfo: Record<string, ChatPageInfo>;
   isThinking: boolean;
   streamingMessageId: string | null;
   errorType: ChatErrorType;
@@ -30,6 +31,7 @@ interface ChatState {
   guestConversationId: string;
   isLoadingChats: boolean;
   isLoadingMessages: boolean;
+  isLoadingOlderMessages: boolean;
   isHistoryCollapsed: boolean;
 
   addUserMessage: (content: string) => string;
@@ -55,9 +57,11 @@ interface ChatState {
   setChatSummaries: (items: ChatSummary[]) => void;
   upsertChatSummary: (item: ChatSummary) => void;
   setActiveChat: (chatId: string | null, messages?: ChatMessage[]) => void;
-  setChatMessages: (chatId: string, messages: ChatMessage[]) => void;
+  setChatMessages: (chatId: string, messages: ChatMessage[], pageInfo?: ChatPageInfo) => void;
+  prependChatMessages: (chatId: string, messages: ChatMessage[], pageInfo?: ChatPageInfo) => void;
   setLoadingChats: (val: boolean) => void;
   setLoadingMessages: (val: boolean) => void;
+  setLoadingOlderMessages: (val: boolean) => void;
   deleteConversation: (chatId: string) => Promise<void>;
   setHistoryCollapsed: (val: boolean) => void;
   toggleHistory: () => void;
@@ -66,6 +70,11 @@ interface ChatState {
 interface PersistedGuestState {
   guestMessages?: ChatMessage[];
   guestConversationId?: string;
+}
+
+interface ChatPageInfo {
+  hasMore: boolean;
+  nextBefore: string | null;
 }
 
 function safeSessionStorage() {
@@ -151,6 +160,7 @@ export const useChatStore = create<ChatState>()(
       chatSummaries: [],
       activeChatId: null,
       messageCache: {},
+      messagePageInfo: {},
       isThinking: false,
       streamingMessageId: null,
       errorType: null,
@@ -158,6 +168,7 @@ export const useChatStore = create<ChatState>()(
       guestConversationId: uuidv4(),
       isLoadingChats: false,
       isLoadingMessages: false,
+      isLoadingOlderMessages: false,
       isHistoryCollapsed: false,
 
       addUserMessage: (content) => {
@@ -290,6 +301,7 @@ export const useChatStore = create<ChatState>()(
           isThinking: false,
           errorType: null,
           isLoadingMessages: false,
+          isLoadingOlderMessages: false,
         })),
 
       setUserMode: () =>
@@ -310,12 +322,14 @@ export const useChatStore = create<ChatState>()(
           chatSummaries: [],
           activeChatId: null,
           messageCache: {},
+          messagePageInfo: {},
           conversationId: state.guestConversationId,
           streamingMessageId: null,
           isThinking: false,
           errorType: null,
           isLoadingChats: false,
           isLoadingMessages: false,
+          isLoadingOlderMessages: false,
         })),
 
       setChatSummaries: (items) =>
@@ -346,20 +360,48 @@ export const useChatStore = create<ChatState>()(
           streamingMessageId: null,
           errorType: null,
           isLoadingMessages: false,
+          isLoadingOlderMessages: false,
         })),
 
-      setChatMessages: (chatId, messages) =>
+      setChatMessages: (chatId, messages, pageInfo) =>
         set((state) => ({
           messageCache: {
             ...state.messageCache,
             [chatId]: messages,
           },
+          messagePageInfo: pageInfo
+            ? {
+                ...state.messagePageInfo,
+                [chatId]: pageInfo,
+              }
+            : state.messagePageInfo,
           messages: state.activeChatId === chatId ? messages : state.messages,
           isLoadingMessages: false,
         })),
 
+      prependChatMessages: (chatId, messages, pageInfo) =>
+        set((state) => {
+          const existingMessages = state.messageCache[chatId] ?? [];
+          const nextMessages = [...messages, ...existingMessages];
+          return {
+            messageCache: {
+              ...state.messageCache,
+              [chatId]: nextMessages,
+            },
+            messagePageInfo: pageInfo
+              ? {
+                  ...state.messagePageInfo,
+                  [chatId]: pageInfo,
+                }
+              : state.messagePageInfo,
+            messages: state.activeChatId === chatId ? nextMessages : state.messages,
+            isLoadingOlderMessages: false,
+          };
+        }),
+
       setLoadingChats: (val) => set({ isLoadingChats: val }),
       setLoadingMessages: (val) => set({ isLoadingMessages: val }),
+      setLoadingOlderMessages: (val) => set({ isLoadingOlderMessages: val }),
 
       deleteConversation: async (chatId) => {
         const { deletePersistedChat } = await import("../api/chat-api");
@@ -371,6 +413,10 @@ export const useChatStore = create<ChatState>()(
 
           if (isDeletingActive) {
             const nextGuestId = uuidv4();
+            const nextMessageCache = { ...state.messageCache };
+            delete nextMessageCache[chatId];
+            const nextMessagePageInfo = { ...state.messagePageInfo };
+            delete nextMessagePageInfo[chatId];
             return {
               chatSummaries: nextSummaries,
               activeChatId: null,
@@ -378,14 +424,22 @@ export const useChatStore = create<ChatState>()(
               conversationId: nextGuestId,
               guestConversationId: nextGuestId,
               guestMessages: [],
+              messageCache: nextMessageCache,
+              messagePageInfo: nextMessagePageInfo,
               streamingMessageId: null,
               isThinking: false,
               errorType: null,
             };
           }
 
+          const nextMessageCache = { ...state.messageCache };
+          delete nextMessageCache[chatId];
+          const nextMessagePageInfo = { ...state.messagePageInfo };
+          delete nextMessagePageInfo[chatId];
           return {
             chatSummaries: nextSummaries,
+            messageCache: nextMessageCache,
+            messagePageInfo: nextMessagePageInfo,
           };
         });
       },

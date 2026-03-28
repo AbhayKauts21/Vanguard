@@ -123,6 +123,8 @@
     "historyCollapse": "Ocultar historial",
     "historyExpand": "Mostrar historial",
     "historyHidden": "Historial oculto",
+    "newChat": "Nuevo chat",
+    "hideHistory": "Ocultar historial",
     "untitledChat": "Nuevo chat",
     "sourcesSummary": "{count} fuentes verificadas",
     "sourcesDrawerTitle": "Recuperación fundamentada",

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useEffect } from "react";
 
 import { SessionStatus } from "./SessionStatus";
 import { ChatHistoryRail } from "./ChatHistoryRail";
@@ -25,7 +24,10 @@ interface ChatPanelProps {
     chats: ChatSummary[];
     activeChatId: string | null;
     isLoading?: boolean;
+    hasMoreMessages?: boolean;
+    isLoadingOlderMessages?: boolean;
     onSelectChat: (chatId: string) => void;
+    onLoadOlderMessages: () => void;
     onCreateChat: () => void;
     onDeleteChat: (chatId: string) => void;
   };
@@ -74,7 +76,6 @@ function ErrorBanner({ errorType }: { errorType: string | null }) {
  * uplink status, message area, typing indicator, input composer.
  */
 export function ChatPanel({ messages, isThinking, onSend, disabled, history, voice }: ChatPanelProps) {
-  const t = useTranslations("chat");
   const hasMessages = messages.length > 0;
   const errorType = useChatStore((s) => s.errorType);
   const isHistoryCollapsed = useChatStore((s) => s.isHistoryCollapsed);
@@ -119,8 +120,16 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
 
           <ErrorBanner errorType={errorType} />
           <OfflineBanner />
-
-          {hasMessages ? <MessageList messages={messages} /> : <EmptyState onSend={onSend} disabled={disabled} />}
+          {hasMessages ? (
+            <MessageList
+              messages={messages}
+              hasMoreHistory={history?.hasMoreMessages}
+              isLoadingOlder={history?.isLoadingOlderMessages}
+              onLoadOlder={history?.onLoadOlderMessages}
+            />
+          ) : (
+            <EmptyState onSend={onSend} disabled={disabled} />
+          )}
 
           {shouldShowPromptRail && (
             <SuggestedPromptRail

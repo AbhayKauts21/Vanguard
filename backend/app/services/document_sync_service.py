@@ -34,6 +34,11 @@ from app.domain.schemas import (
 )
 from app.repositories.document_repository import document_repository
 from app.repositories.document_sync_run_repository import document_sync_run_repository
+from app.services.bookstack_sync_config_service import (
+    BookStackSelectionFilter,
+    BookStackSyncConfigService,
+    bookstack_sync_config_service as default_bookstack_sync_config_service,
+)
 from app.services.text_processor import (
     TextProcessor,
     text_processor as default_text_processor,
@@ -60,12 +65,14 @@ class DocumentSyncService:
         embedding_client: EmbeddingClient = default_embedding_client,
         vector_store=default_vector_store,
         text_processor: TextProcessor = default_text_processor,
+        bookstack_sync_config_service: BookStackSyncConfigService = default_bookstack_sync_config_service,
         provider_factory: Callable[[DocumentSource], DocumentProvider] | None = None,
     ) -> None:
         self.session_factory = session_factory or get_session_factory()
         self.embedding_client = embedding_client
         self.vector_store = vector_store
         self.text_processor = text_processor
+        self.bookstack_sync_config_service = bookstack_sync_config_service
         self.provider_factory = provider_factory or self._default_provider_factory
         self.status: SyncStatus = SyncStatus.IDLE
         self.last_sync_at: datetime | None = None
@@ -93,7 +100,15 @@ class DocumentSyncService:
 
             counters = _SyncCounters()
             try:
+                selection_filter = await self.bookstack_sync_config_service.get_selection_filter(
+                    session,
+                    source=source,
+                )
                 references = await provider.list_documents()
+                references = self._filter_references(
+                    references=references,
+                    selection_filter=selection_filter,
+                )
                 counters.seen = len(references)
 
                 existing_documents = await document_repository.list_active_documents_for_source(
@@ -112,6 +127,7 @@ class DocumentSyncService:
                         source=source,
                         provider=provider,
                         reference=reference,
+                        selection_filter=selection_filter,
                     )
                     counters.upserted += int(outcome["status"] == "upserted")
                     counters.chunks_indexed += outcome.get("chunks_created", 0)
@@ -201,7 +217,15 @@ class DocumentSyncService:
 
             counters = _SyncCounters()
             try:
+                selection_filter = await self.bookstack_sync_config_service.get_selection_filter(
+                    session,
+                    source=source,
+                )
                 references = await provider.list_documents_updated_since(since)
+                references = self._filter_references(
+                    references=references,
+                    selection_filter=selection_filter,
+                )
                 counters.seen = len(references)
                 for reference in references:
                     outcome = await self._sync_reference(
@@ -209,6 +233,7 @@ class DocumentSyncService:
                         source=source,
                         provider=provider,
                         reference=reference,
+                        selection_filter=selection_filter,
                     )
                     counters.upserted += int(outcome["status"] == "upserted")
                     counters.chunks_indexed += outcome.get("chunks_created", 0)
@@ -275,11 +300,16 @@ class DocumentSyncService:
             await session.commit()
 
             try:
+                selection_filter = await self.bookstack_sync_config_service.get_selection_filter(
+                    session,
+                    source=source,
+                )
                 outcome = await self._sync_reference(
                     session=session,
                     source=source,
                     provider=provider,
                     reference=reference,
+                    selection_filter=selection_filter,
                 )
                 await document_sync_run_repository.finalize_run(
                     session,
@@ -465,13 +495,31 @@ class DocumentSyncService:
         source: DocumentSource,
         provider: DocumentProvider,
         reference: DocumentReference,
+        selection_filter: BookStackSelectionFilter | None = None,
     ) -> dict[str, Any]:
         source_key = source.source_key
+        selection_filter = selection_filter or BookStackSelectionFilter(mode="all")
         try:
             document = await provider.get_document(
                 reference.external_document_id,
                 reference=reference,
             )
+            if not self._should_sync_document(
+                document=document,
+                selection_filter=selection_filter,
+            ):
+                existing = await document_repository.get_document_by_external_id(
+                    session,
+                    source_id=source.id,
+                    external_document_id=document.external_document_id,
+                )
+                if existing is not None:
+                    await self._delete_record(session=session, record=existing)
+                return {
+                    "status": "skipped",
+                    "title": document.title,
+                    "chunks_created": 0,
+                }
             existing = await document_repository.get_document_by_external_id(
                 session,
                 source_id=source.id,
@@ -530,6 +578,38 @@ class DocumentSyncService:
                 "chunks_created": 0,
                 "error": str(exc),
             }
+
+    def _filter_references(
+        self,
+        *,
+        references: list[DocumentReference],
+        selection_filter: BookStackSelectionFilter,
+    ) -> list[DocumentReference]:
+        if selection_filter.mode != "custom":
+            return references
+        return [reference for reference in references if selection_filter.matches_reference(reference)]
+
+    def _should_sync_document(
+        self,
+        *,
+        document: NormalizedDocument,
+        selection_filter: BookStackSelectionFilter,
+    ) -> bool:
+        if selection_filter.mode != "custom":
+            return True
+
+        reference = DocumentReference(
+            source_key=document.source_key,
+            provider_type=document.provider_type,
+            external_document_id=document.external_document_id,
+            external_parent_id=document.external_parent_id,
+            title=document.title,
+            source_url=document.source_url,
+            container_name=document.container_name,
+            provider_updated_at=document.provider_updated_at,
+            metadata=document.metadata,
+        )
+        return selection_filter.matches_reference(reference)
 
     async def _delete_record(
         self,

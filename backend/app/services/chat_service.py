@@ -211,6 +211,17 @@ class ChatService:
         final_event["chat_summary"] = chat_summary.model_dump(mode="json")
         yield final_event
 
+    async def delete_chat(
+        self,
+        session,
+        *,
+        current_user: User,
+        chat_id: UUID,
+    ) -> None:
+        chat = await self._get_owned_chat(session, current_user=current_user, chat_id=chat_id)
+        await chat_repository.soft_delete_chat(session, chat=chat)
+        await session.commit()
+
     async def _build_history(self, session, *, chat_id: UUID) -> list[ConversationMessage]:
         recent_messages = await chat_repository.list_recent_messages_for_chat(session, chat_id=chat_id, limit=10)
         history: list[ConversationMessage] = []

@@ -118,3 +118,15 @@ async def stream_message(
             yield f"data: {json.dumps({'type': 'done', 'primary_citations': [], 'secondary_citations': [], 'all_citations': [], 'hidden_sources_count': 0, 'mode_used': 'rag', 'max_confidence': 0.0})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.delete(
+    "/{chat_id}",
+    status_code=204,
+)
+async def delete_chat(
+    chat_id: UUID,
+    current_user: User = Depends(require_permissions("chat:use")),
+    session: AsyncSession = Depends(get_db_session),
+):
+    await chat_service.delete_chat(session, current_user=current_user, chat_id=chat_id)

@@ -381,6 +381,7 @@ jobs:
               docker compose -f docker-compose.observability.yml build backend
               docker compose -f docker-compose.observability.yml up --remove-orphans -d backend
             fi
+            docker image prune -f
           "
 
       - name: Health check — backend
@@ -462,6 +463,7 @@ jobs:
               docker compose -f docker-compose.observability.yml build --no-cache frontend
               docker compose -f docker-compose.observability.yml up --remove-orphans -d frontend
             fi
+            docker image prune -f
           "
 
       - name: Health check — frontend

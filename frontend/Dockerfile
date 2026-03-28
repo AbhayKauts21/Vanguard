@@ -2,7 +2,6 @@
 FROM node:22-slim AS builder
 
 WORKDIR /app
-ENV NAPI_RS_FORCE_WASI=1
 
 # Install dependencies first (better layer caching)
 COPY package.json package-lock.json* ./
@@ -24,7 +23,6 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NAPI_RS_FORCE_WASI=1
 
 # Copy standalone output + static assets + public
 COPY --from=builder /app/.next/standalone ./

@@ -67,6 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_OPTIONS: "--max-old-space-size=4096"
+      NAPI_RS_FORCE_WASI: "1"
     defaults:
       run:
         working-directory: frontend
@@ -101,6 +102,8 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     continue-on-error: true
+    env:
+      NAPI_RS_FORCE_WASI: "1"
     defaults:
       run:
         working-directory: frontend

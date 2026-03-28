@@ -74,5 +74,15 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.0"
+  },
+  "optionalDependencies": {
+    "@parcel/watcher-linux-x64-glibc": "2.5.6",
+    "@parcel/watcher-linux-x64-musl": "2.5.6",
+    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.9",
+    "@rolldown/binding-linux-x64-musl": "1.0.0-rc.9",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.2.1",
+    "@tailwindcss/oxide-linux-x64-musl": "4.2.1",
+    "lightningcss-linux-x64-gnu": "1.31.1",
+    "lightningcss-linux-x64-musl": "1.31.1"
   }
 }

@@ -94,7 +94,7 @@
     "sessionStable": "Uplink Stable",
     "sessionConnecting": "Connecting...",
     "inputPlaceholder": "Address CLEO...",
-    "initialMessage": "Initializing neural synchronization. All systems nominal. I have processed the latest data grid from the central archive. How shall we proceed with your objectives?",
+    "initialMessage": "I am CLEO, your intelligent AI avatar. How can I help you today?",
     "promptArchitecture": "Summarize CLEO architecture",
     "promptCapabilities": "What can CLEO do right now?",
     "promptKnowledgeBase": "What is in the knowledge base?",
@@ -125,7 +125,11 @@
     "sourcesDrawerTitle": "Grounded retrieval",
     "expandSources": "View {count} more sources",
     "collapseSources": "Collapse",
-    "viewOriginal": "Open"
+    "viewOriginal": "Open",
+    "deleteChatTitle": "Delete Conversation",
+    "deleteChatMessage": "Are you sure you want to delete this chat history? This action cannot be undone.",
+    "deleteChatConfirm": "Delete",
+    "deleteChatCancel": "Keep"
   },
   "avatar": {
     "coreSync": "CORE_SYNC: ACTIVE",

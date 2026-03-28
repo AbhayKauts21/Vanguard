@@ -94,7 +94,7 @@
     "sessionStable": "Enlace Estable",
     "sessionConnecting": "Conectando...",
     "inputPlaceholder": "Consulta a CLEO...",
-    "initialMessage": "Inicializando sincronización neural. Todos los sistemas están nominales. He procesado la cuadrícula de datos más reciente del archivo central. ¿Cómo deseas proceder con tus objetivos?",
+    "initialMessage": "Soy CLEO, tu avatar inteligente de IA. ¿Cómo puedo ayudarte hoy?",
     "promptArchitecture": "Resume la arquitectura de CLEO",
     "promptCapabilities": "¿Qué puede hacer CLEO ahora?",
     "promptKnowledgeBase": "¿Qué hay en la base de conocimiento?",
@@ -125,7 +125,11 @@
     "sourcesDrawerTitle": "Recuperación fundamentada",
     "expandSources": "Ver {count} fuentes más",
     "collapseSources": "Cerrar",
-    "viewOriginal": "Abrir"
+    "viewOriginal": "Abrir",
+    "deleteChatTitle": "Eliminar conversación",
+    "deleteChatMessage": "¿Estás seguro de que quieres eliminar este historial de chat? Esta acción no se puede deshacer.",
+    "deleteChatConfirm": "Eliminar",
+    "deleteChatCancel": "Mantener"
   },
   "avatar": {
     "coreSync": "SINCRONIZACIÓN: ACTIVA",

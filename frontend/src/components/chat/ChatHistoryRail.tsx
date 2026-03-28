@@ -55,7 +55,7 @@ export function ChatHistoryRail({
   );
 
   return (
-    <aside className="w-full shrink-0 border-b border-white/10 bg-black/30 lg:w-72 lg:border-r lg:border-b-0">
+    <aside className="w-full shrink-0 border-b border-white/10 bg-black/30 md:w-72 md:border-r md:border-b-0">
       <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-4">
         <div>
           <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/40">
@@ -67,7 +67,7 @@ export function ChatHistoryRail({
         </div>
       </div>
 
-      <div className="max-h-[13rem] overflow-y-auto p-3 lg:max-h-none lg:h-[calc(100%-4.5rem)] lg:pb-4">
+      <div className="max-h-[13rem] overflow-y-auto p-3 md:max-h-none md:h-[calc(100%-4.5rem)] md:pb-4">
         {isLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, index) => (
@@ -145,10 +145,10 @@ export function ChatHistoryRail({
 
       <ConfirmationModal
         isOpen={!!deleteTargetId}
-        title="Delete Conversation"
-        message="Are you sure you want to delete this chat history? This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Keep"
+        title={t("deleteChatTitle")}
+        message={t("deleteChatMessage")}
+        confirmLabel={t("deleteChatConfirm")}
+        cancelLabel={t("deleteChatCancel")}
         isDestructive
         onConfirm={() => {
           if (deleteTargetId) {

@@ -77,17 +77,20 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
   const t = useTranslations("chat");
   const hasMessages = messages.length > 0;
   const errorType = useChatStore((s) => s.errorType);
+  const isHistoryCollapsed = useChatStore((s) => s.isHistoryCollapsed);
+  const toggleHistory = useChatStore((s) => s.toggleHistory);
+  const setHistoryCollapsed = useChatStore((s) => s.setHistoryCollapsed);
+  
   const shouldShowPromptRail = hasMessages && messages.length <= 4 && !isThinking;
-  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
 
   useEffect(() => {
     if (!history?.isVisible) {
-      setIsHistoryCollapsed(false);
+      setHistoryCollapsed(false);
     }
-  }, [history?.isVisible]);
+  }, [history?.isVisible, setHistoryCollapsed]);
 
   return (
-    <div className="flex-1 flex flex-col glass-panel rounded-xl overflow-hidden shadow-2xl panel-boundary transition-all duration-1000 relative">
+    <div className="flex-1 flex flex-col glass-panel rounded-xl overflow-hidden shadow-2xl panel-boundary relative">
       <div className="pointer-events-none absolute inset-px rounded-[inherit]">
         <span className="absolute left-0 top-0 h-5 w-5 rounded-tl-xl border-l border-t border-white/20" />
       </div>
@@ -96,10 +99,10 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
         onNewChat={history?.onCreateChat} 
         isHistoryVisible={history?.isVisible}
         isHistoryCollapsed={isHistoryCollapsed}
-        onToggleHistory={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
+        onToggleHistory={toggleHistory}
       />
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         {history?.isVisible && !isHistoryCollapsed ? (
           <ChatHistoryRail
             chats={history.chats}
@@ -108,7 +111,7 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
             onSelectChat={history.onSelectChat}
             onCreateChat={history.onCreateChat}
             onDeleteChat={history.onDeleteChat}
-            onToggleCollapse={() => setIsHistoryCollapsed(true)}
+            onToggleCollapse={() => setHistoryCollapsed(true)}
           />
         ) : null}
 

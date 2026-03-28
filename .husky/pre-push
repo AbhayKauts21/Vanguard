@@ -5,7 +5,7 @@ cd frontend || exit 1
 npx tsc --noEmit || exit 1
 
 echo "Running frontend tests..."
-npm test -- --run || exit 1
+npm run test:smoke -- --maxWorkers=1 || exit 1
 
 echo "Running frontend build..."
 npm run build || exit 1

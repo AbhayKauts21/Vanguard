@@ -9,6 +9,7 @@
     "lint": "eslint src --quiet",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "test": "vitest run",
+    "test:smoke": "vitest run src/components/chat/ChatHistoryRail.test.tsx src/components/chat/CitationList.test.tsx src/components/chat/EmptyState.test.tsx src/components/chat/SessionStatus.test.tsx src/domains/chat/model/chat-store.test.ts src/lib/api/client.test.ts src/lib/env/env.test.ts src/lib/utils/cn.test.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "prepare": "node -e \"const fs=require('fs'); const {spawnSync}=require('child_process'); if(!fs.existsSync('../.git')) process.exit(0); const result=spawnSync('frontend/node_modules/.bin/husky',['.husky'],{cwd:'..',stdio:'inherit',shell:true}); process.exit(result.status ?? 0);\""

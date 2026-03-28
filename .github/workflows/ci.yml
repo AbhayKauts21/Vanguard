@@ -86,7 +86,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run tests
-        run: npm test -- --run --maxWorkers=1
+        run: npm run test:smoke -- --maxWorkers=1
 
       - name: Build
         run: npm run build

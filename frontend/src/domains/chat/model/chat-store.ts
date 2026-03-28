@@ -30,6 +30,7 @@ interface ChatState {
   guestConversationId: string;
   isLoadingChats: boolean;
   isLoadingMessages: boolean;
+  isHistoryCollapsed: boolean;
 
   addUserMessage: (content: string) => string;
   startAssistantMessage: () => string;
@@ -57,6 +58,9 @@ interface ChatState {
   setChatMessages: (chatId: string, messages: ChatMessage[]) => void;
   setLoadingChats: (val: boolean) => void;
   setLoadingMessages: (val: boolean) => void;
+  deleteConversation: (chatId: string) => Promise<void>;
+  setHistoryCollapsed: (val: boolean) => void;
+  toggleHistory: () => void;
 }
 
 interface PersistedGuestState {
@@ -154,6 +158,7 @@ export const useChatStore = create<ChatState>()(
       guestConversationId: uuidv4(),
       isLoadingChats: false,
       isLoadingMessages: false,
+      isHistoryCollapsed: false,
 
       addUserMessage: (content) => {
         const id = nextId();
@@ -355,6 +360,38 @@ export const useChatStore = create<ChatState>()(
 
       setLoadingChats: (val) => set({ isLoadingChats: val }),
       setLoadingMessages: (val) => set({ isLoadingMessages: val }),
+
+      deleteConversation: async (chatId) => {
+        const { deletePersistedChat } = await import("../api/chat-api");
+        await deletePersistedChat(chatId);
+
+        set((state) => {
+          const nextSummaries = state.chatSummaries.filter((s) => s.id !== chatId);
+          const isDeletingActive = state.activeChatId === chatId;
+
+          if (isDeletingActive) {
+            const nextGuestId = uuidv4();
+            return {
+              chatSummaries: nextSummaries,
+              activeChatId: null,
+              messages: [],
+              conversationId: nextGuestId,
+              guestConversationId: nextGuestId,
+              guestMessages: [],
+              streamingMessageId: null,
+              isThinking: false,
+              errorType: null,
+            };
+          }
+
+          return {
+            chatSummaries: nextSummaries,
+          };
+        });
+      },
+
+      setHistoryCollapsed: (val) => set({ isHistoryCollapsed: val }),
+      toggleHistory: () => set((state) => ({ isHistoryCollapsed: !state.isHistoryCollapsed })),
     }),
     {
       name: CHAT_STORAGE_KEY,

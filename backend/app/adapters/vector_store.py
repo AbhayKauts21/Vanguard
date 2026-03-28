@@ -96,6 +96,7 @@ class VectorStore:
                     source_key=match.get("metadata", {}).get("source_key", ""),
                     source_type=match.get("metadata", {}).get("source_type", "bookstack"),
                     source_name=match.get("metadata", {}).get("source_name", ""),
+                    full_doc_text=match.get("metadata", {}).get("full_doc_text", ""),
                 )
                 for match in results.get("matches", [])
             ]

@@ -100,6 +100,7 @@ class VectorSearchResult(BaseModel):
     source_key: str = ""
     source_type: str = "bookstack"
     source_name: str = ""
+    full_doc_text: str = ""
 
 
 class DocumentReference(BaseModel):

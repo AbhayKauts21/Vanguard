@@ -52,7 +52,7 @@ class TextProcessor:
         text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
         text = re.sub(r"^\s*\d+\.\s+", "", text, flags=re.MULTILINE)
         text = re.sub(r"\[(?P<label>[^\]]+)\]\((?P<url>[^)]+)\)", r"\g<label>", text)
-        text = re.sub(r"`{1,3}", "", text)
+        # text = re.sub(r"`{1,3}", "", text)  # DO NOT STRIP CODE SYNTAX
         text = re.sub(r"[*_~]{1,2}", "", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
         text = re.sub(r"[ \t]{2,}", " ", text)
@@ -65,9 +65,9 @@ class TextProcessor:
         metadata_base: dict,
         chunk_id_prefix: str | None = None,
     ) -> List[TextChunk]:
-        """Split text into overlapping chunks with metadata."""
+        """High-Res Retrieval Strategy: Split into 800-char overlapping chunks for precise matching."""
         if not text or len(text.strip()) < 50:
-            return []  # skip near-empty pages
+            return []
 
         chunks: List[TextChunk] = []
         # Split by paragraphs first, then merge into chunk_size windows
@@ -96,7 +96,7 @@ class TextProcessor:
                 current_chunk, page_id, chunk_index, metadata_base, chunk_id_prefix=chunk_id_prefix
             ))
 
-        logger.debug(f"Page {page_id}: split into {len(chunks)} chunks")
+        logger.info(f"Page {page_id}: split into {len(chunks)} high-res chunks")
         return chunks
 
     def _build_chunk(
@@ -107,7 +107,18 @@ class TextProcessor:
         metadata_base: dict,
         chunk_id_prefix: str | None = None,
     ) -> TextChunk:
-        """Construct a TextChunk with Pinecone-ready metadata."""
+        """Construct a TextChunk with Pinecone-ready metadata and breadcrumbs."""
+        # --- BREADCRUMB INJECTION ---
+        page_title = metadata_base.get("page_title", "Untitled")
+        source_name = metadata_base.get("source_name", "")
+        
+        # Clean breadcrumb
+        clean_title = re.sub(r"^#{1,6}\s*", "", page_title).strip()
+        prefix = f"Doc: {clean_title} | "
+        
+        contextualized_text = prefix + text
+        # ---------------------------
+
         chunk_id = (
             f"{chunk_id_prefix}::chunk::{chunk_index}"
             if chunk_id_prefix
@@ -115,10 +126,10 @@ class TextProcessor:
         )
         metadata = {
             **metadata_base,
-            "chunk_text": text[:1000],  # Pinecone metadata limit safety
+            "chunk_text": contextualized_text[:1000],  # Pinecone metadata limit safety
             "chunk_index": chunk_index,
         }
-        return TextChunk(chunk_id=chunk_id, text=text, metadata=metadata)
+        return TextChunk(chunk_id=chunk_id, text=contextualized_text, metadata=metadata)
 
     def process_page(
         self,
@@ -143,6 +154,7 @@ class TextProcessor:
             "source_url": bookstack_url,
             "source_type": "bookstack",
             "source_name": book_title,
+            "full_doc_text": html_content,  # Original source for LLM
         }
 
         return self.chunk_text(clean_text, page_id, metadata_base)
@@ -171,6 +183,7 @@ class TextProcessor:
             "source_url": source_url,
             "source_type": source_type,
             "source_name": source_name,
+            "full_doc_text": text_content,  # Original source for LLM
         }
         return self.chunk_text(clean_text, page_id, metadata_base)
 
@@ -196,6 +209,7 @@ class TextProcessor:
             "source_key": document.source_key,
             "external_document_id": document.external_document_id,
             "document_uid": document.document_uid,
+            "full_doc_text": document.content,  # Original source for LLM
         }
 
         return self.chunk_text(

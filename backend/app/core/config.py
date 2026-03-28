@@ -57,9 +57,9 @@ class Settings(BaseSettings):
     # Ingestion pipeline tuning
     CHUNK_SIZE: int = 800
     CHUNK_OVERLAP: int = 200
-    MIN_SIMILARITY_SCORE: float = 0.78
+    MIN_SIMILARITY_SCORE: float = 0.40
     SYNC_INTERVAL_MINUTES: int = 5
-    TOP_K_RESULTS: int = 5
+    TOP_K_RESULTS: int = 8
 
     # Webhook verification
     BOOKSTACK_WEBHOOK_SECRET: str = ""

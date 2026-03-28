@@ -118,6 +118,10 @@ async function request<T>(path: string, init?: RequestInit, options?: RequestOpt
     throw new ApiError(res.status, problem);
   }
 
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   return res.json() as Promise<T>;
 }
 
@@ -131,6 +135,9 @@ export const api = {
       body: body ? JSON.stringify(body) : undefined,
       headers,
     }),
+
+  delete: <T>(path: string, headers?: Record<string, string>) =>
+    request<T>(path, { method: "DELETE", headers }),
 
   /* Return raw Response for SSE streaming. */
   stream: async (path: string, body: unknown, signal?: AbortSignal) => {

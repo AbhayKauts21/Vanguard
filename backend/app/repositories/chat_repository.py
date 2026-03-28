@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import Select, func, select
@@ -34,7 +34,11 @@ class ChatRepository:
         stmt = (
             select(ChatSession)
             .options(selectinload(ChatSession.messages))
-            .where(ChatSession.id == chat_id, ChatSession.user_id == user_id)
+            .where(
+                ChatSession.id == chat_id, 
+                ChatSession.user_id == user_id,
+                ChatSession.deleted_at.is_(None)
+            )
         )
         result = await session.execute(stmt)
         return result.scalars().first()
@@ -48,7 +52,7 @@ class ChatRepository:
         stmt = (
             select(ChatSession)
             .options(selectinload(ChatSession.messages))
-            .where(ChatSession.id == chat_id)
+            .where(ChatSession.id == chat_id, ChatSession.deleted_at.is_(None))
         )
         result = await session.execute(stmt)
         return result.scalars().first()
@@ -79,7 +83,7 @@ class ChatRepository:
                 message_count.label("message_count"),
                 last_preview.label("last_message_preview"),
             )
-            .where(ChatSession.user_id == user_id)
+            .where(ChatSession.user_id == user_id, ChatSession.deleted_at.is_(None))
             .order_by(ChatSession.updated_at.desc(), ChatSession.created_at.desc())
             .limit(limit + 1)
         )
@@ -166,6 +170,16 @@ class ChatRepository:
         session.add(chat)
         await session.flush()
         return chat
+
+    async def soft_delete_chat(
+        self,
+        session: AsyncSession,
+        *,
+        chat: ChatSession,
+    ) -> None:
+        chat.deleted_at = datetime.now(timezone.utc)
+        session.add(chat)
+        await session.flush()
 
 
 chat_repository = ChatRepository()

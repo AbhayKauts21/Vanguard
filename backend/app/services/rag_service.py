@@ -4,7 +4,8 @@ Phase 8: structured logging at every pipeline step with request-id correlation.
 """
 
 import time
-from typing import List, AsyncGenerator
+from pathlib import Path
+from typing import List, AsyncGenerator, Set
 
 from loguru import logger
 
@@ -19,6 +20,23 @@ from app.adapters.vector_store import vector_store as default_vector_store
 from app.adapters.llm_client import llm_client as default_llm_client
 from app.services.citation_ranker import citation_ranker as default_citation_ranker
 from app.services.azure_chat_service import azure_chat_service as default_azure_chat_service
+
+
+SHORTCUT_RESPONSES = {
+    "en": {
+        "what is cleo": "CLEO (Contextual Learning & Enterprise Oracle) is a premium AI-driven workspace assistant designed to provide grounded, reliable answers from your documentation and knowledge base. I combine advanced LLM reasoning with precise retrieval to give you the exact information you need.",
+        "what can cleo do": "I can analyze your internal documentation, summarize complex technical guides, help you debug code, and provide grounded answers with direct citations. I also feature a 'Neural Link' voice mode for hands-free intelligence when you're on the go.",
+        "how to use cleo": "Simply type your question in the chat bar, for voice interactions use the speech mode."
+    },
+    "es": {
+        "qué es cleo": "CLEO (Oráculo Contextual de Aprendizaje Empresarial) es un asistente de trabajo premium impulsado por IA, diseñado para proporcionar respuestas fundamentadas y confiables de tu documentación y base de conocimientos. Combino el razonamiento avanzado de LLM con una recuperación precisa para darte la información exacta que necesitas.",
+        "que es cleo": "CLEO (Oráculo Contextual de Aprendizaje Empresarial) es un asistente de trabajo premium impulsado por IA, diseñado para proporcionar respuestas fundamentadas y confiables de tu documentación y base de conocimientos. Combino el razonamiento avanzado de LLM con una recuperación precisa para darte la información exacta que necesitas.",
+        "qué puede hacer cleo": "Puedo analizar tu documentación interna, resumir guías técnicas complejas, ayudarte a depurar código y proporcionar respuestas fundamentadas con citas directas. También cuento con un modo de voz 'Enlace Neural' para inteligencia manos libres cuando estás en movimiento.",
+        "que puede hacer cleo": "Puedo analizar tu documentación interna, resumir guías técnicas complejas, ayudarte a depurar código y proporcionar respuestas fundamentadas con citas directas. También cuento con un modo de voz 'Enlace Neural' para inteligencia manos libres cuando estás en movimiento.",
+        "cómo usar cleo": "Simplemente escribe tu pregunta en la barra de chat, para interacciones de voz usa el modo de voz.",
+        "como usar cleo": "Simplemente escribe tu pregunta en la barra de chat, para interacciones de voz usa el modo de voz."
+    }
+}
 
 
 class RAGService:
@@ -42,11 +60,26 @@ class RAGService:
         self.top_k = settings.TOP_K_RESULTS
 
     async def answer_query(
-        self, question: str, history: List[ConversationMessage] | None = None
+        self, question: str, history: List[ConversationMessage] | None = None, locale: str = "en"
     ) -> ChatResponse:
         """Full RAG pipeline — returns answer with citations."""
         rlog = logger.bind(request_id="sync")
         t_start = time.perf_counter()
+
+        # 0. Check for hardcoded shortcuts (Performance bypass)
+        normalized_q = question.lower().strip().lstrip("¿¡").rstrip("?")
+        if locale in SHORTCUT_RESPONSES and normalized_q in SHORTCUT_RESPONSES[locale]:
+            answer = SHORTCUT_RESPONSES[locale][normalized_q]
+            rlog.info("rag.shortcut_triggered", query=normalized_q, locale=locale)
+            return ChatResponse(
+                answer=answer,
+                primary_citations=[],
+                secondary_citations=[],
+                all_citations=[],
+                hidden_sources_count=0,
+                mode_used="shortcut",
+                max_confidence=1.0
+            )
 
         # 1. Embed the user's question
         t0 = time.perf_counter()
@@ -66,7 +99,7 @@ class RAGService:
                 detail="No knowledge base data found. Please run ingestion first."
             )
 
-        # 3. Confidence gate — reject if no relevant context
+        # 4. Context Expansion: Load full documents from disk for retrieved chunks
         relevant = self._filter_by_confidence(results)
         rlog.info("rag.confidence_gate", passed=bool(relevant), threshold=self.min_score, top_score=round(max_score, 3))
 
@@ -74,15 +107,15 @@ class RAGService:
             rlog.info("rag.no_context", query=question[:80])
             raise NoContextFoundError()
 
-        # 4. Build context from top chunks
-        context_chunks = [r.text for r in relevant]
+        # Build context from FULL documents
+        context_docs = self._expand_to_full_documents(relevant)
         ranked_citations = self.citation_ranker.rank_citations(relevant)
 
         # 5. Generate answer using LLM
         t0 = time.perf_counter()
         answer = await self.llm_client.generate(
             question=question,
-            context_chunks=context_chunks,
+            context_chunks=context_docs,
             history=history,
         )
         gen_ms = round((time.perf_counter() - t0) * 1000, 1)
@@ -108,11 +141,32 @@ class RAGService:
         )
 
     async def answer_query_stream(
-        self, question: str, history: List[ConversationMessage] | None = None
+        self, question: str, history: List[ConversationMessage] | None = None, locale: str = "en"
     ) -> AsyncGenerator[dict, None]:
         """Streaming RAG pipeline — yields tokens + final summary dict based on confidence routing."""
         rlog = logger.bind(request_id="stream")
         t_start = time.perf_counter()
+
+        # 0. Check for hardcoded shortcuts (Performance bypass)
+        normalized_q = question.lower().strip().lstrip("¿¡").rstrip("?")
+        if locale in SHORTCUT_RESPONSES and normalized_q in SHORTCUT_RESPONSES[locale]:
+            answer = SHORTCUT_RESPONSES[locale][normalized_q]
+            rlog.info("rag.shortcut_triggered", query=normalized_q, locale=locale)
+            
+            # Simulate streaming for consistent UI feel
+            for token in answer.split(" "):
+                yield {"type": "token", "content": token + " "}
+                
+            yield {
+                "type": "done",
+                "primary_citations": [],
+                "secondary_citations": [],
+                "all_citations": [],
+                "hidden_sources_count": 0,
+                "mode_used": "shortcut",
+                "max_confidence": 1.0
+            }
+            return
 
         # 1. Embed and query
         t0 = time.perf_counter()
@@ -134,7 +188,7 @@ class RAGService:
                 threshold=round(self._high_confidence_threshold(), 3),
             )
             relevant = self._filter_by_confidence(results)
-            context_chunks = [r.text for r in relevant]
+            context_docs = self._expand_to_full_documents(relevant)
             ranked_citations = self.citation_ranker.rank_citations(relevant)
 
             # Stream tokens
@@ -142,7 +196,7 @@ class RAGService:
             token_count = 0
             token_stream = self.llm_client.generate_stream(
                 question=question,
-                context_chunks=context_chunks,
+                context_chunks=context_docs,
                 history=history,
             )
             async for token in token_stream:
@@ -230,6 +284,29 @@ Do NOT make up details about our product features or policies."""
                 "mode_used": "azure_fallback",
                 "max_confidence": max_confidence
             }
+
+    def _expand_to_full_documents(self, results: List[VectorSearchResult]) -> List[str]:
+        """Load the full original documentation chapters directly from Pinecone metadata."""
+        full_texts: List[str] = []
+        seen_page_ids: Set[int] = set()
+
+        for r in results:
+            if r.page_id and r.page_id not in seen_page_ids:
+                # The 'full_doc_text' is stored in the metadata of every chunk
+                # We need to access it from the raw metadata if it's not a first-class field in VectorSearchResult
+                # In our case, the query adapter might not be passing it through yet, so we need to check VectorStore
+                
+                # Retrieve from VectorSearchResult (we'll ensure VectorStore passes it)
+                if hasattr(r, "full_doc_text") and r.full_doc_text:
+                    full_texts.append(r.full_doc_text)
+                    seen_page_ids.add(r.page_id)
+                    logger.debug(f"Expanded context: loaded full doc for page {r.page_id} from metadata")
+        
+        # Fallback: if metadata expansion fails, use the individual chunks
+        if not full_texts:
+            return [r.text for r in results]
+            
+        return full_texts
 
     def _filter_by_confidence(
         self, results: List[VectorSearchResult]

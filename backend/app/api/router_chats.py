@@ -79,11 +79,13 @@ async def send_message(
 ):
     rlog = get_request_logger(request)
     rlog.info("chat.send.received", chat_id=str(chat_id), query_length=len(body.message))
+    locale = request.headers.get("Accept-Language", "en")[:2]
     response = await chat_service.send_message(
         session,
         current_user=current_user,
         chat_id=chat_id,
         payload=body,
+        locale=locale,
     )
     rlog.info("chat.send.completed", chat_id=str(chat_id), status=200)
     return response
@@ -104,12 +106,14 @@ async def stream_message(
     rlog.info("chat.stream.received", chat_id=str(chat_id), query_length=len(body.message))
 
     async def event_stream():
+        locale = request.headers.get("Accept-Language", "en")[:2]  # Simple 'en' or 'es' extraction
         try:
             async for event in chat_service.stream_message(
                 session,
                 current_user=current_user,
                 chat_id=chat_id,
                 payload=body,
+                locale=locale,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as exc:
@@ -118,3 +122,15 @@ async def stream_message(
             yield f"data: {json.dumps({'type': 'done', 'primary_citations': [], 'secondary_citations': [], 'all_citations': [], 'hidden_sources_count': 0, 'mode_used': 'rag', 'max_confidence': 0.0})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.delete(
+    "/{chat_id}",
+    status_code=204,
+)
+async def delete_chat(
+    chat_id: UUID,
+    current_user: User = Depends(require_permissions("chat:use")),
+    session: AsyncSession = Depends(get_db_session),
+):
+    await chat_service.delete_chat(session, current_user=current_user, chat_id=chat_id)

@@ -18,6 +18,7 @@ export default function CleoInterface() {
   const chatSummaries = useChatStore((s) => s.chatSummaries);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const isLoadingChats = useChatStore((s) => s.isLoadingChats);
+  const deleteConversation = useChatStore((s) => s.deleteConversation);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const { send } = useChat();
@@ -58,6 +59,7 @@ export default function CleoInterface() {
               activeChatId,
               isLoading: isLoadingChats,
               onSelectChat: loadChat,
+              onDeleteChat: (id) => void deleteConversation(id),
               onCreateChat: () => {
                 void createNewChat();
               },

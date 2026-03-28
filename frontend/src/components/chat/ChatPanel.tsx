@@ -27,6 +27,7 @@ interface ChatPanelProps {
     isLoading?: boolean;
     onSelectChat: (chatId: string) => void;
     onCreateChat: () => void;
+    onDeleteChat: (chatId: string) => void;
   };
   /** Voice mode controls forwarded to Composer. */
   voice?: {
@@ -91,7 +92,12 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
         <span className="absolute left-0 top-0 h-5 w-5 rounded-tl-xl border-l border-t border-white/20" />
       </div>
 
-      <SessionStatus onNewChat={history?.onCreateChat} />
+      <SessionStatus 
+        onNewChat={history?.onCreateChat} 
+        isHistoryVisible={history?.isVisible}
+        isHistoryCollapsed={isHistoryCollapsed}
+        onToggleHistory={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
+      />
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {history?.isVisible && !isHistoryCollapsed ? (
@@ -101,25 +107,12 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
             isLoading={history.isLoading}
             onSelectChat={history.onSelectChat}
             onCreateChat={history.onCreateChat}
+            onDeleteChat={history.onDeleteChat}
             onToggleCollapse={() => setIsHistoryCollapsed(true)}
           />
         ) : null}
 
         <div className="flex min-h-0 flex-1 flex-col">
-          {history?.isVisible && isHistoryCollapsed ? (
-            <button
-              type="button"
-              onClick={() => setIsHistoryCollapsed(false)}
-              aria-label={t("historyExpand")}
-              title={t("historyExpand")}
-              className="absolute left-0 top-1/2 z-20 inline-flex -translate-x-1/3 -translate-y-1/2 items-center gap-2 rounded-r-2xl border border-white/10 border-l-0 bg-black/65 px-3 py-3 text-[10px] font-medium uppercase tracking-[0.18em] text-white/70 shadow-xl backdrop-blur-md transition-colors hover:border-white/20 hover:bg-black/80 hover:text-white"
-            >
-              <span aria-hidden="true" className="material-symbols-outlined text-[16px] font-light">
-                left_panel_open
-              </span>
-              <span className="[writing-mode:vertical-rl] rotate-180">{t("historyHidden")}</span>
-            </button>
-          ) : null}
 
           <ErrorBanner errorType={errorType} />
           <OfflineBanner />

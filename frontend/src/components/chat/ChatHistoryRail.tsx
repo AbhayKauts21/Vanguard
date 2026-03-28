@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { ConfirmationModal } from "@/components/ui";
 
 import type { ChatSummary } from "@/types";
 
@@ -11,6 +12,7 @@ interface ChatHistoryRailProps {
   isLoading?: boolean;
   onSelectChat: (chatId: string) => void;
   onCreateChat: () => void;
+  onDeleteChat: (chatId: string) => void;
   onToggleCollapse: () => void;
 }
 
@@ -34,10 +36,13 @@ export function ChatHistoryRail({
   isLoading = false,
   onSelectChat,
   onCreateChat,
+  onDeleteChat,
   onToggleCollapse,
 }: ChatHistoryRailProps) {
   const t = useTranslations("chat");
   const headerT = useTranslations("header");
+
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const renderedChats = useMemo(
     () =>
@@ -61,16 +66,6 @@ export function ChatHistoryRail({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onCreateChat}
-            className="inline-flex items-center gap-2 rounded-[0.9rem] border border-white/10 bg-white/[0.05] px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] text-white/70 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[14px] font-light">
-              add
-            </span>
-            <span>{headerT("newChat")}</span>
-          </button>
           <button
             type="button"
             onClick={onToggleCollapse}
@@ -109,7 +104,7 @@ export function ChatHistoryRail({
                   type="button"
                   onClick={() => onSelectChat(chat.id)}
                   className={[
-                    "block w-full rounded-2xl border px-4 py-3 text-left transition-all",
+                    "block group w-full rounded-2xl border px-4 py-3 text-left transition-all",
                     isActive
                       ? "border-cyan-300/30 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(103,232,249,0.08)]"
                       : "border-white/8 bg-white/[0.03] hover:border-white/15 hover:bg-white/[0.06]",
@@ -119,12 +114,25 @@ export function ChatHistoryRail({
                     <p className="line-clamp-2 text-sm font-medium text-white/90">
                       {chat.title}
                     </p>
-                    <span
-                      className={[
-                        "mt-1 size-2 shrink-0 rounded-full",
-                        isActive ? "bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.7)]" : "bg-white/15",
-                      ].join(" ")}
-                    />
+                    <div className="flex items-start gap-2">
+                      <span
+                        className={[
+                          "mt-1.5 size-2 shrink-0 rounded-full",
+                          isActive ? "bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.7)]" : "bg-white/15",
+                        ].join(" ")}
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTargetId(chat.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 -m-1 hover:text-red-400"
+                        title="Delete chat"
+                      >
+                        <span className="material-symbols-outlined text-[16px] font-light">delete</span>
+                      </button>
+                    </div>
                   </div>
 
                   {chat.last_message_preview ? (
@@ -147,6 +155,22 @@ export function ChatHistoryRail({
           </div>
         )}
       </div>
+
+      <ConfirmationModal
+        isOpen={!!deleteTargetId}
+        title="Delete Conversation"
+        message="Are you sure you want to delete this chat history? This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Keep"
+        isDestructive
+        onConfirm={() => {
+          if (deleteTargetId) {
+            onDeleteChat(deleteTargetId);
+            setDeleteTargetId(null);
+          }
+        }}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </aside>
   );
 }

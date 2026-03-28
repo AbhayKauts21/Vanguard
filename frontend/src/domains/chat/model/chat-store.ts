@@ -57,6 +57,7 @@ interface ChatState {
   setChatMessages: (chatId: string, messages: ChatMessage[]) => void;
   setLoadingChats: (val: boolean) => void;
   setLoadingMessages: (val: boolean) => void;
+  deleteConversation: (chatId: string) => Promise<void>;
 }
 
 interface PersistedGuestState {
@@ -355,6 +356,35 @@ export const useChatStore = create<ChatState>()(
 
       setLoadingChats: (val) => set({ isLoadingChats: val }),
       setLoadingMessages: (val) => set({ isLoadingMessages: val }),
+
+      deleteConversation: async (chatId) => {
+        const { deletePersistedChat } = await import("../api/chat-api");
+        await deletePersistedChat(chatId);
+
+        set((state) => {
+          const nextSummaries = state.chatSummaries.filter((s) => s.id !== chatId);
+          const isDeletingActive = state.activeChatId === chatId;
+
+          if (isDeletingActive) {
+            const nextGuestId = uuidv4();
+            return {
+              chatSummaries: nextSummaries,
+              activeChatId: null,
+              messages: [],
+              conversationId: nextGuestId,
+              guestConversationId: nextGuestId,
+              guestMessages: [],
+              streamingMessageId: null,
+              isThinking: false,
+              errorType: null,
+            };
+          }
+
+          return {
+            chatSummaries: nextSummaries,
+          };
+        });
+      },
     }),
     {
       name: CHAT_STORAGE_KEY,

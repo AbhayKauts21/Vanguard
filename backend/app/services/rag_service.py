@@ -22,6 +22,23 @@ from app.services.citation_ranker import citation_ranker as default_citation_ran
 from app.services.azure_chat_service import azure_chat_service as default_azure_chat_service
 
 
+SHORTCUT_RESPONSES = {
+    "en": {
+        "what is cleo": "CLEO (Contextual Learning & Enterprise Oracle) is a premium AI-driven workspace assistant designed to provide grounded, reliable answers from your documentation and knowledge base. I combine advanced LLM reasoning with precise retrieval to give you the exact information you need.",
+        "what can cleo do": "I can analyze your internal documentation, summarize complex technical guides, help you debug code, and provide grounded answers with direct citations. I also feature a 'Neural Link' voice mode for hands-free intelligence when you're on the go.",
+        "how to use cleo": "Simply type your question in the chat bar, for voice interactions use the speech mode."
+    },
+    "es": {
+        "qué es cleo": "CLEO (Oráculo Contextual de Aprendizaje Empresarial) es un asistente de trabajo premium impulsado por IA, diseñado para proporcionar respuestas fundamentadas y confiables de tu documentación y base de conocimientos. Combino el razonamiento avanzado de LLM con una recuperación precisa para darte la información exacta que necesitas.",
+        "que es cleo": "CLEO (Oráculo Contextual de Aprendizaje Empresarial) es un asistente de trabajo premium impulsado por IA, diseñado para proporcionar respuestas fundamentadas y confiables de tu documentación y base de conocimientos. Combino el razonamiento avanzado de LLM con una recuperación precisa para darte la información exacta que necesitas.",
+        "qué puede hacer cleo": "Puedo analizar tu documentación interna, resumir guías técnicas complejas, ayudarte a depurar código y proporcionar respuestas fundamentadas con citas directas. También cuento con un modo de voz 'Enlace Neural' para inteligencia manos libres cuando estás en movimiento.",
+        "que puede hacer cleo": "Puedo analizar tu documentación interna, resumir guías técnicas complejas, ayudarte a depurar código y proporcionar respuestas fundamentadas con citas directas. También cuento con un modo de voz 'Enlace Neural' para inteligencia manos libres cuando estás en movimiento.",
+        "cómo usar cleo": "Simplemente escribe tu pregunta en la barra de chat, para interacciones de voz usa el modo de voz.",
+        "como usar cleo": "Simplemente escribe tu pregunta en la barra de chat, para interacciones de voz usa el modo de voz."
+    }
+}
+
+
 class RAGService:
     """Orchestrates the full RAG pipeline: embed → search → gate → generate (SRP)."""
 
@@ -43,11 +60,26 @@ class RAGService:
         self.top_k = settings.TOP_K_RESULTS
 
     async def answer_query(
-        self, question: str, history: List[ConversationMessage] | None = None
+        self, question: str, history: List[ConversationMessage] | None = None, locale: str = "en"
     ) -> ChatResponse:
         """Full RAG pipeline — returns answer with citations."""
         rlog = logger.bind(request_id="sync")
         t_start = time.perf_counter()
+
+        # 0. Check for hardcoded shortcuts (Performance bypass)
+        normalized_q = question.lower().strip().lstrip("¿¡").rstrip("?")
+        if locale in SHORTCUT_RESPONSES and normalized_q in SHORTCUT_RESPONSES[locale]:
+            answer = SHORTCUT_RESPONSES[locale][normalized_q]
+            rlog.info("rag.shortcut_triggered", query=normalized_q, locale=locale)
+            return ChatResponse(
+                answer=answer,
+                primary_citations=[],
+                secondary_citations=[],
+                all_citations=[],
+                hidden_sources_count=0,
+                mode_used="shortcut",
+                max_confidence=1.0
+            )
 
         # 1. Embed the user's question
         t0 = time.perf_counter()
@@ -109,11 +141,32 @@ class RAGService:
         )
 
     async def answer_query_stream(
-        self, question: str, history: List[ConversationMessage] | None = None
+        self, question: str, history: List[ConversationMessage] | None = None, locale: str = "en"
     ) -> AsyncGenerator[dict, None]:
         """Streaming RAG pipeline — yields tokens + final summary dict based on confidence routing."""
         rlog = logger.bind(request_id="stream")
         t_start = time.perf_counter()
+
+        # 0. Check for hardcoded shortcuts (Performance bypass)
+        normalized_q = question.lower().strip().lstrip("¿¡").rstrip("?")
+        if locale in SHORTCUT_RESPONSES and normalized_q in SHORTCUT_RESPONSES[locale]:
+            answer = SHORTCUT_RESPONSES[locale][normalized_q]
+            rlog.info("rag.shortcut_triggered", query=normalized_q, locale=locale)
+            
+            # Simulate streaming for consistent UI feel
+            for token in answer.split(" "):
+                yield {"type": "token", "content": token + " "}
+                
+            yield {
+                "type": "done",
+                "primary_citations": [],
+                "secondary_citations": [],
+                "all_citations": [],
+                "hidden_sources_count": 0,
+                "mode_used": "shortcut",
+                "max_confidence": 1.0
+            }
+            return
 
         # 1. Embed and query
         t0 = time.perf_counter()

@@ -91,6 +91,7 @@ class ChatService:
         current_user: User,
         chat_id: UUID,
         payload: ChatMessageCreateRequest,
+        locale: str = "en",
     ) -> ChatSendResponse:
         chat = await self._get_owned_chat(session, current_user=current_user, chat_id=chat_id)
         history = await self._build_history(session, chat_id=chat.id)
@@ -102,7 +103,7 @@ class ChatService:
         )
         await self._ensure_chat_title(session, chat=chat, first_user_message=payload.message)
 
-        response = await self._answer_with_fallback(payload.message, history)
+        response = await self._answer_with_fallback(payload.message, history, locale=locale)
         assistant_message = await chat_repository.create_message(
             session,
             chat_id=chat.id,
@@ -131,6 +132,7 @@ class ChatService:
         current_user: User,
         chat_id: UUID,
         payload: ChatMessageCreateRequest,
+        locale: str = "en",
     ) -> AsyncGenerator[dict[str, Any], None]:
         chat = await self._get_owned_chat(session, current_user=current_user, chat_id=chat_id)
         history = await self._build_history(session, chat_id=chat.id)
@@ -152,7 +154,7 @@ class ChatService:
         final_event: dict[str, Any] | None = None
 
         try:
-            async for chunk in self.rag_service.answer_query_stream(payload.message, history=history):
+            async for chunk in self.rag_service.answer_query_stream(payload.message, history=history, locale=locale):
                 if chunk.get("type") == "token":
                     token = str(chunk.get("content", ""))
                     buffered_tokens.append(token)
@@ -264,11 +266,12 @@ class ChatService:
         self,
         question: str,
         history: list[ConversationMessage],
+        locale: str = "en",
     ) -> ChatResponse:
         from app.core.exceptions import NoContextFoundError
 
         try:
-            return await self.rag_service.answer_query(question, history=history)
+            return await self.rag_service.answer_query(question, history=history, locale=locale)
         except NoContextFoundError:
             return ChatResponse(
                 answer=NO_CONTEXT_RESPONSE,

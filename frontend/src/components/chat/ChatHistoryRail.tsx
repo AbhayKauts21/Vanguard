@@ -65,19 +65,6 @@ export function ChatHistoryRail({
             {t("historySubtitle")}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            aria-label={t("historyCollapse")}
-            title={t("historyCollapse")}
-            className="inline-flex size-9 items-center justify-center rounded-[0.9rem] border border-white/10 bg-white/[0.04] text-white/60 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[16px] font-light">
-              left_panel_close
-            </span>
-          </button>
-        </div>
       </div>
 
       <div className="max-h-[13rem] overflow-y-auto p-3 lg:max-h-none lg:h-[calc(100%-4.5rem)] lg:pb-4">

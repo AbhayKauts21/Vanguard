@@ -7,6 +7,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --legacy-peer-deps
 RUN npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-musl@1.0.0-rc.9
+RUN npm install --no-save --ignore-scripts @parcel/watcher-linux-x64-musl@2.5.6
 
 # Copy source and build
 COPY . .

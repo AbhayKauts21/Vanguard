@@ -132,6 +132,9 @@ export const api = {
       headers,
     }),
 
+  delete: <T>(path: string, headers?: Record<string, string>) =>
+    request<T>(path, { method: "DELETE", headers }),
+
   /* Return raw Response for SSE streaming. */
   stream: async (path: string, body: unknown, signal?: AbortSignal) => {
     const makeRequest = (accessToken: string | null) =>

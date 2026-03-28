@@ -39,6 +39,10 @@ export async function sendPersistedChatMessage(
   return api.post<ChatSendResponse>(`${CHATS_ENDPOINT}/${chatId}/messages`, { message });
 }
 
+export async function deletePersistedChat(chatId: string): Promise<void> {
+  return api.delete(`${CHATS_ENDPOINT}/${chatId}`);
+}
+
 /* Fetch backend health status. */
 export async function fetchHealth(): Promise<HealthResponse> {
   return api.get<HealthResponse>(HEALTH_ENDPOINT);

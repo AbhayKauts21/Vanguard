@@ -1,13 +1,11 @@
 # ---- Stage 1: Build ----
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
 # Install dependencies first (better layer caching)
 COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps
-RUN npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-musl@1.0.0-rc.9
-RUN npm install --no-save --ignore-scripts @parcel/watcher-linux-x64-musl@2.5.6
+RUN npm ci
 
 # Copy source and build
 COPY . .
@@ -18,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # ---- Stage 2: Production Runner ----
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
 

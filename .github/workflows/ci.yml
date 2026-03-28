@@ -65,6 +65,8 @@ jobs:
   frontend-test:
     name: Frontend Tests & Build
     runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
     defaults:
       run:
         working-directory: frontend
@@ -80,17 +82,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install rolldown Linux binding
-        run: npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-gnu@1.0.0-rc.9
-
-      - name: Install parcel watcher Linux binding
-        run: npm install --no-save --ignore-scripts @parcel/watcher-linux-x64-glibc@2.5.6
-
       - name: Type check
         run: npx tsc --noEmit
 
       - name: Run tests
-        run: npm test -- --run
+        run: npm test -- --run --maxWorkers=1
 
       - name: Build
         run: npm run build
@@ -114,12 +110,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Install rolldown Linux binding
-        run: npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-gnu@1.0.0-rc.9
-
-      - name: Install parcel watcher Linux binding
-        run: npm install --no-save --ignore-scripts @parcel/watcher-linux-x64-glibc@2.5.6
 
       - name: ESLint
         run: npm run lint

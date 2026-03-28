@@ -6,6 +6,7 @@ WORKDIR /app
 # Install dependencies first (better layer caching)
 COPY package.json package-lock.json* ./
 RUN npm install --legacy-peer-deps
+RUN npm install --no-save --ignore-scripts @rolldown/binding-linux-x64-musl@1.0.0-rc.9
 
 # Copy source and build
 COPY . .

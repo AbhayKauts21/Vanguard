@@ -1,23 +1,25 @@
+ARG NODE_VERSION=22.22.0
+
 # ---- Stage 1: Build ----
-FROM node:22-slim AS builder
+FROM node:${NODE_VERSION}-slim AS builder
 
 WORKDIR /app
 
+ENV NEXT_TELEMETRY_DISABLED=1
+
 # Install dependencies first (better layer caching)
 COPY package.json package-lock.json* ./
-RUN npm ci --include=optional
-RUN node -e "for (const pkg of ['@tailwindcss/oxide', '@next/swc-linux-x64-gnu', '@parcel/watcher', '@rolldown/binding-linux-x64-gnu']) { try { console.log(pkg, '=>', require.resolve(pkg)); } catch (error) { console.log(pkg, '=> MISSING'); console.log(String(error)); process.exitCode = 1; } }"
+RUN npm install
 
 # Copy source and build
 COPY . .
 
-# Build-time env vars must be available at build time for Next.js
-# They get inlined into the JS bundle during `next build`.
-# Pass them via --build-arg or .env.local copied before build.
+# Match local development by seeding the example env file for builds.
+RUN if [ ! -f .env.local ] && [ -f .env.example ]; then cp .env.example .env.local; fi
 RUN npm run build
 
 # ---- Stage 2: Production Runner ----
-FROM node:22-slim AS runner
+FROM node:${NODE_VERSION}-slim AS runner
 
 WORKDIR /app
 

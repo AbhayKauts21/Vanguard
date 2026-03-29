@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { UserAccessPanel } from "./UserAccessPanel";
+import { NextIntlClientProvider } from "next-intl";
+import messages from "../../../messages/en.json";
 
 const assignRolesMock = vi.fn();
 const refreshMock = vi.fn();
@@ -67,7 +69,11 @@ describe("UserAccessPanel", () => {
   });
 
   it("allows assigning multiple roles to a user", async () => {
-    render(<UserAccessPanel />);
+    render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <UserAccessPanel />
+      </NextIntlClientProvider>
+    );
 
     fireEvent.click(screen.getByLabelText(/admin/i));
     fireEvent.click(screen.getByRole("button", { name: "Save role assignment" }));

@@ -2,21 +2,14 @@
 # CLEO - Full Observability Stack with OpenTelemetry + Grafana
 # ========================================================================
 #
-# This docker-compose file sets up:
-# - Frontend (Next.js) - 2 replicas
-# - Backend (FastAPI) - 3 replicas  
-# - PostgreSQL database
-# - OpenTelemetry Collector
-# - Grafana Stack (Tempo, Loki, Prometheus)
-# - Grafana dashboard
+# Services: Frontend (2 replicas), Backend (3 replicas),
+#           OTel Collector, Tempo, Loki, Prometheus, Grafana
 #
 # Usage:
-#   docker-compose up --build
-#   Access Grafana: http://localhost:3001 (admin/admin)
-#
+#   docker compose up --build
+#   Access Grafana: http://localhost:3002 (admin/admin)
 # ========================================================================
 
-version: '3.9'
 
 networks:
   cleo-network:
@@ -71,16 +64,16 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_APP_NAME: CLEO
-        NEXT_PUBLIC_DEFAULT_LOCALE: en
-        NEXT_PUBLIC_SUPPORTED_LOCALES: en,es
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
-        NEXT_PUBLIC_ENABLE_AVATAR: "false"
-        NEXT_PUBLIC_ENABLE_AMBIENT_EFFECTS: "true"
-        NEXT_PUBLIC_ENABLE_STREAMING: "true"
-        NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4318/v1/traces
-        NEXT_PUBLIC_OTEL_ENABLED: "true"
-        NEXT_PUBLIC_APP_VERSION: "1.0.0"
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-CLEO}
+        NEXT_PUBLIC_DEFAULT_LOCALE: ${NEXT_PUBLIC_DEFAULT_LOCALE:-en}
+        NEXT_PUBLIC_SUPPORTED_LOCALES: ${NEXT_PUBLIC_SUPPORTED_LOCALES:-en,es}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://cleoapi.andinolabs.tech}
+        NEXT_PUBLIC_ENABLE_AVATAR: ${NEXT_PUBLIC_ENABLE_AVATAR:-false}
+        NEXT_PUBLIC_ENABLE_AMBIENT_EFFECTS: ${NEXT_PUBLIC_ENABLE_AMBIENT_EFFECTS:-true}
+        NEXT_PUBLIC_ENABLE_STREAMING: ${NEXT_PUBLIC_ENABLE_STREAMING:-true}
+        NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT: ${NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318/v1/traces}
+        NEXT_PUBLIC_OTEL_ENABLED: ${NEXT_PUBLIC_OTEL_ENABLED:-true}
+        NEXT_PUBLIC_APP_VERSION: ${NEXT_PUBLIC_APP_VERSION:-1.0.0}
     image: cleo-frontend:${FRONTEND_VERSION:-latest}
     env_file: ./frontend/.env.local
     deploy:

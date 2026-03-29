@@ -8,7 +8,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { initializeOpenTelemetry, getTracer } from './otel-client';
+import { initializeOpenTelemetry, getTracer } from '../instrumentation';
 
 interface TelemetryContextValue {
   initialized: boolean;

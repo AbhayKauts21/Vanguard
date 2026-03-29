@@ -12,6 +12,7 @@ on:
           - destroy
       deploy_target:
         description: "Services to deploy — 'all' required for first deploy"
+        description: "Services to deploy — 'all' required for first deploy"
         required: false
         type: choice
         default: all
@@ -19,6 +20,8 @@ on:
           - all
           - backend
           - frontend
+          - observability
+          - nginx
       backend_version:
         description: "Backend version (e.g. v1.2.0 or latest)"
         required: false
@@ -33,25 +36,26 @@ on:
         description: "Frontend domain"
         required: false
         type: string
-        default: cleo.andinolabs.ai
+        default: cleo.andinolabs.tech
       backend_domain:
         description: "Backend domain"
         required: false
         type: string
-        default: api.andinolabs.ai
+        default: cleoapi.andinolabs.tech
       grafana_domain:
         description: "Grafana domain"
         required: false
         type: string
-        default: grafana.andinolabs.ai
+        default: cleografana.andinolabs.tech
 
 env:
   TF_WORKING_DIR: terraform/env/dev
 
+jobs:
+
 # ─────────────────────────────────────────────
 # JOB 1: validate
 # ─────────────────────────────────────────────
-jobs:
   validate:
     name: Validate Inputs & JSON
     runs-on: ubuntu-latest
@@ -59,16 +63,12 @@ jobs:
     steps:
       - name: Validate GitHub variable JSON
         run: |
-          echo "Validating BACKEND_ENV_JSON..."
-          echo '${{ vars.BACKEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: BACKEND_ENV_JSON is not valid JSON"; exit 1; }
-          echo "Validating FRONTEND_ENV_JSON..."
-          echo '${{ vars.FRONTEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: FRONTEND_ENV_JSON is not valid JSON"; exit 1; }
+          echo '${{ vars.BACKEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: BACKEND_ENV_JSON invalid JSON"; exit 1; }
+          echo '${{ vars.FRONTEND_ENV_JSON }}' | jq . > /dev/null || { echo "ERROR: FRONTEND_ENV_JSON invalid JSON"; exit 1; }
           echo "JSON validation passed."
 
 # ─────────────────────────────────────────────
 # JOB 2: provision
-# Runs Terraform only when VM doesn't exist yet.
-# On re-deploy it just reads the existing VM IP.
 # ─────────────────────────────────────────────
   provision:
     name: Provision Infrastructure
@@ -78,6 +78,8 @@ jobs:
     outputs:
       vm_ip: ${{ steps.resolve_ip.outputs.vm_ip }}
       vm_exists: ${{ steps.vm_check.outputs.vm_exists }}
+      # SSH key passed as output so downstream jobs can use it in same run
+      ssh_key: ${{ steps.resolve_ssh.outputs.ssh_key }}
 
     steps:
       - uses: actions/checkout@v4
@@ -110,6 +112,7 @@ jobs:
           else
             echo "vm_exists=false" >> $GITHUB_OUTPUT
             echo "vm_ip=" >> $GITHUB_OUTPUT
+            echo "No VM found — will provision"
             echo "No VM found — will provision"
           fi
 
@@ -158,6 +161,7 @@ jobs:
           echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
 
       - name: Save SSH key and DB info as GitHub secrets
+      - name: Save SSH key and DB info as GitHub secrets
         if: steps.vm_check.outputs.vm_exists == 'false'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
@@ -165,8 +169,10 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           VM_IP=$(terraform output -raw vm_public_ip | tr -d '[:space:]')
+          VM_IP=$(terraform output -raw vm_public_ip | tr -d '[:space:]')
           SSH_KEY=$(terraform output -raw ssh_private_key)
           echo "::add-mask::$SSH_KEY"
+
 
           REPO_KEY_RESPONSE=$(curl -s -H "Authorization: token $GH_PAT" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/public-key")
@@ -180,9 +186,16 @@ jobs:
             local SECRET_VALUE="$2"
             ENCRYPTED=$(python3 -c "
           import base64, sys
+
+          encrypt_and_save() {
+            local SECRET_NAME="$1"
+            local SECRET_VALUE="$2"
+            ENCRYPTED=$(python3 -c "
+          import base64, sys
           from nacl import public
           pk = base64.b64decode('$REPO_PUBLIC_KEY')
           box = public.SealedBox(public.PublicKey(pk))
+          enc = box.encrypt(sys.argv[1].encode())
           enc = box.encrypt(sys.argv[1].encode())
           print(base64.b64encode(enc).decode())
           " "$SECRET_VALUE")
@@ -201,6 +214,21 @@ jobs:
           encrypt_and_save "POSTGRES_PASSWORD"  "${{ secrets.POSTGRES_PASSWORD }}"
           echo "All secrets saved"
 
+          # Verify each secret was actually stored
+          echo ""
+          echo "=== Verifying secrets were saved ==="
+          for SECRET_NAME in VM_SSH_PRIVATE_KEY POSTGRES_HOST POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: token $GH_PAT" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/$SECRET_NAME")
+            if [ "$RESPONSE" = "200" ]; then
+              echo "✅ $SECRET_NAME — saved successfully"
+            else
+              echo "❌ $SECRET_NAME — NOT found (HTTP $RESPONSE)"
+            fi
+          done
+
       - name: Resolve final VM IP
         id: resolve_ip
         run: |
@@ -210,10 +238,30 @@ jobs:
             echo "vm_ip=${{ steps.vm_check.outputs.vm_ip }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Resolve SSH key for this run
+        id: resolve_ssh
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          # Try stored secret first (works for re-deploys and subsequent runs)
+          SSH_KEY="${{ secrets.VM_SSH_PRIVATE_KEY }}"
+
+          # If secret is empty (first deploy — secret not available same run), read from terraform
+          if [ -z "$SSH_KEY" ]; then
+            echo "VM_SSH_PRIVATE_KEY secret empty — reading from terraform output"
+            SSH_KEY=$(terraform output -raw ssh_private_key 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$SSH_KEY" ]; then
+            echo "ERROR: Could not resolve SSH key from secret or terraform output"
+            exit 1
+          fi
+
+          echo "::add-mask::$SSH_KEY"
+          SSH_KEY_B64=$(echo "$SSH_KEY" | base64 -w 0)
+          echo "ssh_key=$SSH_KEY_B64" >> $GITHUB_OUTPUT
+
 # ─────────────────────────────────────────────
 # JOB 3: setup-vm
-# Waits for cloud-init (first deploy only).
-# Always syncs the repo to the VM.
 # ─────────────────────────────────────────────
   setup-vm:
     name: Setup VM
@@ -223,10 +271,19 @@ jobs:
 
     steps:
       - name: Write SSH key
+      - name: Write SSH key
         run: |
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          # On re-deploy use stored secret directly; on first deploy use job output
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
           chmod 600 /tmp/vm_key.pem
+          head -1 /tmp/vm_key.pem | grep -q "BEGIN" || { echo "ERROR: SSH key invalid"; cat /tmp/vm_key.pem | head -3; exit 1; }
+          echo "SSH key written successfully"
 
+      - name: Wait for cloud-init (first deploy only)
       - name: Wait for cloud-init (first deploy only)
         if: needs.provision.outputs.vm_exists == 'false'
         run: |
@@ -249,24 +306,56 @@ jobs:
               "test -f /var/log/cloud-init-complete.log && echo done || echo waiting" 2>&1)
             echo "Response: $SSH_OUT"
             if echo "$SSH_OUT" | grep -q "done"; then
-              echo "cloud-init complete"
+          echo "Waiting for port 22 on $VM_IP..."
+          for i in $(seq 1 20); do
+            if nc -zw5 $VM_IP 22 2>/dev/null; then
+              echo "Port 22 open"
               break
             fi
+            echo "Attempt $i/20 — waiting 15s..."
+            sleep 15
+          done
+
+          echo "Waiting for cloud-init to complete..."
+          for i in $(seq 1 30); do
+            echo "Attempt $i/30..."
+            SSH_OUT=$(ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=15 -o BatchMode=yes azureuser@$VM_IP \
+              "test -f /var/log/cloud-init-complete.log && echo done || echo waiting" 2>&1)
+            echo "Response: $SSH_OUT"
+            if echo "$SSH_OUT" | grep -q "done"; then
+              echo "cloud-init complete"
+              break
+              break
+            fi
+            sleep 20
             sleep 20
           done
 
       - name: Sync repo to VM
+      - name: Sync repo to VM
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          BRANCH="${{ github.ref_name }}"
+          CLONE_URL="https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            if [ -d ~/cleo ]; then
-              echo 'Updating repo...'
-              cd ~/cleo && git fetch origin && git reset --hard origin/main
+            if [ -f ~/cleo/docker-compose.observability.yml ]; then
+              echo 'Updating repo on branch $BRANCH...'
+              cd ~/cleo
+              git remote set-url origin $CLONE_URL
+              git fetch origin && git reset --hard origin/$BRANCH
             else
-              echo 'Cloning repo...'
-              git clone https://github.com/${{ github.repository }}.git ~/cleo
+              echo 'Fresh clone on branch $BRANCH...'
+              rm -rf ~/cleo
+              git clone -b $BRANCH $CLONE_URL ~/cleo
             fi
-            ls ~/cleo/docker-compose.observability.yml && echo 'docker-compose found' || echo 'WARNING: docker-compose not found'
+            if [ -f ~/cleo/docker-compose.observability.yml ]; then
+              echo 'Repo ready'
+            else
+              echo 'ERROR: docker-compose.observability.yml not found'
+              ls ~/cleo/ || true
+              exit 1
+            fi
           "
 
       - name: Cleanup SSH key
@@ -275,8 +364,6 @@ jobs:
 
 # ─────────────────────────────────────────────
 # JOB 4a: deploy-backend
-# First deploy  → starts ALL docker compose services
-# Re-deploy     → injects fresh .env, restarts backend only
 # ─────────────────────────────────────────────
   deploy-backend:
     name: Deploy Backend
@@ -286,15 +373,23 @@ jobs:
 
     steps:
       - name: Write SSH key
+      - name: Write SSH key
         run: |
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
           chmod 600 /tmp/vm_key.pem
+          echo "SSH key written"
 
       - name: Inject backend .env
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           BACKEND_ENV_CONTENT=$(echo '${{ vars.BACKEND_ENV_JSON }}' | \
             jq --arg ip "$VM_IP" \
+               --arg db "cleo" \
+               --arg user "pgadmin" \
                --arg db "cleo" \
                --arg user "pgadmin" \
                --arg pass "${{ secrets.POSTGRES_PASSWORD }}" \
@@ -309,35 +404,37 @@ jobs:
             echo 'backend/.env written'
           "
 
-      - name: Start ALL services (first deploy)
-        if: needs.provision.outputs.vm_exists == 'false'
+      - name: Start services
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            docker compose -f docker-compose.observability.yml up --build -d
-            echo 'All services started'
-          "
-
-      - name: Restart backend only (re-deploy)
-        if: needs.provision.outputs.vm_exists == 'true'
-        run: |
-          VM_IP="${{ needs.provision.outputs.vm_ip }}"
-          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            cd ~/cleo
-            docker compose -f docker-compose.observability.yml up --build -d backend
-            echo 'Backend restarted'
+            RUNNING=\$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
+            if [ \"\$RUNNING\" = \"0\" ]; then
+              echo 'No containers running — starting ALL services'
+              docker compose -f docker-compose.observability.yml up --build --remove-orphans -d
+            else
+              echo 'Updating backend — down, build, up'
+              docker compose -f docker-compose.observability.yml down backend
+              sleep 3
+              docker compose -f docker-compose.observability.yml build backend
+              docker compose -f docker-compose.observability.yml up --remove-orphans -d backend
+            fi
+            docker image prune -f
           "
 
       - name: Health check — backend
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           for i in $(seq 1 15); do
+          for i in $(seq 1 15); do
             if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
                 "curl -sf http://localhost:8000/health" 2>/dev/null; then
               echo "Backend healthy"
               exit 0
             fi
+            echo "Attempt $i/15 — waiting 10s..."
+            sleep 10
             echo "Attempt $i/15 — waiting 10s..."
             sleep 10
           done
@@ -351,8 +448,6 @@ jobs:
 
 # ─────────────────────────────────────────────
 # JOB 4b: deploy-frontend
-# First deploy  → skipped (backend job starts all services)
-# Re-deploy     → injects fresh .env.local, restarts frontend only
 # ─────────────────────────────────────────────
   deploy-frontend:
     name: Deploy Frontend
@@ -362,43 +457,72 @@ jobs:
 
     steps:
       - name: Write SSH key
+      - name: Write SSH key
         run: |
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
           chmod 600 /tmp/vm_key.pem
+          echo "SSH key written"
 
       - name: Inject frontend .env
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          # Convert JSON to KEY=VALUE lines for docker compose .env file
           FRONTEND_ENV_CONTENT=$(echo '${{ vars.FRONTEND_ENV_JSON }}' | \
             jq -r 'to_entries[] | "\(.key)=\(.value)"')
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             mkdir -p ~/cleo/frontend
+            # Write .env.local for runtime
             cat > ~/cleo/frontend/.env.local << 'ENVEOF'
           $FRONTEND_ENV_CONTENT
           ENVEOF
             chmod 600 ~/cleo/frontend/.env.local
-            echo 'frontend/.env.local written'
+            # Write ~/cleo/.env for docker compose build args
+            cat > ~/cleo/.env << 'ENVEOF'
+          $FRONTEND_ENV_CONTENT
+          ENVEOF
+            echo 'frontend envs written'
+            cat ~/cleo/.env
           "
 
-      - name: Restart frontend only (re-deploy)
-        if: needs.provision.outputs.vm_exists == 'true'
+      - name: Start services
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             cd ~/cleo
-            docker compose -f docker-compose.observability.yml up --build -d frontend
-            echo 'Frontend restarted'
+            # Load build args from .env file
+            set -a && [ -f .env ] && source .env && set +a
+            echo \"=== Build args check ===\"
+            echo \"NEXT_PUBLIC_API_BASE_URL=\$NEXT_PUBLIC_API_BASE_URL\"
+            RUNNING=\$(docker compose -f docker-compose.observability.yml ps --services --filter status=running 2>/dev/null | wc -l | tr -d ' ')
+            if [ \"\$RUNNING\" = \"0\" ]; then
+              echo 'No containers running — starting ALL services'
+              docker compose -f docker-compose.observability.yml up --build --remove-orphans -d
+            else
+              echo 'Updating frontend — down, no-cache build, up'
+              docker compose -f docker-compose.observability.yml down frontend
+              sleep 3
+              docker compose -f docker-compose.observability.yml build --no-cache frontend
+              docker compose -f docker-compose.observability.yml up --remove-orphans -d frontend
+            fi
+            docker image prune -f
           "
 
       - name: Health check — frontend
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           for i in $(seq 1 15); do
+          for i in $(seq 1 15); do
             if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
                 "curl -sf http://localhost:3000" 2>/dev/null; then
               echo "Frontend reachable"
               exit 0
             fi
+            echo "Attempt $i/15 — waiting 10s..."
+            sleep 10
             echo "Attempt $i/15 — waiting 10s..."
             sleep 10
           done
@@ -411,35 +535,189 @@ jobs:
         run: rm -f /tmp/vm_key.pem
 
 # ─────────────────────────────────────────────
+# JOB 4c: deploy-observability
+# Restarts grafana, otel-collector, tempo, loki, prometheus
+# ─────────────────────────────────────────────
+  deploy-observability:
+    name: Deploy Observability
+    runs-on: ubuntu-latest
+    needs: [provision, setup-vm]
+    if: inputs.action == 'deploy' && (inputs.deploy_target == 'observability' || inputs.deploy_target == 'all')
+
+    steps:
+      - name: Write SSH key
+        run: |
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
+          chmod 600 /tmp/vm_key.pem
+          echo "SSH key written"
+
+      - name: Restart observability stack
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            cd ~/cleo
+            docker compose -f docker-compose.observability.yml down grafana otel-collector tempo loki prometheus
+            sleep 3
+            docker compose -f docker-compose.observability.yml up --remove-orphans -d grafana otel-collector tempo loki prometheus
+            echo 'Observability stack restarted'
+          "
+
+      - name: Health check — Grafana
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          for i in $(seq 1 12); do
+            if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
+                "curl -sf http://localhost:3002/api/health" 2>/dev/null; then
+              echo "Grafana healthy"
+              exit 0
+            fi
+            echo "Attempt $i/12 — waiting 5s..."
+            sleep 5
+          done
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
+            "cd ~/cleo && docker compose -f docker-compose.observability.yml logs grafana --tail=50"
+          exit 1
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f /tmp/vm_key.pem
+
+# ─────────────────────────────────────────────
 # JOB 5: configure-nginx
-# Only runs on first deploy (vm_exists == false)
+# - Installs NGINX + Certbot
+# - HTTP config first (needed for cert challenge)
+# - Gets wildcard cert for *.andinolabs.tech via DNS challenge
+# - Upgrades to HTTPS
+# - Runs on first deploy AND when re-triggered with deploy_target=all
 # ─────────────────────────────────────────────
   configure-nginx:
-    name: Configure NGINX
+    name: Configure NGINX + HTTPS
     runs-on: ubuntu-latest
     needs: [provision, deploy-backend, deploy-frontend]
     if: |
       always() &&
       inputs.action == 'deploy' &&
-      inputs.deploy_target == 'all' &&
-      needs.provision.outputs.vm_exists == 'false' &&
-      needs.deploy-backend.result == 'success'
+      (inputs.deploy_target == 'nginx' || (
+        inputs.deploy_target == 'all' &&
+        (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped')
+      ))
 
     steps:
       - name: Write SSH key
+      - name: Write SSH key
         run: |
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
+            echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
+          else
+            echo "${{ needs.provision.outputs.ssh_key }}" | base64 -d > /tmp/vm_key.pem
+          fi
           chmod 600 /tmp/vm_key.pem
+          echo "SSH key written"
 
-      - name: Install and configure NGINX
+      - name: Install NGINX and Certbot
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
-            which nginx || sudo apt-get install -y nginx
+            sudo apt-get update -qq
+            sudo apt-get install -y nginx certbot dnsutils
+          "
+
+      - name: Configure NGINX (HTTP — needed for cert issuance)
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
             sudo tee /etc/nginx/sites-available/cleo > /dev/null << 'NGINXEOF'
           server {
             listen 80;
+            server_name ${{ inputs.frontend_domain }} ${{ inputs.backend_domain }} ${{ inputs.grafana_domain }};
+            location /.well-known/acme-challenge/ { root /var/www/certbot; }
+            location / { return 200 'OK'; }
+          }
+          NGINXEOF
+            sudo mkdir -p /var/www/certbot
+            sudo ln -sf /etc/nginx/sites-available/cleo /etc/nginx/sites-enabled/cleo
+            sudo rm -f /etc/nginx/sites-enabled/default
+            sudo nginx -t && sudo systemctl reload nginx
+            echo 'HTTP NGINX configured'
+          "
+
+      - name: Wait for DNS to resolve to VM
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          echo "VM IP: $VM_IP"
+          echo ""
+          echo "⚠️  Make sure these A records are set in GoDaddy pointing to $VM_IP:"
+          echo "   ${{ inputs.frontend_domain }} → $VM_IP"
+          echo "   ${{ inputs.backend_domain }}  → $VM_IP"
+          echo "   ${{ inputs.grafana_domain }}  → $VM_IP"
+          echo ""
+          echo "Waiting for all 3 domains to resolve (checking every 30s, up to 10 min)..."
+          for i in $(seq 1 20); do
+            F=$(dig +short ${{ inputs.frontend_domain }} | tail -1)
+            B=$(dig +short ${{ inputs.backend_domain }} | tail -1)
+            G=$(dig +short ${{ inputs.grafana_domain }} | tail -1)
+            echo "Attempt $i/20 — frontend: $F | backend: $B | grafana: $G"
+            if [ "$F" = "$VM_IP" ] && [ "$B" = "$VM_IP" ] && [ "$G" = "$VM_IP" ]; then
+              echo "All 3 DNS records resolved correctly"
+              break
+            fi
+            if [ "$i" = "20" ]; then
+              echo "ERROR: DNS not propagated for all domains after 10 min"
+              echo "Add A records in GoDaddy: cleo, api, grafana → $VM_IP"
+              exit 1
+            fi
+            sleep 30
+          done
+
+      - name: Obtain SSL cert (Let's Encrypt — webroot)
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          FRONTEND="${{ inputs.frontend_domain }}"
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            sudo certbot certonly \
+              --webroot \
+              --webroot-path /var/www/certbot \
+              -d '${{ inputs.frontend_domain }}' \
+              -d '${{ inputs.backend_domain }}' \
+              -d '${{ inputs.grafana_domain }}' \
+              --email manu@andinolabs.com \
+              --agree-tos \
+              --non-interactive \
+              --expand \
+              --keep-until-expiring || true
+
+            # Check cert exists — certbot stores under first domain
+            sudo ls /etc/letsencrypt/live/
+            sudo test -f /etc/letsencrypt/live/${{ inputs.frontend_domain }}/fullchain.pem && \
+              echo 'SSL certificate ready' || \
+              { echo 'ERROR: cert missing'; exit 1; }
+          "
+
+      - name: Upgrade NGINX to HTTPS
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          CERT_BASE=/etc/letsencrypt/live/${{ inputs.frontend_domain }}
+          ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP "
+            sudo tee /etc/nginx/sites-available/cleo > /dev/null << 'NGINXEOF'
+          # ── Frontend ──────────────────────────────────────────
+          server {
+            listen 80;
             server_name ${{ inputs.frontend_domain }};
+            return 301 https://\$host\$request_uri;
+          }
+          server {
+            listen 443 ssl http2;
+            server_name ${{ inputs.frontend_domain }};
+            ssl_certificate     $CERT_BASE/fullchain.pem;
+            ssl_certificate_key $CERT_BASE/privkey.pem;
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_ciphers HIGH:!aNULL:!MD5;
+            ssl_prefer_server_ciphers on;
+            add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains' always;
             location / {
               proxy_pass http://localhost:3000;
               proxy_http_version 1.1;
@@ -448,35 +726,84 @@ jobs:
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
               proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto https;
             }
           }
+          # ── Backend API ───────────────────────────────────────
           server {
             listen 80;
             server_name ${{ inputs.backend_domain }};
+            return 301 https://\$host\$request_uri;
+          }
+          server {
+            listen 443 ssl http2;
+            server_name ${{ inputs.backend_domain }};
+            ssl_certificate     $CERT_BASE/fullchain.pem;
+            ssl_certificate_key $CERT_BASE/privkey.pem;
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_ciphers HIGH:!aNULL:!MD5;
+            add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains' always;
+            # Allow large request bodies (file uploads etc.)
+            client_max_body_size 50M;
             location / {
               proxy_pass http://localhost:8000;
               proxy_http_version 1.1;
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
               proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto https;
+              proxy_set_header Connection '';
+              # SSE / streaming support
               proxy_buffering off;
+              proxy_cache off;
+              proxy_read_timeout 300s;
+              proxy_connect_timeout 60s;
+              proxy_send_timeout 300s;
+              chunked_transfer_encoding on;
             }
           }
+          # ── Grafana ───────────────────────────────────────────
           server {
             listen 80;
             server_name ${{ inputs.grafana_domain }};
+            return 301 https://\$host\$request_uri;
+          }
+          server {
+            listen 443 ssl http2;
+            server_name ${{ inputs.grafana_domain }};
+            ssl_certificate     $CERT_BASE/fullchain.pem;
+            ssl_certificate_key $CERT_BASE/privkey.pem;
+            ssl_protocols TLSv1.2 TLSv1.3;
+            ssl_ciphers HIGH:!aNULL:!MD5;
+            add_header Strict-Transport-Security 'max-age=31536000; includeSubDomains' always;
             location / {
               proxy_pass http://localhost:3002;
               proxy_set_header Host \$host;
               proxy_set_header X-Real-IP \$remote_addr;
+              proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto https;
             }
           }
           NGINXEOF
-            sudo ln -sf /etc/nginx/sites-available/cleo /etc/nginx/sites-enabled/cleo
-            sudo rm -f /etc/nginx/sites-enabled/default
             sudo nginx -t && sudo systemctl reload nginx
-            echo 'NGINX configured'
+            echo 'HTTPS NGINX configured'
+            # Auto-renewal cron
+            (sudo crontab -l 2>/dev/null; echo '0 3 * * * certbot renew --quiet && systemctl reload nginx') | sudo crontab -
+            echo 'Auto-renewal cron set'
           "
+
+      - name: Verify HTTPS
+        run: |
+          VM_IP="${{ needs.provision.outputs.vm_ip }}"
+          echo "Waiting 10s for NGINX to reload..."
+          sleep 10
+          for DOMAIN in "${{ inputs.frontend_domain }}" "${{ inputs.backend_domain }}" "${{ inputs.grafana_domain }}"; do
+            if curl -sf --max-time 10 "https://$DOMAIN" > /dev/null 2>&1; then
+              echo "✅ https://$DOMAIN — OK"
+            else
+              echo "⚠️  https://$DOMAIN — not reachable yet (DNS may still be propagating)"
+            fi
+          done
 
       - name: Cleanup SSH key
         if: always()
@@ -488,13 +815,14 @@ jobs:
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [provision, deploy-backend, deploy-frontend, configure-nginx]
+    needs: [provision, deploy-backend, deploy-frontend, deploy-observability, configure-nginx]
     if: |
       always() &&
       inputs.action == 'deploy' &&
       needs.provision.result == 'success' &&
       (needs.deploy-backend.result == 'success' || needs.deploy-backend.result == 'skipped') &&
       (needs.deploy-frontend.result == 'success' || needs.deploy-frontend.result == 'skipped') &&
+      (needs.deploy-observability.result == 'success' || needs.deploy-observability.result == 'skipped') &&
       (needs.configure-nginx.result == 'success' || needs.configure-nginx.result == 'skipped')
 
     steps:
@@ -508,6 +836,7 @@ jobs:
           |---|---|
           | Deploy Target | ${{ inputs.deploy_target }} |
           | VM Public IP | \`$VM_IP\` |
+          | VM Public IP | \`$VM_IP\` |
           | Backend Version | ${{ inputs.backend_version }} |
           | Frontend Version | ${{ inputs.frontend_version }} |
           | First Deploy | ${{ needs.provision.outputs.vm_exists == 'false' && 'Yes' || 'No' }} |
@@ -518,6 +847,13 @@ jobs:
           | Frontend | http://$VM_IP:3000 |
           | Backend API | http://$VM_IP:8000 |
           | Grafana | http://$VM_IP:3002 |
+
+          ### Service URLs
+          | Service | URL |
+          |---|---|
+          | Frontend | https://${{ inputs.frontend_domain }} |
+          | Backend API | https://${{ inputs.backend_domain }} |
+          | Grafana | https://${{ inputs.grafana_domain }} |
 
           ### DNS — point A records to \`$VM_IP\`
           | Domain | Record |
@@ -567,7 +903,7 @@ jobs:
               sudo rm -f /etc/nginx/sites-enabled/cleo /etc/nginx/sites-available/cleo
               sudo systemctl reload nginx 2>/dev/null || true
               echo 'App teardown complete'
-            " || echo "WARNING: SSH teardown failed — continuing to terraform destroy"
+            " || echo "WARNING: SSH teardown failed — continuing"
             rm -f /tmp/vm_key.pem
           fi
 

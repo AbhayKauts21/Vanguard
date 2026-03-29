@@ -29,7 +29,8 @@ def test_local_document_ingestion_builds_rag_compatible_chunks(tmp_path):
     assert chunks[0].metadata["page_title"] == "Security Architecture"
     assert chunks[0].metadata["source_type"] == "local_markdown"
     assert chunks[0].metadata["source_name"] == filepath.name
-    assert chunks[0].metadata["bookstack_url"] == str(filepath.resolve())
+    assert chunks[0].metadata.get("source_url") is None
+    assert chunks[0].metadata["document_path"] == str(filepath.resolve())
     assert chunks[0].metadata["chunk_text"]
 
 

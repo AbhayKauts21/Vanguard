@@ -100,7 +100,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 14
-    AUTH_DEFAULT_ROLE: str = "viewer"
+    AUTH_DEFAULT_ROLE: str = "admin"
     PASSWORD_RESET_CODE_EXPIRE_MINUTES: int = 15
 
     model_config = SettingsConfigDict(

@@ -301,6 +301,23 @@ async def test_viewer_cannot_access_rbac_or_admin_routes(auth_test_context):
 
     assert first.status_code == 201
     assert second.status_code == 201
+    assert {role["name"] for role in first.json()["user"]["roles"]} == {"admin"}
+    assert {role["name"] for role in second.json()["user"]["roles"]} == {"admin"}
+
+    # Manually downgrade 'second' to viewer to verify 403 logic still works
+    session_factory = auth_test_context["session_factory"]
+    async with session_factory() as session:
+        user_result = await session.execute(
+            select(User).where(User.email == "viewer@example.com")
+        )
+        user = user_result.scalars().first()
+        viewer_role_result = await session.execute(
+            select(Role).where(Role.name == "viewer")
+        )
+        viewer_role = viewer_role_result.scalars().first()
+        user.roles = [viewer_role]
+        session.add(user)
+        await session.commit()
 
     viewer_token = second.json()["access_token"]
 

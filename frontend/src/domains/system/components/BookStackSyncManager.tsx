@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { BookStackTreeBook, BookStackTreeChapter, BookStackTreePage } from "../api/bookstackApi";
 import { useBookStackSyncManager, collectBookPageIds, collectChapterPageIds } from "../hooks/useBookStackSyncManager";
+import { useTranslations } from "next-intl";
 
 function TreeCheckbox({
   checked,
@@ -66,6 +67,7 @@ function ChapterNode({
   onToggleChapter: () => void;
   onTogglePage: (pageId: number) => void;
 }) {
+  const t = useTranslations("system");
   const chapterPageIds = collectChapterPageIds(chapter);
   const selectedCount = chapterPageIds.filter((pageId) => selectedPageIds.has(pageId)).length;
   const checked = chapterPageIds.length > 0 && selectedCount === chapterPageIds.length;
@@ -87,14 +89,14 @@ function ChapterNode({
         <span className="material-symbols-outlined text-[18px] text-amber-300/70">folder_open</span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium text-white">{chapter.name}</div>
-          <div className="text-xs text-white/35">{chapter.pages.length} pages</div>
+          <div className="text-xs text-white/35">{t("pagesCount", { count: chapter.pages.length })}</div>
         </div>
       </div>
       {expanded && (
         <div className="grid gap-2 border-t border-white/6 px-4 py-3">
           {chapter.pages.length === 0 ? (
             <div className="rounded-xl border border-dashed border-white/10 px-3 py-2 text-xs text-white/35">
-              No pages found in this chapter.
+              {t("noPagesInChapter")}
             </div>
           ) : (
             chapter.pages.map((page) => (
@@ -133,6 +135,7 @@ function BookNode({
   onToggleChapter: (chapter: BookStackTreeChapter) => void;
   onTogglePage: (pageId: number) => void;
 }) {
+  const t = useTranslations("system");
   const bookPageIds = collectBookPageIds(book);
   const selectedCount = bookPageIds.filter((pageId) => selectedPageIds.has(pageId)).length;
   const checked = bookPageIds.length > 0 && selectedCount === bookPageIds.length;
@@ -157,7 +160,7 @@ function BookNode({
             {book.name}
           </div>
           <div className="text-xs text-white/35">
-            {book.chapters.length} chapters · {bookPageIds.length} total pages
+            {t("bookStats", { chapters: book.chapters.length, pages: bookPageIds.length })}
           </div>
         </div>
       </div>
@@ -167,7 +170,7 @@ function BookNode({
           {book.pages.length > 0 && (
             <div className="space-y-2">
               <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                Direct pages in this book
+                {t("directPages")}
               </div>
               {book.pages.map((page) => (
                 <PageNode
@@ -183,7 +186,7 @@ function BookNode({
           {book.chapters.length > 0 && (
             <div className="space-y-3">
               <div className="text-[11px] uppercase tracking-[0.18em] text-white/35">
-                Chapters
+                {t("chapters")}
               </div>
               {book.chapters.map((chapter) => (
                 <ChapterNode
@@ -205,6 +208,7 @@ function BookNode({
 }
 
 export function BookStackSyncManager() {
+  const t = useTranslations("system");
   const {
     books,
     sourceKey,
@@ -270,13 +274,13 @@ export function BookStackSyncManager() {
     <div className="mx-auto max-w-7xl w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl font-light tracking-tight text-white mb-2">BookStack Sync Manager</h1>
+          <h1 className="text-3xl font-light tracking-tight text-white mb-2">{t("syncManagerTitle")}</h1>
           <p className="text-white/50">
-            Control exactly which books, chapters, and pages feed the shared CLEO knowledge base.
+            {t("syncManagerSubtitle")}
           </p>
         </div>
         <div className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-4 py-2 text-xs uppercase tracking-[0.18em] text-cyan-100">
-          Source {sourceKey}
+          {t("sourceLabel", { key: sourceKey })}
         </div>
       </div>
 
@@ -296,21 +300,21 @@ export function BookStackSyncManager() {
         <section className="flex-1 min-w-0 rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h2 className="text-lg font-medium text-white/90">Hierarchy</h2>
-              <p className="text-sm text-white/45 truncate">Book → Chapter → Page, with support for direct book-level pages.</p>
+              <h2 className="text-lg font-medium text-white/90">{t("hierarchy")}</h2>
+              <p className="text-sm text-white/45 truncate">{t("hierarchyDesc")}</p>
             </div>
             <div className="shrink-0 text-right text-xs uppercase tracking-[0.18em] text-white/35">
-              {selectedPageCount}/{allPageCount} <span className="hidden sm:inline">pages selected</span>
+              {t("selectionRatio", { selected: selectedPageCount, total: allPageCount })} <span className="hidden sm:inline">{t("pagesSelected")}</span>
             </div>
           </div>
 
           {isLoading ? (
             <div className="flex min-h-[20rem] items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/40">
-              Loading BookStack tree...
+              {t("loadingTree")}
             </div>
           ) : books.length === 0 ? (
             <div className="flex min-h-[20rem] items-center justify-center rounded-2xl border border-dashed border-white/10 text-sm text-white/40">
-              No books were returned from BookStack.
+              {t("noBooksFound")}
             </div>
           ) : (
             <div className="grid gap-4">
@@ -334,23 +338,23 @@ export function BookStackSyncManager() {
 
         <aside className="w-full lg:w-[320px] shrink-0 rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl lg:sticky lg:top-8">
           <div className="mb-6">
-            <h2 className="text-lg font-medium text-white/90">Sync Controls</h2>
+            <h2 className="text-lg font-medium text-white/90">{t("syncControls")}</h2>
             <p className="text-sm text-white/45">
-              Save a selective sync scope, kick off a sync, or restore the last saved selection.
+              {t("syncControlsDesc")}
             </p>
           </div>
 
           <div className="grid gap-3">
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]">
-              <div className="text-xs uppercase tracking-[0.18em] text-white/35">Books</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-white/35">{t("totalBooks")}</div>
               <div className="mt-2 text-3xl font-light text-white">{totals.books}</div>
             </div>
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]">
-              <div className="text-xs uppercase tracking-[0.18em] text-white/35">Chapters</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-white/35">{t("totalChapters")}</div>
               <div className="mt-2 text-3xl font-light text-white">{totals.chapters}</div>
             </div>
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]">
-              <div className="text-xs uppercase tracking-[0.18em] text-white/35">Pages Included</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-white/35">{t("totalPages")}</div>
               <div className="mt-2 text-3xl font-light text-white">{selectedPageCount}</div>
             </div>
           </div>
@@ -362,7 +366,7 @@ export function BookStackSyncManager() {
               disabled={isLoading || isSaving || !dirty}
               className="w-full rounded-3xl bg-cyan-400/15 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {isSaving ? "Saving selection..." : "Save selection"}
+              {isSaving ? t("savingSelection") : t("saveSelection")}
             </button>
             <button
               type="button"
@@ -370,7 +374,7 @@ export function BookStackSyncManager() {
               disabled={isLoading || isSyncing}
               className="w-full rounded-3xl bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {isSyncing ? "Syncing now..." : "Sync now"}
+              {isSyncing ? t("syncingNow") : t("syncNow")}
             </button>
             <button
               type="button"
@@ -378,16 +382,16 @@ export function BookStackSyncManager() {
               disabled={isLoading}
               className="w-full rounded-3xl border border-white/10 bg-transparent px-4 py-3 text-sm font-medium text-white/75 transition hover:border-white/20 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Reset selection
+              {t("resetSelection")}
             </button>
           </div>
 
           <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/55">
-            <div className="mb-2 text-xs uppercase tracking-[0.18em] text-white/35">Selection semantics</div>
+            <div className="mb-2 text-xs uppercase tracking-[0.18em] text-white/35">{t("selectionSemantics")}</div>
             <ul className="space-y-2">
-              <li>Selecting a book includes every page in that book.</li>
-              <li>Selecting a chapter includes all pages inside that chapter.</li>
-              <li>Individual pages stay supported for partial sync scopes.</li>
+              <li>{t("semanticsBook")}</li>
+              <li>{t("semanticsChapter")}</li>
+              <li>{t("semanticsPage")}</li>
             </ul>
           </div>
         </aside>

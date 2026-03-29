@@ -1,6 +1,7 @@
 "use client";
 
 import { useHealthStatus } from "../hooks/useHealthStatus";
+import { useTranslations } from "next-intl";
 
 /**
  * Service status card component
@@ -14,6 +15,7 @@ function ServiceCard({
   status?: "online" | "offline"; 
   detail?: string | number 
 }) {
+  const t = useTranslations("status");
   return (
     <div className="flex items-center justify-between rounded-xl bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.08]">
       <div className="flex items-center gap-3">
@@ -36,16 +38,17 @@ function ServiceCard({
 
 export function HealthGrid() {
   const { health, isChecking, error } = useHealthStatus();
+  const t = useTranslations("system");
 
   return (
     <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
       <div className="relative z-10">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-medium text-white/90">System Health</h3>
-            <p className="text-sm text-white/50">Connectivity tracing matrix</p>
+            <h3 className="text-lg font-medium text-white/90">{t("systemHealth")}</h3>
+            <p className="text-sm text-white/50">{t("connectivityMatrix")}</p>
           </div>
-          {isChecking && <span className="animate-pulse text-xs text-white/40">Polling...</span>}
+          {isChecking && <span className="animate-pulse text-xs text-white/40">{t("polling")}</span>}
         </div>
 
         {error && (
@@ -56,27 +59,27 @@ export function HealthGrid() {
 
         <div className="grid gap-3">
           <ServiceCard 
-            name="Backend API" 
+            name={t("backendApi")} 
             status={health?.status === "offline" ? "offline" : "online"} 
-            detail={health?.metrics.uptime_seconds ? `${Math.floor(health.metrics.uptime_seconds)}s uptime` : undefined}
+            detail={health?.metrics.uptime_seconds ? t("uptime", { value: Math.floor(health.metrics.uptime_seconds) }) : undefined}
           />
           <ServiceCard 
-            name="Pinecone DB" 
+            name={t("pineconeDb")} 
             status={health?.services.pinecone.status} 
-            detail={health?.services.pinecone.vectors !== undefined ? `${health.services.pinecone.vectors} vectors` : undefined}
+            detail={health?.services.pinecone.vectors !== undefined ? t("vectors", { value: health.services.pinecone.vectors }) : undefined}
           />
           <ServiceCard 
-            name="BookStack Wiki" 
+            name={t("bookstackWiki")} 
             status={health?.services.bookstack.status} 
-            detail={health?.services.bookstack.pages !== undefined ? `${health.services.bookstack.pages} pages ext.` : undefined}
+            detail={health?.services.bookstack.pages !== undefined ? t("pagesExt", { value: health.services.bookstack.pages }) : undefined}
           />
           <ServiceCard 
-            name="Azure OpenAI" 
+            name={t("azureOpenAI")} 
             status={health?.services.azure_openai.status} 
             detail={health?.services.azure_openai.chat_deployment}
           />
           <ServiceCard 
-            name="Embeddings"
+            name={t("embeddings")}
             status={health?.services.embeddings.status}
             detail={
               health?.services.embeddings.model
@@ -85,7 +88,7 @@ export function HealthGrid() {
             }
           />
           <ServiceCard
-            name="Postgres"
+            name={t("postgres")}
             status={health?.services.postgres.status}
             detail={health?.services.postgres.database}
           />

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useUserRoleManagement } from "../hooks/useUserRoleManagement";
+import { useTranslations } from "next-intl";
 
 function arraysEqual(left: string[], right: string[]) {
   if (left.length !== right.length) {
@@ -12,6 +13,7 @@ function arraysEqual(left: string[], right: string[]) {
 }
 
 export function UserAccessPanel() {
+  const t = useTranslations("system");
   const { users, roles, isLoading, isSaving, error, assignRoles } = useUserRoleManagement();
   const [draftRoles, setDraftRoles] = useState<Record<string, string[]>>({});
   const [notice, setNotice] = useState<Record<string, string>>({});
@@ -47,7 +49,7 @@ export function UserAccessPanel() {
     if (roleIds.length === 0) {
       setNotice((current) => ({
         ...current,
-        [userId]: "At least one role is required.",
+        [userId]: t("roleRequired"),
       }));
       return;
     }
@@ -56,10 +58,10 @@ export function UserAccessPanel() {
       const updated = await assignRoles(userId, roleIds);
       setNotice((current) => ({
         ...current,
-        [userId]: `Access updated for ${updated.full_name || updated.email}.`,
+        [userId]: t("accessUpdated", { name: updated.full_name || updated.email }),
       }));
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to update roles";
+      const message = err instanceof Error ? err.message : t("failedUpdate");
       setNotice((current) => ({
         ...current,
         [userId]: message,
@@ -72,13 +74,13 @@ export function UserAccessPanel() {
       <div className="relative z-10">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-lg font-medium text-white/90">Access Control</h3>
+            <h3 className="text-lg font-medium text-white/90">{t("accessControl")}</h3>
             <p className="text-sm text-white/50">
-              Review users, assign multiple roles, and unlock sync access when needed.
+              {t("accessControlDesc")}
             </p>
           </div>
           <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.18em] text-white/40">
-            {users.length} users
+            {t("usersCount", { count: users.length })}
           </div>
         </div>
 
@@ -90,7 +92,7 @@ export function UserAccessPanel() {
 
         {isLoading ? (
           <div className="flex min-h-40 items-center justify-center text-sm text-white/40">
-            Loading access matrix...
+            {t("loadingAccess")}
           </div>
         ) : (
           <div className="grid gap-4">
@@ -108,7 +110,7 @@ export function UserAccessPanel() {
                   <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="text-base font-medium text-white">
-                        {user.full_name || "Unnamed user"}
+                        {user.full_name || t("unnamedUser")}
                       </div>
                       <div className="text-sm text-white/50">{user.email}</div>
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -122,14 +124,14 @@ export function UserAccessPanel() {
                         ))}
                         {user.roles.length === 0 && (
                           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.14em] text-white/40">
-                            No role assigned
+                            {t("noRole")}
                           </span>
                         )}
                       </div>
                     </div>
                     <div className="text-right text-xs text-white/35">
-                      <div>{user.permissions.length} permissions</div>
-                      <div>{user.is_active ? "Active" : "Inactive"}</div>
+                      <div>{t("permissionsCount", { count: user.permissions.length })}</div>
+                      <div>{user.is_active ? t("active") : t("inactive")}</div>
                     </div>
                   </div>
 
@@ -154,7 +156,7 @@ export function UserAccessPanel() {
                           <div>
                             <div className="text-sm font-medium text-white">{role.name}</div>
                             <div className="text-xs text-white/45">
-                              {role.description || "No description"}
+                              {role.description || t("noDescription")}
                             </div>
                           </div>
                         </label>
@@ -164,7 +166,7 @@ export function UserAccessPanel() {
 
                   <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="text-sm text-white/45">
-                      {notice[user.id] || "Select one or more roles, then save the access policy."}
+                      {notice[user.id] || t("selectRolesHint")}
                     </div>
                     <button
                       type="button"
@@ -172,7 +174,7 @@ export function UserAccessPanel() {
                       onClick={() => void saveRoles(user.id)}
                       className="rounded-xl bg-white/10 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-white/20 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {isSavingThisUser ? "Saving..." : "Save role assignment"}
+                      {isSavingThisUser ? t("saving") : t("saveRoleAssignment")}
                     </button>
                   </div>
                 </div>

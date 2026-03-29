@@ -2,9 +2,11 @@
 
 import { useAdminSync } from "../hooks/useAdminSync";
 import { formatDistanceToNow } from "date-fns";
+import { useTranslations } from "next-intl";
 
 export function SyncStatusCard() {
   const { syncStatus, isRefreshing, error } = useAdminSync();
+  const t = useTranslations("system");
 
   return (
     <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
@@ -13,7 +15,7 @@ export function SyncStatusCard() {
       
       <div className="relative z-10">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-medium text-white/90">Pinecone Sync Status</h3>
+          <h3 className="text-lg font-medium text-white/90">{t("pineconeStatusTitle")}</h3>
           <div className="flex items-center gap-2">
             <span className="relative flex h-3 w-3">
               {syncStatus?.is_syncing ? (
@@ -29,7 +31,7 @@ export function SyncStatusCard() {
               )}
             </span>
             <span className="text-sm text-white/60">
-              {syncStatus?.is_syncing ? "Syncing..." : "Idle"}
+              {syncStatus?.is_syncing ? t("syncing") : t("idle")}
             </span>
           </div>
         </div>
@@ -44,8 +46,8 @@ export function SyncStatusCard() {
         {!syncStatus && !error && !isRefreshing && (
           <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
             <span className="material-symbols-outlined text-3xl text-white/20">sync_disabled</span>
-            <p className="text-sm text-white/40">No sync data available.</p>
-            <p className="text-xs text-white/25">Run your first sync to index BookStack pages.</p>
+            <p className="text-sm text-white/40">{t("noSyncData")}</p>
+            <p className="text-xs text-white/25">{t("runFirstSync")}</p>
           </div>
         )}
 
@@ -53,13 +55,13 @@ export function SyncStatusCard() {
         <>
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.08]">
-              <div className="text-sm text-white/50">Indexed Pages</div>
+              <div className="text-sm text-white/50">{t("indexedPages")}</div>
               <div className="mt-1 text-2xl font-light text-white">
                 {syncStatus?.total_pages_synced ?? "—"}
               </div>
             </div>
             <div className="rounded-xl bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.08]">
-              <div className="text-sm text-white/50">Vector Chunks</div>
+              <div className="text-sm text-white/50">{t("vectorChunks")}</div>
               <div className="mt-1 text-2xl font-light text-white">
                 {syncStatus?.total_chunks_synced ?? "—"}
               </div>
@@ -68,13 +70,14 @@ export function SyncStatusCard() {
 
           <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-4 text-xs text-white/40">
             <div>
-              Last Sync:{" "}
-              {syncStatus?.last_sync_at
-                ? formatDistanceToNow(new Date(syncStatus.last_sync_at), { addSuffix: true })
-                : "Never"}
+              {t("lastSync", {
+                value: syncStatus?.last_sync_at
+                  ? formatDistanceToNow(new Date(syncStatus.last_sync_at), { addSuffix: true })
+                  : t("never")
+              })}
             </div>
             <div>
-              {isRefreshing && <span className="animate-pulse">Refreshing...</span>}
+              {isRefreshing && <span className="animate-pulse">{t("refreshing")}</span>}
             </div>
           </div>
         </>

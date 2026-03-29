@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 
 import { SyncStatusCard } from "./SyncStatusCard";
@@ -9,11 +10,13 @@ import { SyncLog } from "./SyncLog";
 import { UserAccessPanel } from "./UserAccessPanel";
 
 export function AdminPanel() {
+  const t = useTranslations("system");
+
   return (
     <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-700 w-full">
       <div className="mb-8">
-        <h1 className="text-3xl font-light tracking-tight text-white mb-2">System Administration</h1>
-        <p className="text-white/50">Real-time ingestion telemetry and connectivity tracing for CLEO edge nodes.</p>
+        <h1 className="text-3xl font-light tracking-tight text-white mb-2">{t("adminTitle")}</h1>
+        <p className="text-white/50">{t("adminSubtitle")}</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -28,11 +31,11 @@ export function AdminPanel() {
             <div className="relative z-10">
               <div className="mb-3 flex items-center gap-3">
                 <span className="material-symbols-outlined text-cyan-200">library_books</span>
-                <span className="text-xs uppercase tracking-[0.18em] text-cyan-100/80">BookStack Control</span>
+                <span className="text-xs uppercase tracking-[0.18em] text-cyan-100/80">{t("bookstackControl")}</span>
               </div>
-              <div className="text-lg font-medium text-white">Open selective sync manager</div>
+              <div className="text-lg font-medium text-white">{t("openSyncManager")}</div>
               <p className="mt-2 text-sm text-cyan-50/70">
-                Browse books, chapters, and pages before deciding what enters the indexed knowledge base.
+                {t("syncManagerDesc")}
               </p>
             </div>
           </Link>
@@ -50,7 +53,7 @@ export function AdminPanel() {
             <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay"></div>
             <div className="relative z-10 flex h-full items-center justify-center">
               <span className="text-xs uppercase tracking-[0.2em] text-white/20 mix-blend-plus-lighter">
-                Neural Link Connectivity Established
+                {t("neuralLinkEstablished")}
               </span>
             </div>
             

@@ -21,6 +21,8 @@
     "focusInputHint": "Cursor del operador",
     "adminConsole": "Consola admin",
     "adminConsoleHint": "Controles del sistema",
+    "documentsLibrary": "Documentos",
+    "documentsLibraryHint": "Cargar y revisar",
     "pulseInterface": "Impulsar interfaz"
   },
   "auth": {
@@ -196,5 +198,38 @@
     "networkError": "Error de red durante el reconocimiento de voz. Verifica tu conexión.",
     "ttsError": "Error en síntesis de voz. Mostrando respuesta en texto.",
     "keyboardShortcut": "Ctrl+Shift+V para alternar modo de voz"
+  },
+  "documents": {
+    "eyebrow": "Conocimiento personal",
+    "title": "Biblioteca de documentos",
+    "subtitle": "Carga archivos PDF o Markdown privados, deja que CLEO los indexe en segundo plano y luego consúltalos desde tus chats autenticados.",
+    "refresh": "Actualizar",
+    "backToChat": "Volver al chat",
+    "unauthTitle": "Inicia sesión para gestionar documentos",
+    "unauthBody": "Las cargas de documentos están aisladas por usuario. Inicia sesión para añadir archivos privados, seguir su procesamiento y usarlos en tus sesiones de chat.",
+    "uploadEyebrow": "Canal de carga",
+    "uploadTitle": "Agregar un nuevo documento",
+    "fileLabel": "Archivo",
+    "titleLabel": "Título",
+    "titlePlaceholder": "Título visible opcional",
+    "tagsLabel": "Etiquetas",
+    "tagsPlaceholder": "finanzas, onboarding, políticas",
+    "tagsHint": "Separa las etiquetas con comas.",
+    "uploadButton": "Cargar documento",
+    "uploading": "Cargando",
+    "uploadError": "La carga del documento falló.",
+    "loadError": "No pudimos cargar tus documentos.",
+    "libraryEyebrow": "Archivos indexados",
+    "libraryTitle": "Tus documentos",
+    "documentsCount": "documentos",
+    "empty": "Todavía no hay documentos cargados. Agrega un PDF o un archivo Markdown para fundamentar tus propios chats.",
+    "open": "Abrir",
+    "createdAt": "Cargado {value}",
+    "status": {
+      "pending": "Pendiente",
+      "processing": "Procesando",
+      "ready": "Listo",
+      "failed": "Falló"
+    }
   }
 }

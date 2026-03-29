@@ -199,6 +199,12 @@ cd frontend && npx vitest --coverage # with istanbul coverage
 | `AZURE_OPENAI_CHAT_DEPLOYMENT` | Backend | Azure deployment name for generation |
 | `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | Backend | Azure deployment name for embeddings |
 | `PINECONE_API_KEY` | Backend | Pinecone API key |
+| `AZURE_BLOB_CONNECTION_STRING` | Backend | Preferred Azure Blob credential for document uploads |
+| `AZURE_BLOB_ACCOUNT_URL` | Backend | Blob account URL when not using a connection string |
+| `AZURE_BLOB_ACCOUNT_NAME` | Backend | Blob account name for SAS generation |
+| `AZURE_BLOB_ACCOUNT_KEY` | Backend | Blob account key for uploads and SAS generation |
+| `AZURE_BLOB_CONTAINER_NAME` | Backend | Blob container used for uploaded user documents |
+| `DOCUMENT_UPLOAD_MAX_BYTES` | Backend | Max upload size for PDF/Markdown files |
 | `BOOKSTACK_URL` | Backend | BookStack instance URL |
 | `BOOKSTACK_TOKEN_ID` | Backend | BookStack API token ID |
 | `BOOKSTACK_TOKEN_SECRET` | Backend | BookStack API token secret |

@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import DocumentSource, NormalizedDocumentRecord
+from app.db.models import Document, DocumentSource, NormalizedDocumentRecord
 
 
 class DocumentRepository:
@@ -84,6 +84,73 @@ class DocumentRepository:
         )
         result = await session.execute(stmt)
         return int(result.scalar_one())
+
+    async def create_uploaded_document(
+        self,
+        session: AsyncSession,
+        *,
+        user_id,
+        file_name: str,
+        title: str,
+        blob_name: str,
+        blob_url: str,
+        content_type: str,
+        file_size: int,
+        tags: list[str] | None = None,
+        status: str = "pending",
+    ) -> Document:
+        document = Document(
+            user_id=user_id,
+            file_name=file_name,
+            title=title,
+            blob_name=blob_name,
+            blob_url=blob_url,
+            content_type=content_type,
+            file_size=file_size,
+            tags_json=tags or [],
+            status=status,
+        )
+        session.add(document)
+        await session.flush()
+        await session.refresh(document)
+        return document
+
+    async def get_uploaded_document_by_id(
+        self,
+        session: AsyncSession,
+        document_id,
+    ) -> Document | None:
+        stmt = select(Document).where(Document.id == document_id)
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+    async def get_uploaded_document_for_user(
+        self,
+        session: AsyncSession,
+        *,
+        document_id,
+        user_id,
+    ) -> Document | None:
+        stmt = select(Document).where(
+            Document.id == document_id,
+            Document.user_id == user_id,
+        )
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
+    async def list_uploaded_documents_for_user(
+        self,
+        session: AsyncSession,
+        *,
+        user_id,
+    ) -> list[Document]:
+        stmt = (
+            select(Document)
+            .where(Document.user_id == user_id)
+            .order_by(Document.created_at.desc())
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
 
 
 document_repository = DocumentRepository()

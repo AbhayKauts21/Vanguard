@@ -118,7 +118,12 @@ class ChatService:
         )
         await self._ensure_chat_title(session, chat=chat, first_user_message=payload.message)
 
-        response = await self._answer_with_fallback(payload.message, history, locale=locale)
+        response = await self._answer_with_fallback(
+            payload.message,
+            history,
+            locale=locale,
+            user_id=str(current_user.id),
+        )
         assistant_message = await chat_repository.create_message(
             session,
             chat_id=chat.id,
@@ -169,7 +174,12 @@ class ChatService:
         final_event: dict[str, Any] | None = None
 
         try:
-            async for chunk in self._stream_answer_query(payload.message, history=history, locale=locale):
+            async for chunk in self._stream_answer_query(
+                payload.message,
+                history=history,
+                locale=locale,
+                user_id=str(current_user.id),
+            ):
                 if chunk.get("type") == "token":
                     token = str(chunk.get("content", ""))
                     buffered_tokens.append(token)
@@ -282,11 +292,17 @@ class ChatService:
         question: str,
         history: list[ConversationMessage],
         locale: str = "en",
+        user_id: str | None = None,
     ) -> ChatResponse:
         from app.core.exceptions import NoContextFoundError
 
         try:
-            return await self._call_answer_query(question, history=history, locale=locale)
+            return await self._call_answer_query(
+                question,
+                history=history,
+                locale=locale,
+                user_id=user_id,
+            )
         except NoContextFoundError:
             return ChatResponse(
                 answer=NO_CONTEXT_RESPONSE,
@@ -304,13 +320,32 @@ class ChatService:
         *,
         history: list[ConversationMessage],
         locale: str,
+        user_id: str | None,
     ) -> ChatResponse:
         try:
-            return await self.rag_service.answer_query(question, history=history, locale=locale)
+            return await self.rag_service.answer_query(
+                question,
+                history=history,
+                locale=locale,
+                user_id=user_id,
+            )
         except TypeError as exc:
-            if "locale" not in str(exc):
-                raise
-            return await self.rag_service.answer_query(question, history=history)
+            message = str(exc)
+            if "user_id" in message and "locale" in message:
+                return await self.rag_service.answer_query(question, history=history)
+            if "user_id" in message:
+                return await self.rag_service.answer_query(
+                    question,
+                    history=history,
+                    locale=locale,
+                )
+            if "locale" in message:
+                return await self.rag_service.answer_query(
+                    question,
+                    history=history,
+                    user_id=user_id,
+                )
+            raise
 
     def _stream_answer_query(
         self,
@@ -318,13 +353,32 @@ class ChatService:
         *,
         history: list[ConversationMessage],
         locale: str,
+        user_id: str | None,
     ):
         try:
-            return self.rag_service.answer_query_stream(question, history=history, locale=locale)
+            return self.rag_service.answer_query_stream(
+                question,
+                history=history,
+                locale=locale,
+                user_id=user_id,
+            )
         except TypeError as exc:
-            if "locale" not in str(exc):
-                raise
-            return self.rag_service.answer_query_stream(question, history=history)
+            message = str(exc)
+            if "user_id" in message and "locale" in message:
+                return self.rag_service.answer_query_stream(question, history=history)
+            if "user_id" in message:
+                return self.rag_service.answer_query_stream(
+                    question,
+                    history=history,
+                    locale=locale,
+                )
+            if "locale" in message:
+                return self.rag_service.answer_query_stream(
+                    question,
+                    history=history,
+                    user_id=user_id,
+                )
+            raise
 
     @staticmethod
     def _generate_title(content: str) -> str:

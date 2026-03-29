@@ -21,6 +21,7 @@ from app.api.router_admin import router as admin_router
 from app.api.router_auth import router as auth_router
 from app.api.router_bookstack import router as bookstack_router
 from app.api.router_chats import router as chats_router
+from app.api.router_documents import router as documents_router
 from app.api.router_rbac import router as rbac_router
 from app.api.router_voice import router as voice_router
 from app.api.router_webhook import router as webhook_router
@@ -94,8 +95,10 @@ async def lifespan(app: FastAPI):
 
     # Close adapter HTTP clients
     from app.adapters.bookstack_client import bookstack_client
+    from app.adapters.azure_blob_storage import azure_blob_storage
     from app.db.session import dispose_engine
     await bookstack_client.close()
+    await azure_blob_storage.close()
     await dispose_engine()
 
 
@@ -144,6 +147,7 @@ def get_application() -> FastAPI:
     _app.include_router(auth_router, prefix=settings.API_V1_STR)
     _app.include_router(bookstack_router, prefix=settings.API_V1_STR)
     _app.include_router(chats_router, prefix=settings.API_V1_STR)
+    _app.include_router(documents_router, prefix=settings.API_V1_STR)
     _app.include_router(rbac_router, prefix=settings.API_V1_STR)
     _app.include_router(admin_router, prefix=settings.API_V1_STR)
     _app.include_router(voice_router, prefix=settings.API_V1_STR)

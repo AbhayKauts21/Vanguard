@@ -46,6 +46,12 @@ export function TopBar() {
             subtitle={t("adminConsoleHint")}
             href="/admin"
           />
+          <HeaderAction
+            icon="upload_file"
+            label={t("documentsLibrary")}
+            subtitle={t("documentsLibraryHint")}
+            href="/documents"
+          />
         </div>
 
         <div className="flex gap-4 items-center">

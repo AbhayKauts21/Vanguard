@@ -21,6 +21,8 @@
     "focusInputHint": "Operator cursor",
     "adminConsole": "Admin Console",
     "adminConsoleHint": "System controls",
+    "documentsLibrary": "Documents",
+    "documentsLibraryHint": "Upload and review",
     "pulseInterface": "Pulse interface"
   },
   "auth": {
@@ -196,5 +198,38 @@
     "networkError": "Network error during speech recognition. Check your connection.",
     "ttsError": "Text-to-speech failed. Showing text response only.",
     "keyboardShortcut": "Ctrl+Shift+V to toggle voice mode"
+  },
+  "documents": {
+    "eyebrow": "Personal knowledge",
+    "title": "Document Library",
+    "subtitle": "Upload private PDF or Markdown files, let CLEO index them in the background, and then query them from your authenticated chats.",
+    "refresh": "Refresh",
+    "backToChat": "Back to chat",
+    "unauthTitle": "Sign in to manage documents",
+    "unauthBody": "Document uploads are user-scoped. Log in to add private files, watch them process, and use them in your chat sessions.",
+    "uploadEyebrow": "Upload pipeline",
+    "uploadTitle": "Add a new document",
+    "fileLabel": "File",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Optional display title",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "finance, onboarding, policies",
+    "tagsHint": "Separate tags with commas.",
+    "uploadButton": "Upload document",
+    "uploading": "Uploading",
+    "uploadError": "The document upload failed.",
+    "loadError": "We couldn't load your uploaded documents.",
+    "libraryEyebrow": "Indexed files",
+    "libraryTitle": "Your documents",
+    "documentsCount": "documents",
+    "empty": "No uploaded documents yet. Add a PDF or Markdown file to start grounding your own chats.",
+    "open": "Open",
+    "createdAt": "Uploaded {value}",
+    "status": {
+      "pending": "Pending",
+      "processing": "Processing",
+      "ready": "Ready",
+      "failed": "Failed"
+    }
   }
 }

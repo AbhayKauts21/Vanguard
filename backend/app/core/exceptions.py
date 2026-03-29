@@ -127,6 +127,20 @@ class AzureSpeechSynthesisError(CleoError):
         super().__init__(detail=detail, status_code=502)
 
 
+class StorageError(CleoError):
+    """Raised when document storage operations fail."""
+
+    def __init__(self, detail: str = "Blob storage operation failed."):
+        super().__init__(detail=detail, status_code=502)
+
+
+class BadRequestError(CleoError):
+    """Raised when request input is invalid."""
+
+    def __init__(self, detail: str = "The request payload is invalid."):
+        super().__init__(detail=detail, status_code=400)
+
+
 # --- Exception Handlers (registered in main.py) ---
 
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):

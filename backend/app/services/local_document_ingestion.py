@@ -79,7 +79,7 @@ class LocalDocumentIngestionService:
             page_id=document_id,
             text_content=markdown_text,
             page_title=title,
-            source_url=str(filepath.resolve()),
+            source_url=None,  # Do not use local path as source_url
             source_type="local_markdown",
             source_name=filepath.name,
         )

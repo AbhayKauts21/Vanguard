@@ -66,12 +66,15 @@ class BookStackPage(BaseModel):
     slug: str
     html: str = ""
     book_id: int = 0
+    book_slug: Optional[str] = None
     chapter_id: Optional[int] = None
     updated_at: str = ""
 
     @property
     def url_path(self) -> str:
-        return f"/books/{self.book_id}/page/{self.slug}"
+        # Prefer book_slug for cleaner URLs if available
+        book_ref = self.book_slug or self.book_id
+        return f"/books/{book_ref}/page/{self.slug}"
 
 
 class BookStackBook(BaseModel):

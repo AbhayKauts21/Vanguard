@@ -251,7 +251,11 @@ class RAGService:
             yield {"type": "token", "content": uncertainty_message}
             
             what_i_found = [
-                {"page_title": r.page_title, "score": r.score} for r in results[:3]
+                {
+                    "page_title": r.page_title, 
+                    "score": r.score,
+                    "source_url": r.source_url or r.bookstack_url
+                } for r in results[:3]
             ]
             
             yield {

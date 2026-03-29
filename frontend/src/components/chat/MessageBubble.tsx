@@ -16,7 +16,7 @@ interface MessageBubbleProps {
   hidden_sources_count?: number;
   modeUsed?: 'rag' | 'uncertain' | 'azure_fallback';
   maxConfidence?: number;
-  whatIFound?: { page_title: string; score: number }[];
+  whatIFound?: { page_title: string; score: number; source_url?: string }[];
   isStreaming?: boolean;
   delay?: number;
 }
@@ -139,13 +139,36 @@ export function MessageBubble({
                       {t("whatIFound")}
                     </p>
                     <ul className="space-y-1">
-                      {whatIFound.map((item, idx) => (
-                        <li key={idx} className="text-yellow-400/90 text-[12px] flex items-center gap-2">
-                          <span className="w-1 h-1 bg-yellow-500/50 rounded-full" />
-                          <span className="truncate">{item.page_title}</span>
-                          <span className="text-yellow-500/50 text-[10px]">({Math.round(item.score * 100)}%)</span>
-                        </li>
-                      ))}
+                      {whatIFound.map((item, idx) => {
+                        const content = (
+                          <>
+                            <span className="w-1 h-1 bg-yellow-500/50 rounded-full" />
+                            <span className="truncate">{item.page_title}</span>
+                            <span className="text-yellow-500/50 text-[10px]">({Math.round(item.score * 100)}%)</span>
+                          </>
+                        );
+
+                        if (item.source_url) {
+                          return (
+                            <li key={idx}>
+                              <a 
+                                href={item.source_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-yellow-400/90 text-[12px] flex items-center gap-2 hover:text-yellow-100 transition-colors w-full"
+                              >
+                                {content}
+                              </a>
+                            </li>
+                          );
+                        }
+
+                        return (
+                          <li key={idx} className="text-yellow-400/90 text-[12px] flex items-center gap-2">
+                            {content}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}

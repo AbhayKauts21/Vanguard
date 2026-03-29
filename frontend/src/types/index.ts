@@ -40,7 +40,7 @@ export interface ChatResponse {
   hidden_sources_count: number;
   mode_used: 'rag' | 'uncertain' | 'azure_fallback';
   max_confidence: number;
-  what_i_found?: { page_title: string; score: number }[];
+  what_i_found?: { page_title: string; score: number; source_url?: string }[];
   conversation_id?: string;
 }
 
@@ -61,7 +61,7 @@ export interface PersistedChatMessage {
   hidden_sources_count: number;
   mode_used?: "rag" | "uncertain" | "azure_fallback" | null;
   max_confidence?: number | null;
-  what_i_found?: { page_title: string; score: number }[] | null;
+  what_i_found?: { page_title: string; score: number; source_url?: string }[] | null;
 }
 
 export interface ChatMessagesResponse {
@@ -91,7 +91,7 @@ export interface SSEDoneEvent {
   hidden_sources_count: number;
   mode_used: 'rag' | 'uncertain' | 'azure_fallback';
   max_confidence: number;
-  what_i_found?: { page_title: string; score: number }[];
+  what_i_found?: { page_title: string; score: number; source_url?: string }[];
   chat_summary?: ChatSummary;
 }
 

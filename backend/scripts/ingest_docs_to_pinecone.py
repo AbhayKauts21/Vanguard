@@ -36,7 +36,7 @@ class DocumentIngester:
             "errors": 0,
         }
 
-    async def ingest_document(self, filepath: Path, fallback_index: int) -> int:
+    async def ingest_document(self, filepath: Path, fallback_index: int, base_url: str | None = None) -> int:
         """
         Complete ingestion pipeline for a single document.
         Returns count of vectors upserted.
@@ -46,10 +46,44 @@ class DocumentIngester:
         logger.info(f"{'='*70}")
 
         try:
-            result = await self.ingestion_service.ingest_file(
+            # Build chunks first
+            chunks = self.ingestion_service.build_chunks(
                 filepath,
                 fallback_index=fallback_index,
             )
+            
+            # If base_url is provided, override the source_url in metadata
+            if base_url:
+                # Use filename stem for the URL path.
+                slug = filepath.stem
+                # Special case: strip prefix for the overview doc as requested
+                if slug == "01-overview-architecture":
+                    slug = "overview-architecture"
+                    
+                target_url = f"{base_url.rstrip('/')}/{slug}"
+                for chunk in chunks:
+                    chunk.metadata["source_url"] = target_url
+                    chunk.metadata["bookstack_url"] = target_url
+
+            document_id = self.ingestion_service.resolve_document_id(
+                filepath, 
+                fallback_index=fallback_index
+            )
+            
+            # Upsert
+            await self.ingestion_service.vector_store.delete_by_page_id(document_id)
+            vectors = await self.ingestion_service.embedding_client.embed_texts([c.text for c in chunks])
+            upserted = await self.ingestion_service.vector_store.upsert_vectors(
+                ids=[c.chunk_id for c in chunks],
+                vectors=vectors,
+                metadatas=[c.metadata for c in chunks],
+            )
+
+            result = {
+                "document_id": document_id,
+                "chunks_created": len(chunks),
+                "vectors_upserted": upserted
+            }
 
             self.stats["chunks_created"] += int(result["chunks_created"])
             self.stats["vectors_upserted"] += int(result["vectors_upserted"])
@@ -70,7 +104,7 @@ class DocumentIngester:
             self.stats["errors"] += 1
             return 0
 
-    async def ingest_all(self, files: List[Path]) -> None:
+    async def ingest_all(self, files: List[Path], base_url: str | None = None) -> None:
         """Ingest multiple documents sequentially."""
         logger.info(f"\n{'='*70}")
         logger.info(f"DOCUMENT INGESTION PIPELINE - PINECONE")
@@ -82,11 +116,13 @@ class DocumentIngester:
         logger.info(f"Chunk Size: {settings.CHUNK_SIZE} chars | Overlap: {settings.CHUNK_OVERLAP} chars")
         logger.info(f"Pinecone Index: {settings.PINECONE_INDEX_NAME}")
         logger.info(f"Pinecone Namespace: {self.ingestion_service.vector_store.NAMESPACE}")
+        if base_url:
+            logger.info(f"Base URL: {base_url}")
         logger.info(f"Total Documents to Ingest: {len(files)}")
         logger.info(f"{'='*70}")
 
         for fallback_index, filepath in enumerate(files, start=1):
-            await self.ingest_document(filepath, fallback_index)
+            await self.ingest_document(filepath, fallback_index, base_url=base_url)
 
         # Final report
         logger.info(f"\n{'='*70}")
@@ -126,6 +162,10 @@ def parse_args() -> argparse.Namespace:
         "paths",
         nargs="*",
         help="File or directory paths to ingest.",
+    )
+    parser.add_argument(
+        "--base-url",
+        help="Optional base URL to prefix filenames with (e.g. https://bookstack/pages/)",
     )
     return parser.parse_args()
 
@@ -193,7 +233,7 @@ def main():
     ingester = DocumentIngester()
     
     try:
-        asyncio.run(ingester.ingest_all(files))
+        asyncio.run(ingester.ingest_all(files, base_url=args.base_url))
         sys.exit(0 if ingester.stats["errors"] == 0 else 1)
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)

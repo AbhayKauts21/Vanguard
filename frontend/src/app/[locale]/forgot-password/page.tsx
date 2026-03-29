@@ -1,7 +1,9 @@
 import { AuthPageShell, ForgotPasswordCard } from "@/domains/auth/components";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
-export default async function ForgotPasswordPage() {
+export default async function ForgotPasswordPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   const t = await getTranslations("auth");
 
   return (

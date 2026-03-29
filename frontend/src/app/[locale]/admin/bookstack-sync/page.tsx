@@ -1,7 +1,12 @@
 import { TopBar, AppShell } from "@/components/layout";
 import { BookStackSyncManager } from "@/domains/system/components/BookStackSyncManager";
 
-export default function BookStackSyncManagerPage() {
+import { setRequestLocale } from "next-intl/server";
+
+export default async function BookStackSyncManagerPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+
   return (
     <AppShell>
       <TopBar />

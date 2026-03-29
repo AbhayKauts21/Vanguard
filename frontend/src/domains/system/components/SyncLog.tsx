@@ -24,7 +24,7 @@ export function SyncLog() {
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
+    <div className="group relative h-[480px] overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
       <div className="relative z-10 flex h-full flex-col">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-medium text-white/90">{t("eventLog")}</h3>

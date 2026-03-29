@@ -65,9 +65,11 @@ export function useAudioAnalyser() {
     await getQueue().resume();
   }, [getQueue]);
 
-  /** Whether audio is currently playing or queued. */
+  /** Whether audio is currently playing or queued (includes browser TTS fallback). */
   const isPlaying = useCallback((): boolean => {
-    return queueRef.current?.active ?? false;
+    const isQueueActive = queueRef.current?.active ?? false;
+    const isBrowserSpeaking = typeof window !== "undefined" && window.speechSynthesis?.speaking;
+    return isQueueActive || !!isBrowserSpeaking;
   }, []);
 
   // Cleanup on unmount

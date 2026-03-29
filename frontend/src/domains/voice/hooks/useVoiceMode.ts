@@ -216,18 +216,24 @@ export function useVoiceMode() {
             if (isPlaying()) {
               requestAnimationFrame(waitForAudio);
             } else {
-              const { isVoiceMode } = useVoiceStore.getState();
-              if (isVoiceMode) {
-                // Auto-restart listening for the next turn
-                setPhase("listening");
-                startSTT();
-              } else {
-                setPhase("idle");
-              }
-              useVoiceStore.getState().setAudioLevel(0);
+              // Once audio stops, wait for an additional "Settle Delay" (800ms)
+              // to account for physical acoustic latency and buffer tails.
+              setTimeout(() => {
+                const { isVoiceMode } = useVoiceStore.getState();
+                if (isVoiceMode) {
+                  // Auto-restart listening for the next turn
+                  setPhase("listening");
+                  startSTT();
+                } else {
+                  setPhase("idle");
+                }
+                useVoiceStore.getState().setAudioLevel(0);
+              }, 800);
             }
           };
-          // Small delay to let last audio chunk enqueue
+          
+          // Small delay (500ms) to ensure the first audio chunk has had time to synthesize/enqueue
+          // before we start the "isPlaying" check, preventing premature exit.
           setTimeout(waitForAudio, 500);
         },
         /* onError */

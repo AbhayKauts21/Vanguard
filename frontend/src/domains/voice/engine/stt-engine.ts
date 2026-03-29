@@ -194,6 +194,13 @@ export class STTEngine {
   getTranscript(): string {
     return this.accumulatedTranscript.trim();
   }
+  
+  /**
+   * Reset the engine state, clearing any buffered transcripts.
+   */
+  reset(): void {
+    this.accumulatedTranscript = "";
+  }
 
   /**
    * Update the language at runtime (e.g. locale switch).

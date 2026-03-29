@@ -84,6 +84,11 @@ class User(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    documents: Mapped[list["Document"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
     bookstack_sync_configs: Mapped[list["BookStackSyncConfig"]] = relationship(
         back_populates="user",
         lazy="selectin",
@@ -212,6 +217,41 @@ class ChatMessageRecord(Base):
     )
 
     chat: Mapped[ChatSession] = relationship(back_populates="messages", lazy="selectin")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    __table_args__ = (
+        Index("ix_documents_user_created_at", "user_id", "created_at"),
+        Index("ix_documents_user_status", "user_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    blob_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    blob_url: Mapped[str] = mapped_column(Text, nullable=False)
+    content_type: Mapped[str] = mapped_column(
+        String(128), nullable=False, default="application/octet-stream"
+    )
+    file_size: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    tags_json: Mapped[list[str] | None] = mapped_column("tags", JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    error_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=utcnow,
+        onupdate=utcnow,
+        server_default=func.now(),
+    )
+
+    user: Mapped[User] = relationship(back_populates="documents", lazy="selectin")
 
 
 class DocumentSource(Base):

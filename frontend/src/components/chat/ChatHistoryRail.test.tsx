@@ -25,7 +25,6 @@ const messages = {
 describe("ChatHistoryRail", () => {
   it("renders chats and allows selecting a different conversation", () => {
     const onSelectChat = vi.fn();
-    const onCreateChat = vi.fn();
     const onDeleteChat = vi.fn();
 
     render(
@@ -51,9 +50,7 @@ describe("ChatHistoryRail", () => {
           ]}
           activeChatId="chat-1"
           onSelectChat={onSelectChat}
-          onCreateChat={onCreateChat}
           onDeleteChat={onDeleteChat}
-          onToggleCollapse={() => {}}
         />
       </NextIntlClientProvider>,
     );
@@ -61,10 +58,8 @@ describe("ChatHistoryRail", () => {
     expect(screen.getByText("CheckingMate setup")).toBeInTheDocument();
     expect(screen.getByText("New chat")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTitle("New Chat"));
     fireEvent.click(screen.getByRole("button", { name: /New chat.*No messages yet/i }));
 
-    expect(onCreateChat).toHaveBeenCalledTimes(1);
     expect(onSelectChat).toHaveBeenCalledWith("chat-2");
   });
 });

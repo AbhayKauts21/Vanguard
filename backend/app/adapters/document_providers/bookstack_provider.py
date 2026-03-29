@@ -43,14 +43,28 @@ class BookStackProvider(DocumentProvider):
     async def list_documents(self) -> list[DocumentReference]:
         pages = await self.client.get_all_pages()
         book_map = await self._build_book_map()
-        return [self._to_reference(page, book_map.get(page.book_id, "")) for page in pages]
+        return [
+            self._to_reference(
+                page, 
+                book_map.get(page.book_id, {}).get("name", ""),
+                book_map.get(page.book_id, {}).get("slug")
+            ) 
+            for page in pages
+        ]
 
     async def list_documents_updated_since(self, since: datetime) -> list[DocumentReference]:
         pages = await self.client.get_pages_updated_after(
             since.strftime("%Y-%m-%d %H:%M:%S")
         )
         book_map = await self._build_book_map()
-        return [self._to_reference(page, book_map.get(page.book_id, "")) for page in pages]
+        return [
+            self._to_reference(
+                page, 
+                book_map.get(page.book_id, {}).get("name", ""),
+                book_map.get(page.book_id, {}).get("slug")
+            ) 
+            for page in pages
+        ]
 
     async def get_document(
         self,
@@ -60,9 +74,14 @@ class BookStackProvider(DocumentProvider):
     ) -> NormalizedDocument:
         page = await self.client.get_page(int(external_document_id))
         container_name = reference.container_name if reference else ""
+        book_slug = None
         if not container_name:
             book_map = await self._build_book_map()
-            container_name = book_map.get(page.book_id, "")
+            book_info = book_map.get(page.book_id, {})
+            container_name = book_info.get("name", "")
+            book_slug = book_info.get("slug")
+        
+        page.book_slug = book_slug
 
         source_url = reference.source_url if reference else self._build_page_url(page)
         checksum = self._build_checksum(page)
@@ -89,7 +108,7 @@ class BookStackProvider(DocumentProvider):
             access_scope=None,
         )
 
-    async def _build_book_map(self) -> dict[int, str]:
+    async def _build_book_map(self) -> dict[int, dict[str, str]]:
         try:
             books = await self.client.list_books()
         except Exception as exc:
@@ -99,9 +118,10 @@ class BookStackProvider(DocumentProvider):
                 exc,
             )
             return {}
-        return {book.id: book.name for book in books}
+        return {book.id: {"name": book.name, "slug": book.slug} for book in books}
 
-    def _to_reference(self, page: BookStackPage, book_title: str) -> DocumentReference:
+    def _to_reference(self, page: BookStackPage, book_title: str, book_slug: str | None = None) -> DocumentReference:
+        page.book_slug = book_slug
         return DocumentReference(
             source_key=self.source_key,
             provider_type=DocumentProviderType.BOOKSTACK,

@@ -65,6 +65,11 @@ class CitationRanker:
             source_key=r.source_key,
             document_uid=r.document_uid,
             external_document_id=r.external_document_id,
+            document_id=r.document_id,
+            file_name=r.file_name,
+            user_id=r.user_id,
+            blob_url=r.blob_url,
+            page_number=r.page_number,
             chunk_text=r.text[:200] + "..." if len(r.text) > 200 else r.text,
             score=round(r.score, 3),
             tier=tier.value

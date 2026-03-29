@@ -30,6 +30,13 @@ class DocumentContentFormat(str, Enum):
     OPENAPI = "openapi"
 
 
+class DocumentUploadStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"
+
+
 class SyncTriggerType(str, Enum):
     MANUAL = "manual"
     SCHEDULED = "scheduled"
@@ -59,12 +66,15 @@ class BookStackPage(BaseModel):
     slug: str
     html: str = ""
     book_id: int = 0
+    book_slug: Optional[str] = None
     chapter_id: Optional[int] = None
     updated_at: str = ""
 
     @property
     def url_path(self) -> str:
-        return f"/books/{self.book_id}/page/{self.slug}"
+        # Prefer book_slug for cleaner URLs if available
+        book_ref = self.book_slug or self.book_id
+        return f"/books/{book_ref}/page/{self.slug}"
 
 
 class BookStackBook(BaseModel):
@@ -148,6 +158,12 @@ class VectorSearchResult(BaseModel):
     source_type: str = "bookstack"
     source_name: str = ""
     full_doc_text: str = ""
+    document_id: str = ""
+    file_name: str = ""
+    user_id: str = ""
+    blob_url: str = ""
+    page_number: int = 0
+    source: str = ""
 
 
 class DocumentReference(BaseModel):
@@ -198,9 +214,35 @@ class Citation(BaseModel):
     source_key: str = ""
     document_uid: str = ""
     external_document_id: str = ""
+    document_id: str = ""
+    file_name: str = ""
+    user_id: str = ""
+    blob_url: str = ""
+    page_number: int = 0
     chunk_text: str = ""
     score: float = 0.0
     tier: str = "tertiary"              # "primary" | "secondary" | "tertiary"
+
+
+class UploadedDocumentResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    file_name: str
+    title: str
+    blob_url: str
+    download_url: str
+    content_type: str
+    file_size: int
+    tags: List[str] = Field(default_factory=list)
+    status: DocumentUploadStatus
+    error_detail: Optional[str] = None
+    processed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class UploadedDocumentListResponse(BaseModel):
+    items: List[UploadedDocumentResponse] = Field(default_factory=list)
 
 
 class ConversationMessage(BaseModel):

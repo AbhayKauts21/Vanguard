@@ -4,7 +4,6 @@ Phase 8: structured logging at every pipeline step with request-id correlation.
 """
 
 import time
-from pathlib import Path
 from typing import List, AsyncGenerator, Set
 
 from loguru import logger
@@ -60,7 +59,11 @@ class RAGService:
         self.top_k = settings.TOP_K_RESULTS
 
     async def answer_query(
-        self, question: str, history: List[ConversationMessage] | None = None, locale: str = "en"
+        self,
+        question: str,
+        history: List[ConversationMessage] | None = None,
+        locale: str = "en",
+        user_id: str | None = None,
     ) -> ChatResponse:
         """Full RAG pipeline — returns answer with citations."""
         rlog = logger.bind(request_id="sync")
@@ -88,7 +91,11 @@ class RAGService:
 
         # 2. Similarity search in Pinecone
         t0 = time.perf_counter()
-        results = await self.vector_store.query(vector=query_vector, top_k=self.top_k)
+        results = await self.vector_store.query(
+            vector=query_vector,
+            top_k=self.top_k,
+            filter_dict=self._build_user_filter(user_id),
+        )
         max_score = max((r.score for r in results), default=0.0)
         rlog.info("rag.vector_search", top_k=self.top_k, results=len(results), max_score=round(max_score, 3), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
 
@@ -141,7 +148,11 @@ class RAGService:
         )
 
     async def answer_query_stream(
-        self, question: str, history: List[ConversationMessage] | None = None, locale: str = "en"
+        self,
+        question: str,
+        history: List[ConversationMessage] | None = None,
+        locale: str = "en",
+        user_id: str | None = None,
     ) -> AsyncGenerator[dict, None]:
         """Streaming RAG pipeline — yields tokens + final summary dict based on confidence routing."""
         rlog = logger.bind(request_id="stream")
@@ -174,7 +185,11 @@ class RAGService:
         rlog.info("rag.embed_query", query_length=len(question), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
 
         t0 = time.perf_counter()
-        results = await self.vector_store.query(vector=query_vector, top_k=self.top_k)
+        results = await self.vector_store.query(
+            vector=query_vector,
+            top_k=self.top_k,
+            filter_dict=self._build_user_filter(user_id),
+        )
         max_confidence = max([r.score for r in results]) if results else 0.0
         rlog.info("rag.vector_search", top_k=self.top_k, results=len(results), max_score=round(max_confidence, 3), duration_ms=round((time.perf_counter() - t0) * 1000, 1))
         
@@ -236,7 +251,11 @@ class RAGService:
             yield {"type": "token", "content": uncertainty_message}
             
             what_i_found = [
-                {"page_title": r.page_title, "score": r.score} for r in results[:3]
+                {
+                    "page_title": r.page_title, 
+                    "score": r.score,
+                    "source_url": r.source_url or r.bookstack_url
+                } for r in results[:3]
             ]
             
             yield {
@@ -321,6 +340,16 @@ Do NOT make up details about our product features or policies."""
     def _medium_confidence_threshold(self) -> float:
         """Fallback threshold for uncertain-but-related questions."""
         return max(0.0, min(0.5, self.min_score - 0.1))
+
+    def _build_user_filter(self, user_id: str | None) -> dict | None:
+        if not user_id:
+            return None
+        return {
+            "$or": [
+                {"source_type": {"$ne": "user_upload"}},
+                {"user_id": {"$eq": user_id}},
+            ]
+        }
 
 
 # Singleton instance

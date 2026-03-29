@@ -3,8 +3,10 @@
 import { useAdminSync } from "../hooks/useAdminSync";
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { useTranslations } from "next-intl";
 
 export function SyncControls() {
+  const t = useTranslations("system");
   const { triggerFullSync, triggerPageSync, isTriggering } = useAdminSync();
   const [pageId, setPageId] = useState("");
   const [notify, setNotify] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -17,9 +19,9 @@ export function SyncControls() {
   const handleFullSync = async () => {
     try {
       const res = await triggerFullSync();
-      showNotification(`Re-sync triggered: ${res.status}`, "success");
+      showNotification(t("resyncTriggered", { status: res.status }), "success");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = err instanceof Error ? err.message : t("failedUpdate");
       showNotification(message, "error");
     }
   };
@@ -28,20 +30,20 @@ export function SyncControls() {
     if (!pageId) return;
     try {
       const res = await triggerPageSync(parseInt(pageId));
-      showNotification(`Page setup updated: ${res.status}`, "success");
+      showNotification(t("pageSetupUpdated", { status: res.status }), "success");
       setPageId("");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = err instanceof Error ? err.message : t("failedUpdate");
       showNotification(message, "error");
     }
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/50 hover:border-white/20">
+    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
       <div className="relative z-10 flex flex-col gap-6">
         <div>
-          <h3 className="mb-2 text-lg font-medium text-white/90">Manual Overrides</h3>
-          <p className="text-sm text-white/50">Dispatches forced ingestion into Pinecone.</p>
+          <h3 className="mb-2 text-lg font-medium text-white/90">{t("manualOverrides")}</h3>
+          <p className="text-sm text-white/50">{t("manualOverridesDesc")}</p>
         </div>
 
         <button
@@ -55,7 +57,7 @@ export function SyncControls() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           )}
-          Trigger Full Re-Sync
+          {t("triggerFullSync")}
         </button>
 
         <div className="flex gap-2">
@@ -64,15 +66,15 @@ export function SyncControls() {
             value={pageId}
             onChange={(e) => setPageId(e.target.value)}
             disabled={isTriggering}
-            placeholder="Page ID"
-            className="w-full flex-1 rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-sm text-white placeholder-white/30 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+            placeholder={t("pageIdPlaceholder")}
+            className="w-full flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white placeholder-white/30 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
           />
           <button
             onClick={handleSingleSync}
             disabled={isTriggering || !pageId}
             className="rounded-xl bg-indigo-500/20 px-4 py-2 text-sm font-medium text-indigo-300 transition-all hover:bg-indigo-500/30 active:scale-95 disabled:opacity-50"
           >
-            Sync
+            {t("sync")}
           </button>
         </div>
 

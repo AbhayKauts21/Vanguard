@@ -49,7 +49,7 @@ async def test_bookstack_provider_lists_normalized_references():
     assert reference.provider_type == DocumentProviderType.BOOKSTACK
     assert reference.external_document_id == "42"
     assert reference.container_name == "Admin Docs"
-    assert reference.source_url.endswith("/books/7/page/sso-setup")
+    assert reference.source_url.endswith("/books/admin-docs/page/sso-setup")
     assert reference.metadata["chapter_id"] == 3
 
 
@@ -64,7 +64,7 @@ async def test_bookstack_provider_fetches_normalized_document():
     assert document.document_uid == "bookstack_default:42"
     assert document.content_format.value == "html"
     assert document.metadata["book_title"] == "Admin Docs"
-    assert document.source_url.endswith("/books/7/page/sso-setup")
+    assert document.source_url.endswith("/books/admin-docs/page/sso-setup")
     assert document.checksum
 
 

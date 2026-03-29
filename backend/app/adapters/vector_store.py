@@ -97,6 +97,12 @@ class VectorStore:
                     source_type=match.get("metadata", {}).get("source_type", "bookstack"),
                     source_name=match.get("metadata", {}).get("source_name", ""),
                     full_doc_text=match.get("metadata", {}).get("full_doc_text", ""),
+                    document_id=match.get("metadata", {}).get("document_id", ""),
+                    file_name=match.get("metadata", {}).get("file_name", ""),
+                    user_id=match.get("metadata", {}).get("user_id", ""),
+                    blob_url=match.get("metadata", {}).get("blob_url", ""),
+                    page_number=int(match.get("metadata", {}).get("page_number", 0) or 0),
+                    source=match.get("metadata", {}).get("source", ""),
                 )
                 for match in results.get("matches", [])
             ]

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str = "CLEO"
     API_V1_STR: str = "/api/v1"
+    PUBLIC_API_BASE_URL: str = "http://localhost:8000"
     DEBUG: bool = False
 
     @field_validator("DEBUG", mode="before")
@@ -53,6 +54,15 @@ class Settings(BaseSettings):
     BOOKSTACK_TOKEN_SECRET: str = ""
     BOOKSTACK_SOURCE_KEY: str = "bookstack_default"
     BOOKSTACK_SOURCE_NAME: str = "BookStack"
+
+    # Azure Blob Storage — user uploads
+    AZURE_BLOB_CONNECTION_STRING: str = ""
+    AZURE_BLOB_ACCOUNT_URL: str = ""
+    AZURE_BLOB_ACCOUNT_NAME: str = ""
+    AZURE_BLOB_ACCOUNT_KEY: str = ""
+    AZURE_BLOB_CONTAINER_NAME: str = "cleo-user-documents"
+    AZURE_BLOB_SAS_EXPIRY_MINUTES: int = 60 * 24
+    DOCUMENT_UPLOAD_MAX_BYTES: int = 20 * 1024 * 1024
 
     # Ingestion pipeline tuning
     CHUNK_SIZE: int = 800

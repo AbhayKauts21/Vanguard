@@ -11,9 +11,7 @@ interface ChatHistoryRailProps {
   activeChatId: string | null;
   isLoading?: boolean;
   onSelectChat: (chatId: string) => void;
-  onCreateChat: () => void;
   onDeleteChat: (chatId: string) => void;
-  onToggleCollapse: () => void;
 }
 
 function formatTimestamp(value: string): string {
@@ -35,9 +33,7 @@ export function ChatHistoryRail({
   activeChatId,
   isLoading = false,
   onSelectChat,
-  onCreateChat,
   onDeleteChat,
-  onToggleCollapse,
 }: ChatHistoryRailProps) {
   const t = useTranslations("chat");
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -62,24 +58,6 @@ export function ChatHistoryRail({
           <p className="mt-1 text-xs text-white/50">
             {t("historySubtitle")}
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onCreateChat}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/60 transition hover:bg-white/[0.08] hover:text-white"
-            title={t("newChat")}
-          >
-            <span className="material-symbols-outlined text-[18px]">add</span>
-          </button>
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/60 transition hover:bg-white/[0.08] hover:text-white"
-            title={t("hideHistory")}
-          >
-            <span className="material-symbols-outlined text-[18px]">left_panel_close</span>
-          </button>
         </div>
       </div>
 

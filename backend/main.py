@@ -41,7 +41,7 @@ from app.services.sync_scheduler import start_scheduler, stop_scheduler
 # ---------------------------------------------------------------------------
 # Initialize OpenTelemetry BEFORE anything else
 # ---------------------------------------------------------------------------
-OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() in ("true", "1", "yes")
+OTEL_ENABLED = os.getenv("OTEL_ENABLED", "false").lower() in ("true", "1", "yes")
 TelemetryMiddleware = None
 instrument_fastapi = None
 instrument_httpx = None

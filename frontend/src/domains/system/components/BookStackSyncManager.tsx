@@ -292,8 +292,8 @@ export function BookStackSyncManager() {
         </div>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-12 items-start">
-        <section className="lg:col-span-8 min-w-0 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl">
+      <div className="flex flex-col lg:flex-row gap-8 items-start">
+        <section className="flex-1 min-w-0 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <h2 className="text-lg font-medium text-white/90">Hierarchy</h2>
@@ -332,7 +332,7 @@ export function BookStackSyncManager() {
           )}
         </section>
 
-        <aside className="lg:col-span-4 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl sticky top-8">
+        <aside className="w-full lg:w-[320px] shrink-0 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl lg:sticky lg:top-8">
           <div className="mb-6">
             <h2 className="text-lg font-medium text-white/90">Sync Controls</h2>
             <p className="text-sm text-white/45">

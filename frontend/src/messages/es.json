@@ -316,6 +316,24 @@
     "selectionSemantics": "Semántica de selección",
     "semanticsBook": "Seleccionar un libro incluye todas sus páginas.",
     "semanticsChapter": "Seleccionar un capítulo incluye todas sus páginas.",
-    "semanticsPage": "Las páginas individuales permiten un alcance parcial."
+    "semanticsPage": "Las páginas individuales permiten un alcance parcial.",
+    "events": {
+      "1001": "Usuario inició sesión",
+      "1002": "Usuario cerró sesión",
+      "1003": "Usuario registrado",
+      "1004": "Recuperación solicitada",
+      "1005": "Contraseña actualizada",
+      "2001": "Documento cargado",
+      "2002": "Documento listo",
+      "2003": "Error al procesar documento",
+      "2004": "Documento eliminado",
+      "3001": "Chat iniciado",
+      "3002": "Chat eliminado",
+      "3003": "Chat titulado",
+      "4001": "Sincronización gatillada",
+      "4002": "Sincronización completada",
+      "4003": "Sincronización fallida",
+      "5001": "Alerta de seguridad"
+    }
   }
 }

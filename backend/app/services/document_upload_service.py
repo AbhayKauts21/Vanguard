@@ -38,6 +38,8 @@ from app.services.text_processor import (
     TextProcessor,
     text_processor as default_text_processor,
 )
+from app.services.audit_service import audit_service
+from app.domain.audit_log import AuditEventCode
 
 
 class DocumentUploadService:
@@ -117,18 +119,18 @@ class DocumentUploadService:
             tags=normalized_tags,
             status=DocumentUploadStatus.PENDING.value,
         )
+        await session.flush()
+        
+        await audit_service.logger(current_user.id).event(AuditEventCode.DOC_UPLOADED).resource("document", document.id).desc(f"Document '{file_name}' uploaded. Processing started.").context(file_name=file_name, size=file_size).commit(session)
+        
         await session.commit()
         await session.refresh(document)
 
         background_tasks.add_task(self.process_document, document.id, payload)
 
-        logger.info(
-            "document.upload.accepted",
-            document_id=str(document.id),
-            user_id=str(current_user.id),
-            file_name=file_name,
-            size_bytes=file_size,
-        )
+
+        await audit_service.logger(current_user.id).event(AuditEventCode.DOC_UPLOADED).resource("document", document.id).desc(f"Document '{file_name}' uploaded. Processing started.").context(file_name=file_name, size=file_size).commit(session)
+
         return await self._to_response(document)
 
     async def list_documents_for_user(
@@ -187,13 +189,10 @@ class DocumentUploadService:
                 document.processed_at = datetime.now(timezone.utc)
                 document.error_detail = None
                 session.add(document)
+                
+                await audit_service.logger(document.user_id).event(AuditEventCode.DOC_READY).resource("document", document.id).desc(f"Document '{document.file_name}' processed and indexed ({len(chunks)} chunks).").context(file_name=document.file_name, chunks=len(chunks)).commit(session)
+                
                 await session.commit()
-                logger.info(
-                    "document.process.completed",
-                    document_id=str(document.id),
-                    chunks=len(chunks),
-                    file_name=document.file_name,
-                )
         except Exception as exc:
             async with self.session_factory() as session:
                 document = await self.repository.get_uploaded_document_by_id(session, document_id)
@@ -201,6 +200,7 @@ class DocumentUploadService:
                     document.status = DocumentUploadStatus.FAILED.value
                     document.error_detail = str(exc)
                     session.add(document)
+                    await audit_service.logger(document.user_id).event(AuditEventCode.DOC_PROCESSING_FAILED).resource("document", document.id).desc(f"Document '{document.file_name}' processing failed.").context(file_name=document.file_name, error=str(exc)).failed().commit(session)
                     await session.commit()
             logger.exception("document.process.failed", document_id=str(document_id), error=str(exc))
 

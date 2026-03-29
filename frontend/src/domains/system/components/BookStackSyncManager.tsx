@@ -292,15 +292,15 @@ export function BookStackSyncManager() {
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
-        <section className="rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl">
+      <div className="grid gap-8 lg:grid-cols-12 items-start">
+        <section className="lg:col-span-8 min-w-0 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl">
           <div className="mb-5 flex items-center justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-medium text-white/90">Hierarchy</h2>
-              <p className="text-sm text-white/45">Book → Chapter → Page, with support for direct book-level pages.</p>
+              <p className="text-sm text-white/45 truncate">Book → Chapter → Page, with support for direct book-level pages.</p>
             </div>
-            <div className="text-right text-xs uppercase tracking-[0.18em] text-white/35">
-              {selectedPageCount}/{allPageCount} pages selected
+            <div className="shrink-0 text-right text-xs uppercase tracking-[0.18em] text-white/35">
+              {selectedPageCount}/{allPageCount} <span className="hidden sm:inline">pages selected</span>
             </div>
           </div>
 
@@ -332,7 +332,7 @@ export function BookStackSyncManager() {
           )}
         </section>
 
-        <aside className="rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl">
+        <aside className="lg:col-span-4 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl sticky top-8">
           <div className="mb-6">
             <h2 className="text-lg font-medium text-white/90">Sync Controls</h2>
             <p className="text-sm text-white/45">

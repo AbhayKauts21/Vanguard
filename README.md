@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=52&duration=3000&pause=1000&color=8B5CF6&center=true&vCenter=true&multiline=true&width=700&height=120&lines=%F0%9F%A7%A0+C+L+E+O;Contextual+Learning+%26+Enterprise+Oracle" alt="CLEO" />
+  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=52&duration=3000&pause=1000&color=8B5CF6&center=true&vCenter=true&multiline=true&width=700&height=120&lines=%F0%9F%A7%A0+C+L+E+O" alt="CLEO" />
 </p>
 
 <p align="center">

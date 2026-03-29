@@ -7,12 +7,15 @@ import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { AuthStatusMenu } from "@/domains/auth/components";
 import { Link } from "@/i18n/navigation";
 
+import { useAuthStore } from "@/domains/auth/model";
+
 /**
  * Header bar — exact match to original HTML.
  * Grain icon, CLEO shimmer logo, nav links, settings + power buttons.
  */
 export function TopBar() {
   const t = useTranslations("header");
+  const user = useAuthStore((state) => state.user);
 
   return (
     <header className="flex items-center justify-between border-b border-white/10 px-10 py-5 glass-panel" style={{ zIndex: 150 }}>
@@ -24,20 +27,22 @@ export function TopBar() {
       </div>
 
       <div className="flex flex-1 justify-end gap-6">
-        <div className="flex items-center gap-3">
-          <HeaderAction
-            icon="deployed_code"
-            label={t("adminConsole")}
-            subtitle={t("adminConsoleHint")}
-            href="/admin"
-          />
-          <HeaderAction
-            icon="upload_file"
-            label={t("documentsLibrary")}
-            subtitle={t("documentsLibraryHint")}
-            href="/documents"
-          />
-        </div>
+        {user && (
+          <div className="flex items-center gap-3">
+            <HeaderAction
+              icon="deployed_code"
+              label={t("adminConsole")}
+              subtitle={t("adminConsoleHint")}
+              href="/admin"
+            />
+            <HeaderAction
+              icon="upload_file"
+              label={t("documentsLibrary")}
+              subtitle={t("documentsLibraryHint")}
+              href="/documents"
+            />
+          </div>
+        )}
 
         <div className="flex gap-4 items-center">
           <LanguageSwitcher />

@@ -12,7 +12,6 @@ on:
           - destroy
       deploy_target:
         description: "Services to deploy — 'all' required for first deploy"
-        description: "Services to deploy — 'all' required for first deploy"
         required: false
         type: choice
         default: all
@@ -108,11 +107,10 @@ jobs:
             VM_IP=$(terraform output -raw vm_public_ip 2>/dev/null | head -1 | tr -d '[:space:]')
             echo "vm_exists=true" >> $GITHUB_OUTPUT
             echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
-            echo "VM already exists at $VM_IP — skipping Terraform"
+            echo "VM already exists at $VM_IP"
           else
             echo "vm_exists=false" >> $GITHUB_OUTPUT
             echo "vm_ip=" >> $GITHUB_OUTPUT
-            echo "No VM found — will provision"
             echo "No VM found — will provision"
           fi
 
@@ -161,7 +159,6 @@ jobs:
           echo "vm_ip=$VM_IP" >> $GITHUB_OUTPUT
 
       - name: Save SSH key and DB info as GitHub secrets
-      - name: Save SSH key and DB info as GitHub secrets
         if: steps.vm_check.outputs.vm_exists == 'false'
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
@@ -169,23 +166,14 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           VM_IP=$(terraform output -raw vm_public_ip | tr -d '[:space:]')
-          VM_IP=$(terraform output -raw vm_public_ip | tr -d '[:space:]')
           SSH_KEY=$(terraform output -raw ssh_private_key)
           echo "::add-mask::$SSH_KEY"
-
 
           REPO_KEY_RESPONSE=$(curl -s -H "Authorization: token $GH_PAT" \
             "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/secrets/public-key")
           KEY_ID=$(echo "$REPO_KEY_RESPONSE" | jq -r '.key_id')
           REPO_PUBLIC_KEY=$(echo "$REPO_KEY_RESPONSE" | jq -r '.key')
-
           pip install PyNaCl -q
-
-          encrypt_and_save() {
-            local SECRET_NAME="$1"
-            local SECRET_VALUE="$2"
-            ENCRYPTED=$(python3 -c "
-          import base64, sys
 
           encrypt_and_save() {
             local SECRET_NAME="$1"
@@ -195,7 +183,6 @@ jobs:
           from nacl import public
           pk = base64.b64decode('$REPO_PUBLIC_KEY')
           box = public.SealedBox(public.PublicKey(pk))
-          enc = box.encrypt(sys.argv[1].encode())
           enc = box.encrypt(sys.argv[1].encode())
           print(base64.b64encode(enc).decode())
           " "$SECRET_VALUE")
@@ -271,7 +258,6 @@ jobs:
 
     steps:
       - name: Write SSH key
-      - name: Write SSH key
         run: |
           # On re-deploy use stored secret directly; on first deploy use job output
           if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
@@ -283,7 +269,6 @@ jobs:
           head -1 /tmp/vm_key.pem | grep -q "BEGIN" || { echo "ERROR: SSH key invalid"; cat /tmp/vm_key.pem | head -3; exit 1; }
           echo "SSH key written successfully"
 
-      - name: Wait for cloud-init (first deploy only)
       - name: Wait for cloud-init (first deploy only)
         if: needs.provision.outputs.vm_exists == 'false'
         run: |
@@ -306,33 +291,12 @@ jobs:
               "test -f /var/log/cloud-init-complete.log && echo done || echo waiting" 2>&1)
             echo "Response: $SSH_OUT"
             if echo "$SSH_OUT" | grep -q "done"; then
-          echo "Waiting for port 22 on $VM_IP..."
-          for i in $(seq 1 20); do
-            if nc -zw5 $VM_IP 22 2>/dev/null; then
-              echo "Port 22 open"
-              break
-            fi
-            echo "Attempt $i/20 — waiting 15s..."
-            sleep 15
-          done
-
-          echo "Waiting for cloud-init to complete..."
-          for i in $(seq 1 30); do
-            echo "Attempt $i/30..."
-            SSH_OUT=$(ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no \
-              -o ConnectTimeout=15 -o BatchMode=yes azureuser@$VM_IP \
-              "test -f /var/log/cloud-init-complete.log && echo done || echo waiting" 2>&1)
-            echo "Response: $SSH_OUT"
-            if echo "$SSH_OUT" | grep -q "done"; then
               echo "cloud-init complete"
               break
-              break
             fi
-            sleep 20
             sleep 20
           done
 
-      - name: Sync repo to VM
       - name: Sync repo to VM
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
@@ -373,7 +337,6 @@ jobs:
 
     steps:
       - name: Write SSH key
-      - name: Write SSH key
         run: |
           if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
             echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > /tmp/vm_key.pem
@@ -388,8 +351,6 @@ jobs:
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           BACKEND_ENV_CONTENT=$(echo '${{ vars.BACKEND_ENV_JSON }}' | \
             jq --arg ip "$VM_IP" \
-               --arg db "cleo" \
-               --arg user "pgadmin" \
                --arg db "cleo" \
                --arg user "pgadmin" \
                --arg pass "${{ secrets.POSTGRES_PASSWORD }}" \
@@ -427,14 +388,11 @@ jobs:
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           for i in $(seq 1 15); do
-          for i in $(seq 1 15); do
             if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
                 "curl -sf http://localhost:8000/health" 2>/dev/null; then
               echo "Backend healthy"
               exit 0
             fi
-            echo "Attempt $i/15 — waiting 10s..."
-            sleep 10
             echo "Attempt $i/15 — waiting 10s..."
             sleep 10
           done
@@ -456,7 +414,6 @@ jobs:
     if: inputs.action == 'deploy' && (inputs.deploy_target == 'all' || inputs.deploy_target == 'frontend')
 
     steps:
-      - name: Write SSH key
       - name: Write SSH key
         run: |
           if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
@@ -515,14 +472,11 @@ jobs:
         run: |
           VM_IP="${{ needs.provision.outputs.vm_ip }}"
           for i in $(seq 1 15); do
-          for i in $(seq 1 15); do
             if ssh -i /tmp/vm_key.pem -o StrictHostKeyChecking=no azureuser@$VM_IP \
                 "curl -sf http://localhost:3000" 2>/dev/null; then
               echo "Frontend reachable"
               exit 0
             fi
-            echo "Attempt $i/15 — waiting 10s..."
-            sleep 10
             echo "Attempt $i/15 — waiting 10s..."
             sleep 10
           done
@@ -607,7 +561,6 @@ jobs:
       ))
 
     steps:
-      - name: Write SSH key
       - name: Write SSH key
         run: |
           if [ -n "${{ secrets.VM_SSH_PRIVATE_KEY }}" ]; then
@@ -836,17 +789,8 @@ jobs:
           |---|---|
           | Deploy Target | ${{ inputs.deploy_target }} |
           | VM Public IP | \`$VM_IP\` |
-          | VM Public IP | \`$VM_IP\` |
           | Backend Version | ${{ inputs.backend_version }} |
           | Frontend Version | ${{ inputs.frontend_version }} |
-          | First Deploy | ${{ needs.provision.outputs.vm_exists == 'false' && 'Yes' || 'No' }} |
-
-          ### Service URLs (direct IP)
-          | Service | URL |
-          |---|---|
-          | Frontend | http://$VM_IP:3000 |
-          | Backend API | http://$VM_IP:8000 |
-          | Grafana | http://$VM_IP:3002 |
 
           ### Service URLs
           | Service | URL |

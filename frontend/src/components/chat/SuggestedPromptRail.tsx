@@ -15,9 +15,9 @@ export function SuggestedPromptRail({
 }: SuggestedPromptRailProps) {
   const t = useTranslations("chat");
   const promptChips = [
-    t("promptArchitecture"),
-    t("promptCapabilities"),
-    t("promptKnowledgeBase"),
+    t("promptWhatIsCleo"),
+    t("promptWhatCanCleoDo"),
+    t("promptHowToUseCleo"),
   ];
 
   return (

@@ -1,5 +1,8 @@
 "use client";
 
+import type { ComponentPropsWithoutRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useTranslations } from "next-intl";
 import type { Citation } from "@/types";
 import { CitationList } from "./CitationList";
@@ -13,13 +16,13 @@ interface MessageBubbleProps {
   hidden_sources_count?: number;
   modeUsed?: 'rag' | 'uncertain' | 'azure_fallback';
   maxConfidence?: number;
-  whatIFound?: { page_title: string; score: number }[];
+  whatIFound?: { page_title: string; score: number; source_url?: string }[];
   isStreaming?: boolean;
   delay?: number;
 }
 
 /**
- * Single chat message — matches original HTML exactly.
+ * Single chat message with Markdown support.
  * CLEO messages: waveform icon + left-aligned rounded-tl-none bubble.
  * Operator messages: diamond icon + right-aligned rounded-tr-none bubble.
  */
@@ -41,10 +44,9 @@ export function MessageBubble({
 
   return (
     <div
-      className="flex flex-col gap-3 max-w-[95%] message-bloom message-echo"
+      className={`flex flex-col gap-3 w-fit max-w-[95%] message-bloom message-echo ${isUser ? "ml-auto items-end" : "mr-auto items-start"}`}
       style={{
         animationDelay: `${delay}s`,
-        ...(isUser ? { marginLeft: "auto", alignItems: "flex-end" } : {}),
       }}
     >
       {/* Sender label row */}
@@ -70,17 +72,42 @@ export function MessageBubble({
 
       {/* Message bubble */}
       <div
-        className={`border border-white/10 p-5 text-white/80 text-[13px] leading-relaxed shadow-sm hover:border-white/20 transition-colors inline-block w-fit ${
+        className={`border border-white/10 p-5 text-white/80 text-[13px] leading-relaxed shadow-sm hover:border-white/20 transition-colors w-fit max-w-full break-words ${
           isUser
             ? "bg-white/[0.08] rounded-2xl rounded-tr-none text-white/90"
             : "bg-white/[0.03] rounded-2xl rounded-tl-none"
         }`}
       >
-        {content}
+        <ReactMarkdown 
+          remarkPlugins={[remarkGfm]}
+          components={{
+            p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+            h3: ({ children }) => <h3 className="text-[14px] font-bold text-white/90 mt-4 mb-2 uppercase tracking-wide">{children}</h3>,
+            ul: ({ children }) => <ul className="list-disc ml-4 mb-3 space-y-1">{children}</ul>,
+            ol: ({ children }) => <ol className="list-decimal ml-4 mb-3 space-y-1">{children}</ol>,
+            code: ({ className, children, ...props }: ComponentPropsWithoutRef<"code"> & { inline?: boolean; node?: unknown }) => {
+              return (
+                <code
+                  className={`${className} bg-white/10 rounded px-1.5 py-0.5 font-mono text-[12px] text-blue-300`}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            },
+            pre: ({ children }) => (
+              <pre className="p-4 bg-black/40 rounded-xl border border-white/10 my-4 overflow-x-auto font-mono text-[12px] text-blue-100/90 shadow-inner">
+                {children}
+              </pre>
+            ),
+          }}
+        >
+          {content}
+        </ReactMarkdown>
 
         {/* Streaming cursor */}
         {isStreaming && (
-          <span className="inline-block w-[2px] h-4 bg-white/60 ml-0.5 animate-pulse" />
+          <span className="inline-block w-[2px] h-4 bg-white/60 ml-0.5 animate-pulse align-middle" />
         )}
 
         {/* Tier 1: High confidence — show citations */}
@@ -112,13 +139,36 @@ export function MessageBubble({
                       {t("whatIFound")}
                     </p>
                     <ul className="space-y-1">
-                      {whatIFound.map((item, idx) => (
-                        <li key={idx} className="text-yellow-400/90 text-[12px] flex items-center gap-2">
-                          <span className="w-1 h-1 bg-yellow-500/50 rounded-full" />
-                          <span className="truncate">{item.page_title}</span>
-                          <span className="text-yellow-500/50 text-[10px]">({Math.round(item.score * 100)}%)</span>
-                        </li>
-                      ))}
+                      {whatIFound.map((item, idx) => {
+                        const content = (
+                          <>
+                            <span className="w-1 h-1 bg-yellow-500/50 rounded-full" />
+                            <span className="truncate">{item.page_title}</span>
+                            <span className="text-yellow-500/50 text-[10px]">({Math.round(item.score * 100)}%)</span>
+                          </>
+                        );
+
+                        if (item.source_url) {
+                          return (
+                            <li key={idx}>
+                              <a 
+                                href={item.source_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-yellow-400/90 text-[12px] flex items-center gap-2 hover:text-yellow-100 transition-colors w-full"
+                              >
+                                {content}
+                              </a>
+                            </li>
+                          );
+                        }
+
+                        return (
+                          <li key={idx} className="text-yellow-400/90 text-[12px] flex items-center gap-2">
+                            {content}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}

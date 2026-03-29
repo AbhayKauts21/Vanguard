@@ -1,11 +1,15 @@
+ARG NODE_VERSION=22.22.0
+
 # ---- Stage 1: Build ----
-FROM node:20-alpine AS builder
+FROM node:${NODE_VERSION}-slim AS builder
 
 WORKDIR /app
 
+ENV NEXT_TELEMETRY_DISABLED=1
+
 # Install dependencies first (better layer caching)
 COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps
+RUN npm install
 
 # Copy source and build
 COPY . .
@@ -47,7 +51,7 @@ ENV NEXT_PUBLIC_ADMIN_API_KEY=$NEXT_PUBLIC_ADMIN_API_KEY
 RUN npm run build
 
 # ---- Stage 2: Production Runner ----
-FROM node:20-alpine AS runner
+FROM node:${NODE_VERSION}-slim AS runner
 
 WORKDIR /app
 

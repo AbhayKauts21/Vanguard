@@ -12,7 +12,7 @@ from app.domain.schemas import VectorSearchResult
 class VectorStore:
     """Manages all Pinecone index operations (Single Responsibility)."""
 
-    NAMESPACE = "bookstack"
+    NAMESPACE = settings.DOCUMENT_VECTOR_NAMESPACE
 
     def __init__(self) -> None:
         self._index = None
@@ -86,10 +86,23 @@ class VectorStore:
                     text=match.get("metadata", {}).get("chunk_text", ""),
                     page_id=match.get("metadata", {}).get("page_id", 0),
                     page_title=match.get("metadata", {}).get("page_title", ""),
-                    bookstack_url=match.get("metadata", {}).get("bookstack_url", ""),
+                    bookstack_url=match.get("metadata", {}).get("bookstack_url", "")
+                    or match.get("metadata", {}).get("source_url", ""),
+                    source_url=match.get("metadata", {}).get("source_url", "")
+                    or match.get("metadata", {}).get("bookstack_url", ""),
                     book_id=match.get("metadata", {}).get("book_id", 0),
+                    document_uid=match.get("metadata", {}).get("document_uid", ""),
+                    external_document_id=match.get("metadata", {}).get("external_document_id", ""),
+                    source_key=match.get("metadata", {}).get("source_key", ""),
                     source_type=match.get("metadata", {}).get("source_type", "bookstack"),
                     source_name=match.get("metadata", {}).get("source_name", ""),
+                    full_doc_text=match.get("metadata", {}).get("full_doc_text", ""),
+                    document_id=match.get("metadata", {}).get("document_id", ""),
+                    file_name=match.get("metadata", {}).get("file_name", ""),
+                    user_id=match.get("metadata", {}).get("user_id", ""),
+                    blob_url=match.get("metadata", {}).get("blob_url", ""),
+                    page_number=int(match.get("metadata", {}).get("page_number", 0) or 0),
+                    source=match.get("metadata", {}).get("source", ""),
                 )
                 for match in results.get("matches", [])
             ]
@@ -117,6 +130,26 @@ class VectorStore:
                 return
             logger.error(f"Pinecone delete failed for page {page_id}: {e}")
             raise VectorStoreError(detail=f"Failed to delete vectors for page {page_id}: {e}")
+
+    async def delete_by_document_uid(self, document_uid: str) -> None:
+        """Delete all chunks for a provider-agnostic document UID."""
+        index = self._get_index()
+        try:
+            index.delete(
+                filter={"document_uid": {"$eq": document_uid}},
+                namespace=self.NAMESPACE,
+            )
+            logger.info(f"Deleted vectors for document_uid={document_uid}")
+        except Exception as e:
+            if self._is_missing_namespace_error(e):
+                logger.info(
+                    "Pinecone namespace '{}' does not exist yet; delete_by_document_uid is a no-op".format(
+                        self.NAMESPACE
+                    )
+                )
+                return
+            logger.error(f"Pinecone delete failed for document_uid {document_uid}: {e}")
+            raise VectorStoreError(detail=f"Failed to delete vectors for document_uid {document_uid}: {e}")
 
     async def delete_all(self) -> None:
         """Wipe entire namespace (used for full re-sync)."""

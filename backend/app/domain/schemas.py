@@ -15,11 +15,44 @@ class SyncStatus(str, Enum):
     FAILED = "failed"
 
 
+class DocumentProviderType(str, Enum):
+    BOOKSTACK = "bookstack"
+    CONFLUENCE = "confluence"
+    AZURE_BLOB_PDF = "azure_blob_pdf"
+    OPENAPI = "openapi"
+    LOCAL_FILE = "local_file"
+
+
+class DocumentContentFormat(str, Enum):
+    HTML = "html"
+    MARKDOWN = "markdown"
+    TEXT = "text"
+    OPENAPI = "openapi"
+
+
+class DocumentUploadStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"
+
+
+class SyncTriggerType(str, Enum):
+    MANUAL = "manual"
+    SCHEDULED = "scheduled"
+    WEBHOOK = "webhook"
+
+
 class WebhookEvent(str, Enum):
     """BookStack webhook event types we handle."""
     PAGE_CREATE = "page_create"
     PAGE_UPDATE = "page_update"
     PAGE_DELETE = "page_delete"
+
+
+class ChatMessageSender(str, Enum):
+    USER = "user"
+    ASSISTANT = "assistant"
 
 
 # --- BookStack Domain Models ---
@@ -33,12 +66,15 @@ class BookStackPage(BaseModel):
     slug: str
     html: str = ""
     book_id: int = 0
-    chapter_id: int = 0
+    book_slug: Optional[str] = None
+    chapter_id: Optional[int] = None
     updated_at: str = ""
 
     @property
     def url_path(self) -> str:
-        return f"/books/{self.book_id}/page/{self.slug}"
+        # Prefer book_slug for cleaner URLs if available
+        book_ref = self.book_slug or self.book_id
+        return f"/books/{book_ref}/page/{self.slug}"
 
 
 class BookStackBook(BaseModel):
@@ -48,6 +84,53 @@ class BookStackBook(BaseModel):
     id: int
     name: str
     slug: str
+
+
+class BookStackChapter(BaseModel):
+    """Represents a chapter from BookStack API."""
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    name: str
+    slug: str
+    book_id: int
+    priority: int = 0
+
+
+class BookStackTreePage(BaseModel):
+    page_id: int
+    name: str
+
+
+class BookStackTreeChapter(BaseModel):
+    chapter_id: int
+    name: str
+    pages: List[BookStackTreePage] = Field(default_factory=list)
+
+
+class BookStackTreeBook(BaseModel):
+    book_id: int
+    name: str
+    pages: List[BookStackTreePage] = Field(default_factory=list)
+    chapters: List[BookStackTreeChapter] = Field(default_factory=list)
+
+
+class BookStackTreeResponse(BaseModel):
+    items: List[BookStackTreeBook] = Field(default_factory=list)
+
+
+class BookStackSyncConfigRequest(BaseModel):
+    enabled_book_ids: List[int] = Field(default_factory=list)
+    enabled_chapter_ids: List[int] = Field(default_factory=list)
+    enabled_page_ids: List[int] = Field(default_factory=list)
+
+
+class BookStackSyncConfigResponse(BaseModel):
+    source_key: str
+    selection_mode: Literal["all", "custom"] = "all"
+    enabled_book_ids: List[int] = Field(default_factory=list)
+    enabled_chapter_ids: List[int] = Field(default_factory=list)
+    enabled_page_ids: List[int] = Field(default_factory=list)
 
 
 # --- Vector / Chunk Models ---
@@ -67,9 +150,56 @@ class VectorSearchResult(BaseModel):
     page_id: int
     page_title: str = ""
     bookstack_url: str = ""
+    source_url: str = ""
     book_id: int = 0
+    document_uid: str = ""
+    external_document_id: str = ""
+    source_key: str = ""
     source_type: str = "bookstack"
     source_name: str = ""
+    full_doc_text: str = ""
+    document_id: str = ""
+    file_name: str = ""
+    user_id: str = ""
+    blob_url: str = ""
+    page_number: int = 0
+    source: str = ""
+
+
+class DocumentReference(BaseModel):
+    """Provider-agnostic reference to an external document."""
+
+    source_key: str
+    provider_type: DocumentProviderType
+    external_document_id: str
+    external_parent_id: Optional[str] = None
+    title: str = ""
+    source_url: str = ""
+    container_name: str = ""
+    provider_updated_at: Optional[datetime] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class NormalizedDocument(BaseModel):
+    """Provider-agnostic normalized document used by sync orchestration."""
+
+    source_key: str
+    provider_type: DocumentProviderType
+    external_document_id: str
+    external_parent_id: Optional[str] = None
+    title: str
+    content: str
+    content_format: DocumentContentFormat
+    source_url: str = ""
+    container_name: str = ""
+    provider_updated_at: Optional[datetime] = None
+    checksum: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    access_scope: Optional[Dict[str, Any]] = None
+
+    @property
+    def document_uid(self) -> str:
+        return f"{self.source_key}:{self.external_document_id}"
 
 
 # --- Chat DTOs ---
@@ -81,9 +211,38 @@ class Citation(BaseModel):
     source_url: str = ""
     source_type: str = "bookstack"      # "bookstack", "confluence", "notion", etc.
     source_name: str = ""               # parent container: book title, space name, etc.
+    source_key: str = ""
+    document_uid: str = ""
+    external_document_id: str = ""
+    document_id: str = ""
+    file_name: str = ""
+    user_id: str = ""
+    blob_url: str = ""
+    page_number: int = 0
     chunk_text: str = ""
     score: float = 0.0
     tier: str = "tertiary"              # "primary" | "secondary" | "tertiary"
+
+
+class UploadedDocumentResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    file_name: str
+    title: str
+    blob_url: str
+    download_url: str
+    content_type: str
+    file_size: int
+    tags: List[str] = Field(default_factory=list)
+    status: DocumentUploadStatus
+    error_detail: Optional[str] = None
+    processed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class UploadedDocumentListResponse(BaseModel):
+    items: List[UploadedDocumentResponse] = Field(default_factory=list)
 
 
 class ConversationMessage(BaseModel):
@@ -110,6 +269,56 @@ class ChatResponse(BaseModel):
     max_confidence: float = 0.0
     what_i_found: Optional[List[Dict[str, Any]]] = None
     conversation_id: Optional[str] = None
+
+
+class ChatCreateRequest(BaseModel):
+    title: Optional[str] = Field(default=None, max_length=255)
+
+
+class ChatMessageCreateRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000)
+
+
+class ChatSummaryResponse(BaseModel):
+    id: UUID
+    title: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    message_count: int = 0
+    last_message_preview: Optional[str] = None
+
+
+class ChatListResponse(BaseModel):
+    items: List[ChatSummaryResponse] = Field(default_factory=list)
+    has_more: bool = False
+
+
+class ChatMessageResponse(BaseModel):
+    id: UUID
+    chat_id: UUID
+    sender: ChatMessageSender
+    content: str
+    created_at: datetime
+    primary_citations: List[Citation] = Field(default_factory=list)
+    secondary_citations: List[Citation] = Field(default_factory=list)
+    all_citations: List[Citation] = Field(default_factory=list)
+    hidden_sources_count: int = 0
+    mode_used: Optional[str] = None
+    max_confidence: Optional[float] = None
+    what_i_found: Optional[List[Dict[str, Any]]] = None
+
+
+class ChatMessagesResponse(BaseModel):
+    chat: ChatSummaryResponse
+    items: List[ChatMessageResponse] = Field(default_factory=list)
+    has_more: bool = False
+    next_before: Optional[datetime] = None
+
+
+class ChatSendResponse(BaseModel):
+    chat: ChatSummaryResponse
+    user_message: ChatMessageResponse
+    assistant_message: ChatMessageResponse
 
 
 class AzureChatParams(BaseModel):
@@ -159,6 +368,18 @@ class AzureChatMessage(BaseModel):
     content: str
 
 
+# --- Voice / TTS DTOs ---
+
+class TTSRequest(BaseModel):
+    """Request body for the text-to-speech endpoint."""
+
+    text: str = Field(..., min_length=1, max_length=5000, description="Text to synthesize.")
+    voice: Optional[str] = Field(default=None, description="Override the default Azure TTS voice name.")
+    language: Optional[str] = Field(default=None, description="Language hint (e.g. en-US) for SSML.")
+    stream: bool = Field(default=True, description="If true, return chunked streaming audio.")
+
+
+
 # --- Auth & RBAC DTOs ---
 
 class PermissionResponse(BaseModel):
@@ -194,6 +415,26 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=6, max_length=12)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class PasswordResetRequestResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    detail: str
+
+
+class PasswordResetConfirmResponse(BaseModel):
+    status: Literal["ok"] = "ok"
+    detail: str
 
 
 class RefreshTokenRequest(BaseModel):
@@ -284,6 +525,20 @@ class SyncStatusResponse(BaseModel):
     last_sync_at: Optional[datetime] = None
     next_sync_at: Optional[datetime] = None
     pages_in_index: int = 0
+    source_key: Optional[str] = None
+
+
+class DocumentSyncRunSummary(BaseModel):
+    source_key: str
+    trigger_type: SyncTriggerType
+    status: SyncStatus
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    documents_seen: int = 0
+    documents_upserted: int = 0
+    documents_skipped: int = 0
+    documents_deleted: int = 0
+    documents_failed: int = 0
 
 
 # --- Webhook DTOs ---
@@ -306,7 +561,7 @@ class WebhookRelatedItem(BaseModel):
 
     id: int
     book_id: int = 0
-    chapter_id: int = 0
+    chapter_id: Optional[int] = None
     name: str = ""
     slug: str = ""
     priority: int = 0

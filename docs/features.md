@@ -218,6 +218,23 @@
 | F-124 | **Terraform Deployment Guide** — Complete README with prerequisites, quick start, verification steps, and cleanup instructions | ✅ Done | `infrastructure/terraform/README.md` |
 | F-125 | **Azure Service Principal Setup Guide** — Step-by-step instructions for creating SP with Azure CLI, GitHub secrets config, troubleshooting | ✅ Done | `infrastructure/terraform/AZURE_SP_SETUP.md` |
 | F-126 | **CI/CD Quick Start Guide** — Developer workflow for feature branch → PR (terraform plan) → merge (terraform apply) | ✅ Done | `infrastructure/terraform/CICD_QUICK_START.md` |
+
+---
+
+### v0.10.0 — Provider-Based Document Integration (2026-03-27)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-127 | **Document Source Registry** — Postgres-backed `document_sources`, `normalized_documents`, and `document_sync_runs` tables for durable provider metadata and sync audit state | ✅ Done | `backend/app/db/models.py`, `backend/alembic/versions/20260327_0002_create_document_integration_tables.py` |
+| F-128 | **Document Provider Abstraction** — `DocumentProvider` interface for health, discovery, document fetch, and deletion identity across doc systems | ✅ Done | `backend/app/adapters/document_providers/base.py` |
+| F-129 | **BookStack Provider** — Provider implementation that normalizes BookStack pages into provider-agnostic document models | ✅ Done | `backend/app/adapters/document_providers/bookstack_provider.py` |
+| F-130 | **Generic Document Sync Service** — Full sync, delta sync, single-document sync, delete handling, checksum skipping, and sync-run persistence | ✅ Done | `backend/app/services/document_sync_service.py` |
+| F-131 | **Provider-Agnostic Chunking** — `TextProcessor.process_document()` converts normalized docs into chunks keyed by `document_uid` | ✅ Done | `backend/app/services/text_processor.py` |
+| F-132 | **Generic Vector Metadata Contract** — Shared Pinecone namespace and provider-aware metadata (`source_key`, `document_uid`, `external_document_id`, `source_url`) | ✅ Done | `backend/app/adapters/vector_store.py`, `backend/app/domain/schemas.py` |
+| F-133 | **Backward-Compatible BookStack APIs** — Existing admin ingest routes and `/webhook/bookstack` now delegate through the generic sync orchestration layer | ✅ Done | `backend/app/services/ingestion_service.py`, `backend/app/api/router_admin.py`, `backend/app/api/router_webhook.py`, `backend/app/services/sync_scheduler.py` |
+| F-134 | **Source-Aware Health Reporting** — `/health/detailed` now reports BookStack source health and last sync metadata from the provider-aware sync layer | ✅ Done | `backend/main.py` |
+| F-135 | **Provider Integration Test Coverage** — Unit tests for provider normalization, provider-aware chunking, sync idempotency, and compatibility delegation | ✅ Done | `backend/tests/unit/test_bookstack_provider.py`, `backend/tests/unit/test_document_sync_service.py`, `backend/tests/unit/test_ingestion_pipeline_components.py`, `backend/tests/unit/test_ingestion_service.py` |
+| F-136 | **BookStack Provider Architecture Doc** — Internal developer guide for the provider model, sync flow, config, and future provider extension path | ✅ Done | `docs/context/BOOKSTACK_PROVIDER_ARCHITECTURE.md` |
 | F-127 | **GitHub Actions Terraform Workflow** — Automated CI/CD with 3 jobs: terraform-plan (on PR with plan comment), terraform-apply (on main merge), terraform-drift-detection (daily cron) | ✅ Done | `.github/workflows/terraform.yml` |
 | F-128 | **Terraform Plan PR Comments** — Workflow posts formatted terraform plan output as PR comment with diff highlighting | ✅ Done | `.github/workflows/terraform.yml` (terraform-plan job) |
 | F-129 | **Terraform Apply Auto-deploy** — Main branch merges trigger automatic `terraform apply` with production environment protection | ✅ Done | `.github/workflows/terraform.yml` (terraform-apply job) |
@@ -233,4 +250,3 @@
 | F-132 | **Azure Key Vault Integration** — Migrate secrets and credentials to Azure Key Vault | 🔥 High | v0.10.0 |
 | F-133 | **Azure Monitor Integration** — Configure Azure Monitor for VM metrics, logs, and alerts | 🟡 Medium | v0.10.0 |
 | F-134 | **Terraform State Remote Backend** — Migrate state to Azure Storage with state locking | 🟡 Medium | v0.11.0 |
-

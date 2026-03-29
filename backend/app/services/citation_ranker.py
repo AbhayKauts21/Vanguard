@@ -27,10 +27,11 @@ class CitationRanker:
     def rank_citations(self, results: List[VectorSearchResult]) -> Dict[str, Any]:
         """Tier citations by relevance and deduplicate by page_id."""
         # Deduplicate, keeping highest score per page
-        unique_pages: Dict[int, VectorSearchResult] = {}
+        unique_pages: Dict[str, VectorSearchResult] = {}
         for r in results:
-            if r.page_id not in unique_pages or r.score > unique_pages[r.page_id].score:
-                unique_pages[r.page_id] = r
+            key = r.document_uid or str(r.page_id)
+            if key not in unique_pages or r.score > unique_pages[key].score:
+                unique_pages[key] = r
                 
         # Sort by score descending
         sorted_results = sorted(unique_pages.values(), key=lambda x: x.score, reverse=True)
@@ -58,9 +59,17 @@ class CitationRanker:
         return Citation(
             page_id=r.page_id,
             page_title=r.page_title,
-            source_url=r.bookstack_url,
+            source_url=r.source_url or r.bookstack_url,
             source_type=r.source_type,
             source_name=r.source_name,
+            source_key=r.source_key,
+            document_uid=r.document_uid,
+            external_document_id=r.external_document_id,
+            document_id=r.document_id,
+            file_name=r.file_name,
+            user_id=r.user_id,
+            blob_url=r.blob_url,
+            page_number=r.page_number,
             chunk_text=r.text[:200] + "..." if len(r.text) > 200 else r.text,
             score=round(r.score, 3),
             tier=tier.value

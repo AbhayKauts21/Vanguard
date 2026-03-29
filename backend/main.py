@@ -19,7 +19,11 @@ from app.api.router_chat import router as chat_router
 from app.api.router_azure_chat import router as azure_chat_router
 from app.api.router_admin import router as admin_router
 from app.api.router_auth import router as auth_router
+from app.api.router_bookstack import router as bookstack_router
+from app.api.router_chats import router as chats_router
+from app.api.router_documents import router as documents_router
 from app.api.router_rbac import router as rbac_router
+from app.api.router_voice import router as voice_router
 from app.api.router_webhook import router as webhook_router
 from app.core.config import settings
 from app.core.exceptions import (
@@ -29,15 +33,6 @@ from app.core.exceptions import (
 )
 from app.core.logging import get_request_logger  # noqa: F401 — triggers _setup_logger() early
 from app.core.middleware import RequestIdMiddleware
-
-# OpenTelemetry imports
-from app.core.telemetry import (
-    OpenTelemetryConfig,
-    initialize_opentelemetry,
-    instrument_fastapi,
-    instrument_httpx,
-)
-from app.core.telemetry_middleware import TelemetryMiddleware
 from app.core.structured_logging import configure_structured_logging
 
 from app.services.sync_scheduler import start_scheduler, stop_scheduler
@@ -46,25 +41,40 @@ from app.services.sync_scheduler import start_scheduler, stop_scheduler
 # Initialize OpenTelemetry BEFORE anything else
 # ---------------------------------------------------------------------------
 OTEL_ENABLED = os.getenv("OTEL_ENABLED", "true").lower() in ("true", "1", "yes")
+TelemetryMiddleware = None
+instrument_fastapi = None
+instrument_httpx = None
 
 if OTEL_ENABLED:
-    otel_config = OpenTelemetryConfig(
-        service_name=os.getenv("OTEL_SERVICE_NAME", "cleo-backend"),
-        service_version=os.getenv("SERVICE_VERSION", "1.0.0"),
-        environment=os.getenv("ENVIRONMENT", "development"),
-        otlp_endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-        enable_console_exporter=os.getenv("OTEL_CONSOLE_EXPORTER", "false").lower() in ("true", "1"),
-    )
-    initialize_opentelemetry(otel_config)
-    instrument_httpx()
-    
-    # Configure structured JSON logging
-    configure_structured_logging(
-        level=os.getenv("LOG_LEVEL", "INFO"),
-        json_format=os.getenv("LOG_FORMAT", "json") == "json",
-    )
-    
-    logger.info("[OTEL] Observability initialized")
+    try:
+        from app.core.telemetry import (
+            OpenTelemetryConfig,
+            initialize_opentelemetry,
+            instrument_fastapi,
+            instrument_httpx,
+        )
+        from app.core.telemetry_middleware import TelemetryMiddleware
+
+        otel_config = OpenTelemetryConfig(
+            service_name=os.getenv("OTEL_SERVICE_NAME", "cleo-backend"),
+            service_version=os.getenv("SERVICE_VERSION", "1.0.0"),
+            environment=os.getenv("ENVIRONMENT", "development"),
+            otlp_endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
+            enable_console_exporter=os.getenv("OTEL_CONSOLE_EXPORTER", "false").lower() in ("true", "1"),
+        )
+        initialize_opentelemetry(otel_config)
+        instrument_httpx()
+
+        # Configure structured JSON logging
+        configure_structured_logging(
+            level=os.getenv("LOG_LEVEL", "INFO"),
+            json_format=os.getenv("LOG_FORMAT", "json") == "json",
+        )
+
+        logger.info("[OTEL] Observability initialized")
+    except ModuleNotFoundError:
+        OTEL_ENABLED = False
+        logger.warning("[OTEL] Optional OpenTelemetry dependencies are not installed; telemetry disabled")
 
 # ---------------------------------------------------------------------------
 # Rate limiter (slowapi) — keyed by client IP
@@ -85,8 +95,10 @@ async def lifespan(app: FastAPI):
 
     # Close adapter HTTP clients
     from app.adapters.bookstack_client import bookstack_client
+    from app.adapters.azure_blob_storage import azure_blob_storage
     from app.db.session import dispose_engine
     await bookstack_client.close()
+    await azure_blob_storage.close()
     await dispose_engine()
 
 
@@ -103,7 +115,7 @@ def get_application() -> FastAPI:
     _app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     # OpenTelemetry FastAPI instrumentation
-    if OTEL_ENABLED:
+    if OTEL_ENABLED and instrument_fastapi and TelemetryMiddleware:
         instrument_fastapi(_app)
         # Add telemetry middleware for custom attributes
         _app.add_middleware(TelemetryMiddleware)
@@ -133,8 +145,12 @@ def get_application() -> FastAPI:
     _app.include_router(chat_router, prefix=settings.API_V1_STR)
     _app.include_router(azure_chat_router, prefix=settings.API_V1_STR)
     _app.include_router(auth_router, prefix=settings.API_V1_STR)
+    _app.include_router(bookstack_router, prefix=settings.API_V1_STR)
+    _app.include_router(chats_router, prefix=settings.API_V1_STR)
+    _app.include_router(documents_router, prefix=settings.API_V1_STR)
     _app.include_router(rbac_router, prefix=settings.API_V1_STR)
     _app.include_router(admin_router, prefix=settings.API_V1_STR)
+    _app.include_router(voice_router, prefix=settings.API_V1_STR)
     _app.include_router(webhook_router, prefix=settings.API_V1_STR)
 
     return _app
@@ -154,9 +170,11 @@ async def detailed_health():
     """Detailed health check for all upstream services."""
     from app.adapters.embedding_client import embedding_client
     from app.adapters.vector_store import vector_store
-    from app.adapters.bookstack_client import bookstack_client
     from app.adapters.llm_client import llm_client
     from app.db.session import check_database_health
+    from app.db.session import get_session_factory
+    from app.repositories.document_repository import document_repository
+    from app.services.document_sync_service import document_sync_service
     
     # Check Pinecone
     try:
@@ -182,14 +200,31 @@ async def detailed_health():
             "dimensions": settings.EMBEDDING_DIMENSIONS,
         }
 
-    # Check BookStack
+    # Check BookStack / default document source
     try:
-        books = await bookstack_client.get_books()
-        bookstack_status = "online"
-        book_count = len(books)
+        source_health = await document_sync_service.get_source_health(
+            source_key=settings.BOOKSTACK_SOURCE_KEY,
+        )
+        bookstack_status = "online" if source_health["healthy"] else "offline"
+        async with get_session_factory()() as session:
+            source = await document_repository.get_source_by_key(
+                session,
+                settings.BOOKSTACK_SOURCE_KEY,
+            )
+            bookstack_pages = (
+                await document_repository.count_active_documents_for_source(session, source.id)
+                if source is not None
+                else 0
+            )
     except Exception:
+        source_health = {
+            "source_key": settings.BOOKSTACK_SOURCE_KEY,
+            "provider_type": "bookstack",
+            "last_sync_status": "idle",
+            "last_sync_at": None,
+        }
         bookstack_status = "offline"
-        book_count = 0
+        bookstack_pages = 0
 
     # Check Azure generation
     try:
@@ -221,7 +256,14 @@ async def detailed_health():
         "timestamp": datetime.utcnow().isoformat(),
         "services": {
             "pinecone": {"status": pinecone_status, "vectors": vector_count},
-            "bookstack": {"status": bookstack_status, "pages": book_count}, # pages mapped as books proxy
+            "bookstack": {
+                "status": bookstack_status,
+                "pages": bookstack_pages,
+                "source_key": source_health["source_key"],
+                "provider_type": source_health["provider_type"],
+                "last_sync_status": source_health["last_sync_status"],
+                "last_sync_at": source_health["last_sync_at"],
+            },
             "embeddings": {"status": embedding_status, **embedding_metadata},
             "azure_openai": {
                 "status": azure_generation_status,

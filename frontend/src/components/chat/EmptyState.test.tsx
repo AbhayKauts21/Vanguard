@@ -7,9 +7,9 @@ const messages = {
   chat: {
     initialMessage:
       "Initializing neural synchronization. All systems nominal. I have processed the latest data grid from the central archive. How shall we proceed with your objectives?",
-    promptArchitecture: "Summarize CLEO architecture",
-    promptCapabilities: "What can CLEO do right now?",
-    promptKnowledgeBase: "What is in the knowledge base?",
+    promptWhatIsCleo: "What is CLEO?",
+    promptWhatCanCleoDo: "What can CLEO do right now?",
+    promptHowToUseCleo: "How do I use CLEO?",
   },
 };
 
@@ -23,10 +23,10 @@ describe("EmptyState", () => {
       </NextIntlClientProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Summarize CLEO architecture" }));
+    fireEvent.click(screen.getByRole("button", { name: "What is CLEO?" }));
 
-    expect(onSend).toHaveBeenCalledWith("Summarize CLEO architecture");
+    expect(onSend).toHaveBeenCalledWith("What is CLEO?");
     expect(screen.getByText("What can CLEO do right now?")).toBeInTheDocument();
-    expect(screen.getByText("What is in the knowledge base?")).toBeInTheDocument();
+    expect(screen.getByText("How do I use CLEO?")).toBeInTheDocument();
   });
 });

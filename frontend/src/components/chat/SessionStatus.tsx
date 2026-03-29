@@ -8,9 +8,20 @@ import { useChatStore } from "@/domains/chat/model";
  * Status bar at top of chat panel — matches original HTML.
  * Uplink dot + status text, Ctrl+K hint, session ID.
  */
-export function SessionStatus() {
+export function SessionStatus({ 
+  onNewChat, 
+  isHistoryVisible, 
+  isHistoryCollapsed, 
+  onToggleHistory 
+}: { 
+  onNewChat?: () => void;
+  isHistoryVisible?: boolean;
+  isHistoryCollapsed?: boolean;
+  onToggleHistory?: () => void;
+}) {
   const t = useTranslations("chat");
   const headerT = useTranslations("header");
+  const mode = useChatStore((s) => s.mode);
   const conversationId = useChatStore((s) => s.conversationId);
   const newConversation = useChatStore((s) => s.newConversation);
   const clearMessages = useChatStore((s) => s.clearMessages);
@@ -28,13 +39,35 @@ export function SessionStatus() {
       ? `SESSION_${conversationId.split("-")[0].toUpperCase()}`
       : "SESSION_CLEO";
 
+  const handlePrimaryAction = mode === "user" ? onNewChat ?? (() => {}) : newConversation;
+  const primaryLabel = mode === "user" ? headerT("newChat") : headerT("newSession");
+
   return (
     <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
       <div className="flex items-center gap-3">
-        <div className="size-1.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.8)] animate-pulse" />
-        <span className="text-[10px] font-medium text-white/60 tracking-[0.2em] uppercase">
-          {t("sessionStable")}
-        </span>
+        {isHistoryVisible ? (
+          <button
+            type="button"
+            onClick={onToggleHistory}
+            className="flex items-center gap-3 group px-2 py-1 -ml-2 rounded-lg hover:bg-white/5 transition-colors"
+            title={isHistoryCollapsed ? t("historyExpand") : t("historyCollapse")}
+          >
+            <div className={`size-1.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.8)] ${isHistoryCollapsed ? "animate-pulse opacity-100" : "opacity-40"}`} />
+            <span className="text-[10px] font-medium text-white/60 tracking-[0.2em] uppercase group-hover:text-white transition-colors">
+              {isHistoryCollapsed ? t("historyExpand") : t("historyCollapse")}
+            </span>
+            <span className="material-symbols-outlined text-[14px] text-white/20 group-hover:text-white/60 transition-colors">
+              {isHistoryCollapsed ? "dock_to_right" : "dock_to_left"}
+            </span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="size-1.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.8)] animate-pulse" />
+            <span className="text-[10px] font-medium text-white/60 tracking-[0.2em] uppercase">
+              {t("sessionStable")}
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-3">
         <span className="text-[9px] text-white/30 font-mono tracking-widest uppercase hidden md:inline">
@@ -42,15 +75,17 @@ export function SessionStatus() {
         </span>
         <ActionButton
           icon="add"
-          label={headerT("newSession")}
-          onClick={newConversation}
+          label={primaryLabel}
+          onClick={handlePrimaryAction}
         />
-        <ActionButton
-          icon="ink_eraser"
-          label={headerT("clearThread")}
-          onClick={clearMessages}
-          disabled={!hasMessages}
-        />
+        {mode === "guest" ? (
+          <ActionButton
+            icon="ink_eraser"
+            label={headerT("clearThread")}
+            onClick={clearMessages}
+            disabled={!hasMessages}
+          />
+        ) : null}
       </div>
     </div>
   );

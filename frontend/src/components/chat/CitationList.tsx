@@ -129,8 +129,11 @@ function SourceCard({ citation, tier }: { citation: Citation; tier: "primary" | 
   const t = useTranslations("chat");
 
   function handleClick() {
-    if (citation.source_url) {
-      window.open(citation.source_url, "_blank", "noopener,noreferrer");
+    const url = citation.source_url;
+    if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else {
+      console.warn("Skipping invalid or local source URL:", url);
     }
   }
 

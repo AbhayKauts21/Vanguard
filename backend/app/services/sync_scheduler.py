@@ -28,10 +28,12 @@ async def _run_delta_sync() -> None:
         return
 
     # Import here to avoid circular dependency
-    from app.services.ingestion_service import ingestion_service
+    from app.services.document_sync_service import document_sync_service
 
     try:
-        processed = await ingestion_service.delta_sync()
+        processed = await document_sync_service.delta_sync(
+            source_key=settings.BOOKSTACK_SOURCE_KEY,
+        )
         logger.info(f"Scheduled sync complete: {processed} pages updated")
     except Exception as e:
         logger.error(f"Scheduled sync failed: {e}")

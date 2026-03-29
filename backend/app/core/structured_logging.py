@@ -10,7 +10,26 @@ import json
 import logging
 from typing import Any, Dict
 from loguru import logger
-from opentelemetry import trace
+
+try:
+    from opentelemetry import trace
+except ModuleNotFoundError:
+    class _NullSpanContext:
+        is_valid = False
+        trace_id = 0
+        span_id = 0
+        trace_flags = 0
+
+    class _NullSpan:
+        def get_span_context(self):
+            return _NullSpanContext()
+
+    class _NullTraceModule:
+        @staticmethod
+        def get_current_span():
+            return _NullSpan()
+
+    trace = _NullTraceModule()
 
 
 class StructuredJSONFormatter(logging.Formatter):
@@ -87,12 +106,11 @@ def configure_structured_logging(
     logger.remove()
     
     if json_format:
-        # Add JSON formatter with trace context
+        # Use custom sink function to avoid template collisions with JSON
         logger.add(
-            sys.stdout,
+            lambda msg: sys.stdout.write(msg),
             format=_json_format_function,
             level=level,
-            serialize=False,  # We handle serialization ourselves
         )
     else:
         # Add pretty formatter for development
@@ -167,7 +185,7 @@ def _json_format_function(record) -> str:
         if key not in log_entry:
             log_entry[key] = value
     
-    return json.dumps(log_entry) + "\n"
+    return json.dumps(log_entry).replace("{", "{{").replace("}", "}}") + "\n"
 
 
 def get_logger_with_context(name: str, **context) -> logger:

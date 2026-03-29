@@ -12,7 +12,7 @@ from loguru import logger
 from app.core.config import settings
 from app.core.security import verify_webhook_signature
 from app.domain.schemas import BookStackWebhookPayload, WebhookEvent
-from app.services.ingestion_service import ingestion_service
+from app.services.document_sync_service import document_sync_service
 
 router = APIRouter(
     prefix="/webhook",
@@ -39,14 +39,22 @@ async def _process_webhook(payload: BookStackWebhookPayload) -> None:
     if event in (WebhookEvent.PAGE_CREATE, WebhookEvent.PAGE_UPDATE):
         logger.info(f"Webhook: {event} → ingesting page {page_id}")
         try:
-            await ingestion_service.ingest_single_page(page_id)
+            await document_sync_service.sync_document(
+                source_key=settings.BOOKSTACK_SOURCE_KEY,
+                external_document_id=str(page_id),
+                trigger="webhook",
+            )
         except Exception as e:
             logger.error(f"Webhook ingestion failed for page {page_id}: {e}")
 
     elif event == WebhookEvent.PAGE_DELETE:
         logger.info(f"Webhook: page_delete → removing page {page_id}")
         try:
-            await ingestion_service.delete_page(page_id)
+            await document_sync_service.delete_document(
+                source_key=settings.BOOKSTACK_SOURCE_KEY,
+                external_document_id=str(page_id),
+                trigger="webhook",
+            )
         except Exception as e:
             logger.error(f"Webhook deletion failed for page {page_id}: {e}")
 

@@ -7,7 +7,6 @@ import httpx
 from loguru import logger
 
 from app.core.config import (
-    build_azure_openai_base_url,
     settings,
     validate_azure_openai_settings,
 )
@@ -26,20 +25,17 @@ class AzureOpenAIClient:
         validate_azure_openai_settings(settings)
 
         if self._client is None:
-            from openai import OpenAI
+            from openai import AzureOpenAI
 
             client_options: Dict[str, Any] = {
                 "api_key": settings.AZURE_OPENAI_API_KEY,
-                "base_url": build_azure_openai_base_url(settings.AZURE_OPENAI_ENDPOINT),
+                "azure_endpoint": settings.AZURE_OPENAI_ENDPOINT,
+                "api_version": settings.AZURE_OPENAI_API_VERSION,
                 "timeout": settings.AZURE_OPENAI_TIMEOUT_SECONDS,
                 "max_retries": settings.AZURE_OPENAI_MAX_RETRIES,
             }
-            if settings.AZURE_OPENAI_API_VERSION:
-                client_options["default_query"] = {
-                    "api-version": settings.AZURE_OPENAI_API_VERSION
-                }
 
-            self._client = OpenAI(**client_options)
+            self._client = AzureOpenAI(**client_options)
 
         return self._client
 
@@ -56,20 +52,29 @@ class AzureOpenAIClient:
     ):
         """Send a synchronous chat completion request to Azure OpenAI."""
         client = self._get_client()
+        deployment = settings.AZURE_OPENAI_CHAT_DEPLOYMENT
+        
         payload: Dict[str, Any] = {
-            "model": settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
-            "temperature": temperature,
+            "model": deployment,
             "messages": [message.model_dump() for message in messages],
         }
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
+        
+        # Modern Azure models (like gpt-5.3/o1) have strict parameter requirements:
+        # 1. They use max_completion_tokens instead of max_tokens.
+        # 2. They often only support temperature=1.0 (some block the parameter entirely if not 1).
+        if "gpt-5.3" in deployment or "o1" in deployment:
+            if max_tokens is not None:
+                payload["max_completion_tokens"] = max_tokens
+            # Do not set temperature for these models (defaults to 1.0)
+        else:
+            payload["temperature"] = temperature
+            if max_tokens is not None:
+                payload["max_tokens"] = max_tokens
 
         try:
             response = client.chat.completions.create(**payload)
             logger.info(
-                "Azure direct chat completed using deployment '{}'".format(
-                    settings.AZURE_OPENAI_CHAT_DEPLOYMENT
-                )
+                "Azure direct chat completed using deployment '{}'".format(deployment)
             )
             return response
         except httpx.TimeoutException as exc:
@@ -95,14 +100,22 @@ class AzureOpenAIClient:
     ):
         """Stream a chat completion from Azure OpenAI."""
         client = self._get_client()
+        deployment = settings.AZURE_OPENAI_CHAT_DEPLOYMENT
+        
         payload: Dict[str, Any] = {
-            "model": settings.AZURE_OPENAI_CHAT_DEPLOYMENT,
-            "temperature": temperature,
+            "model": deployment,
             "stream": True,
             "messages": [message.model_dump() for message in messages],
         }
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
+
+        # Handle modern model parameters
+        if "gpt-5.3" in deployment or "o1" in deployment:
+            if max_tokens is not None:
+                payload["max_completion_tokens"] = max_tokens
+        else:
+            payload["temperature"] = temperature
+            if max_tokens is not None:
+                payload["max_tokens"] = max_tokens
 
         try:
             stream = client.chat.completions.create(**payload)

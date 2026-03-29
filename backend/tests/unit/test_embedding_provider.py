@@ -34,12 +34,12 @@ async def test_azure_embedding_provider_builds_sdk_request(monkeypatch):
                 data=[SimpleNamespace(embedding=[0.1, 0.2, 0.3])]
             )
 
-    class FakeOpenAI:
+    class FakeAzureOpenAI:
         def __init__(self, **kwargs):
             captured["client_kwargs"] = kwargs
             self.embeddings = FakeEmbeddings()
 
-    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=FakeOpenAI))
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(AzureOpenAI=FakeAzureOpenAI))
     monkeypatch.setattr(settings, "AZURE_OPENAI_ENDPOINT", "https://demo.openai.azure.com/")
     monkeypatch.setattr(settings, "AZURE_OPENAI_API_KEY", "secret")
     monkeypatch.setattr(settings, "AZURE_OPENAI_API_VERSION", "2024-10-21")
@@ -52,11 +52,10 @@ async def test_azure_embedding_provider_builds_sdk_request(monkeypatch):
     result = await provider.embed_text("hello")
 
     assert result == [0.1, 0.2, 0.3]
-    assert (
-        captured["client_kwargs"]["base_url"]
-        == "https://demo.openai.azure.com/openai/v1/"
-    )
-    assert captured["client_kwargs"]["default_query"] == {"api-version": "2024-10-21"}
+    assert captured["client_kwargs"]["azure_endpoint"] == "https://demo.openai.azure.com/"
+    assert captured["client_kwargs"]["api_version"] == "2024-10-21"
+    assert captured["client_kwargs"]["timeout"] == 12.0
+    assert captured["client_kwargs"]["max_retries"] == 5
     assert captured["payload"]["model"] == "embedding-prod"
     assert captured["payload"]["dimensions"] == 3072
 

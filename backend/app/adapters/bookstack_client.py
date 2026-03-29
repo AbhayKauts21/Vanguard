@@ -1,14 +1,13 @@
 """BookStack REST API client — fetches pages, books, chapters."""
 
 from typing import List, Optional
-from datetime import datetime
 
 import httpx
 from loguru import logger
 
 from app.core.config import settings
 from app.core.exceptions import BookStackConnectionError
-from app.domain.schemas import BookStackPage, BookStackBook
+from app.domain.schemas import BookStackBook, BookStackChapter, BookStackPage
 
 
 class BookStackClient:
@@ -104,6 +103,43 @@ class BookStackClient:
         except httpx.HTTPError as e:
             logger.error(f"BookStack list_books failed: {e}")
             raise BookStackConnectionError(detail=f"Failed to list books: {e}")
+
+    async def get_books(self) -> List[BookStackBook]:
+        """Backward-compatible alias used by health checks and older services."""
+        return await self.list_books()
+
+    # --- Chapter Operations ---
+
+    async def list_chapters(self, offset: int = 0, count: int = 100) -> List[BookStackChapter]:
+        """Fetch paginated list of chapters."""
+        client = await self._get_client()
+        params = {"offset": offset, "count": count}
+        try:
+            resp = await client.get("/api/chapters", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+            return [BookStackChapter(**chapter) for chapter in data.get("data", [])]
+        except httpx.HTTPError as e:
+            logger.error(f"BookStack list_chapters failed: {e}")
+            raise BookStackConnectionError(detail=f"Failed to list chapters: {e}")
+
+    async def get_all_chapters(self) -> List[BookStackChapter]:
+        """Fetch all chapters using pagination."""
+        all_chapters: List[BookStackChapter] = []
+        offset = 0
+        count = 100
+
+        while True:
+            batch = await self.list_chapters(offset=offset, count=count)
+            if not batch:
+                break
+            all_chapters.extend(batch)
+            if len(batch) < count:
+                break
+            offset += count
+
+        logger.info(f"Fetched {len(all_chapters)} total chapters from BookStack")
+        return all_chapters
 
 
 # Singleton instance — injected into services

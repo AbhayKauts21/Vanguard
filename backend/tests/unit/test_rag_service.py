@@ -12,8 +12,10 @@ class FakeEmbeddingClient:
 class FakeVectorStore:
     def __init__(self, results):
         self._results = results
+        self.last_filter = None
 
-    async def query(self, *, vector, top_k):
+    async def query(self, *, vector, top_k, filter_dict=None):
+        self.last_filter = filter_dict
         return self._results
 
 
@@ -70,3 +72,25 @@ async def test_streaming_rag_uses_configured_similarity_threshold_for_docs_mode(
     assert events[-1]["type"] == "done"
     assert events[-1]["mode_used"] == "rag"
     assert events[-1]["max_confidence"] == pytest.approx(0.497)
+
+
+@pytest.mark.asyncio
+async def test_rag_filters_user_uploads_to_current_user():
+    store = FakeVectorStore([])
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=store,
+        llm_client=FakeLLMClient(),
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=FailAzureChatService(),
+    )
+
+    with pytest.raises(Exception):
+        await service.answer_query("hello", user_id="user-123")
+
+    assert store.last_filter == {
+        "$or": [
+            {"source_type": {"$ne": "user_upload"}},
+            {"user_id": {"$eq": "user-123"}},
+        ]
+    }

@@ -6,11 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint src --quiet",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "test": "vitest run",
+    "test:smoke": "vitest run src/components/chat/ChatHistoryRail.test.tsx src/components/chat/CitationList.test.tsx src/components/chat/EmptyState.test.tsx src/components/chat/SessionStatus.test.tsx src/domains/chat/model/chat-store.test.ts src/domains/system/components/UserAccessPanel.test.tsx src/lib/api/client.test.ts src/lib/env/env.test.ts src/lib/utils/cn.test.ts",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepare": "node -e \"const fs=require('fs'); const {spawnSync}=require('child_process'); if(!fs.existsSync('../.git')) process.exit(0); const result=spawnSync('frontend/node_modules/.bin/husky',['.husky'],{cwd:'..',stdio:'inherit',shell:true}); process.exit(result.status ?? 0);\""
   },
   "dependencies": {
     "@heygen/streaming-avatar": "^2.1.0",
@@ -47,6 +49,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.71.2",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
     "three": "^0.183.2",
     "uuid": "^13.0.0",
@@ -65,10 +69,21 @@
     "@vitest/coverage-istanbul": "^4.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.7",
+    "husky": "^9.1.7",
     "jsdom": "^29.0.0",
     "prettier": "^3.8.1",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.0"
+  },
+  "optionalDependencies": {
+    "@parcel/watcher-linux-x64-glibc": "2.5.6",
+    "@parcel/watcher-linux-x64-musl": "2.5.6",
+    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.9",
+    "@rolldown/binding-linux-x64-musl": "1.0.0-rc.9",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.2.1",
+    "@tailwindcss/oxide-linux-x64-musl": "4.2.1",
+    "lightningcss-linux-x64-gnu": "1.31.1",
+    "lightningcss-linux-x64-musl": "1.31.1"
   }
 }

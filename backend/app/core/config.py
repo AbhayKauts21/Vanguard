@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     PROJECT_NAME: str = "CLEO"
     API_V1_STR: str = "/api/v1"
+    PUBLIC_API_BASE_URL: str = "http://localhost:8000"
     DEBUG: bool = False
 
     @field_validator("DEBUG", mode="before")
@@ -45,24 +46,42 @@ class Settings(BaseSettings):
     PINECONE_INDEX_NAME: str = "cleo-docs"
     PINECONE_CLOUD: str = "aws"
     PINECONE_REGION: str = "us-east-1"
+    DOCUMENT_VECTOR_NAMESPACE: str = "bookstack"
 
     # BookStack — knowledge base source
     BOOKSTACK_URL: str = ""
     BOOKSTACK_TOKEN_ID: str = ""
     BOOKSTACK_TOKEN_SECRET: str = ""
+    BOOKSTACK_SOURCE_KEY: str = "bookstack_default"
+    BOOKSTACK_SOURCE_NAME: str = "BookStack"
+
+    # Azure Blob Storage — user uploads
+    AZURE_BLOB_CONNECTION_STRING: str = ""
+    AZURE_BLOB_ACCOUNT_URL: str = ""
+    AZURE_BLOB_ACCOUNT_NAME: str = ""
+    AZURE_BLOB_ACCOUNT_KEY: str = ""
+    AZURE_BLOB_CONTAINER_NAME: str = "cleo-user-documents"
+    AZURE_BLOB_SAS_EXPIRY_MINUTES: int = 60 * 24
+    DOCUMENT_UPLOAD_MAX_BYTES: int = 20 * 1024 * 1024
 
     # Ingestion pipeline tuning
     CHUNK_SIZE: int = 800
     CHUNK_OVERLAP: int = 200
-    MIN_SIMILARITY_SCORE: float = 0.78
+    MIN_SIMILARITY_SCORE: float = 0.40
     SYNC_INTERVAL_MINUTES: int = 5
-    TOP_K_RESULTS: int = 5
+    TOP_K_RESULTS: int = 8
 
     # Webhook verification
     BOOKSTACK_WEBHOOK_SECRET: str = ""
 
     # HeyGen avatar (future use)
     HEYGEN_API_KEY: str = ""
+
+    # Azure Speech Services — voice pipeline TTS
+    AZURE_SPEECH_KEY: str = ""
+    AZURE_SPEECH_REGION: str = "eastus"
+    AZURE_TTS_VOICE: str = "en-US-JennyNeural"
+    AZURE_TTS_OUTPUT_FORMAT: str = "audio-24khz-48kbitrate-mono-mp3"
 
     # Security — Phase 7
     ADMIN_API_KEY: str = "change-me-in-production"
@@ -82,6 +101,7 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 14
     AUTH_DEFAULT_ROLE: str = "viewer"
+    PASSWORD_RESET_CODE_EXPIRE_MINUTES: int = 15
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE_PATH),
@@ -91,14 +111,6 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-
-def build_azure_openai_base_url(endpoint: str) -> str:
-    """Normalize Azure resource endpoint into the SDK base_url format."""
-    normalized = endpoint.rstrip("/")
-    if not normalized:
-        return ""
-    return f"{normalized}/openai/v1/"
 
 
 def validate_azure_openai_settings(cfg: Settings) -> None:

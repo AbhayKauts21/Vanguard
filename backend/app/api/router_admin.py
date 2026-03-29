@@ -38,6 +38,6 @@ async def trigger_page_sync(page_id: int):
 @router.get("/sync/status", response_model=SyncStatusResponse)
 async def get_sync_status():
     """Return current sync status and schedule info."""
-    status = ingestion_service.get_status()
+    status = await ingestion_service.get_status()
     status.next_sync_at = get_next_run_time()
     return status

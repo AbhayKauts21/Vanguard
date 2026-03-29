@@ -1,19 +1,45 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { SessionStatus } from "./SessionStatus";
+import { ChatHistoryRail } from "./ChatHistoryRail";
 import { MessageList, type ChatMessage } from "./MessageList";
 import { EmptyState } from "./EmptyState";
 import { TypingIndicator } from "./TypingIndicator";
 import { Composer } from "./Composer";
 import { OfflineBanner } from "./OfflineBanner";
 import { SuggestedPromptRail } from "./SuggestedPromptRail";
+import { VoiceTranscript } from "@/components/voice";
 import { useChatStore } from "@/domains/chat/model";
+import type { ChatSummary } from "@/types";
 
 interface ChatPanelProps {
   messages: ChatMessage[];
   isThinking: boolean;
   onSend: (message: string) => void;
   disabled?: boolean;
+  history?: {
+    isVisible: boolean;
+    chats: ChatSummary[];
+    activeChatId: string | null;
+    isLoading?: boolean;
+    hasMoreMessages?: boolean;
+    isLoadingOlderMessages?: boolean;
+    onSelectChat: (chatId: string) => void;
+    onLoadOlderMessages: () => void;
+    onCreateChat: () => void;
+    onDeleteChat: (chatId: string) => void;
+  };
+  /** Voice mode controls forwarded to Composer. */
+  voice?: {
+    isVoiceMode: boolean;
+    isSupported: boolean;
+    phase: string;
+    onActivate: () => void;
+    onDeactivate: () => void;
+    onSendVoiceMessage: () => void;
+  };
 }
 
 /**
@@ -49,35 +75,68 @@ function ErrorBanner({ errorType }: { errorType: string | null }) {
  * Biometric neural activity bar on left edge, glass panel container,
  * uplink status, message area, typing indicator, input composer.
  */
-export function ChatPanel({ messages, isThinking, onSend, disabled }: ChatPanelProps) {
+export function ChatPanel({ messages, isThinking, onSend, disabled, history, voice }: ChatPanelProps) {
   const hasMessages = messages.length > 0;
   const errorType = useChatStore((s) => s.errorType);
-  const shouldShowPromptRail = hasMessages && messages.length <= 4 && !isThinking;
+  const isHistoryCollapsed = useChatStore((s) => s.isHistoryCollapsed);
+  const toggleHistory = useChatStore((s) => s.toggleHistory);
+  const setHistoryCollapsed = useChatStore((s) => s.setHistoryCollapsed);
+  
+
+  useEffect(() => {
+    if (!history?.isVisible) {
+      setHistoryCollapsed(false);
+    }
+  }, [history?.isVisible, setHistoryCollapsed]);
 
   return (
-    <div className="flex-1 flex flex-col glass-panel rounded-xl overflow-hidden shadow-2xl panel-boundary transition-all duration-1000 relative">
+    <div className="flex-1 flex flex-col glass-panel rounded-xl overflow-hidden shadow-2xl panel-boundary relative">
       <div className="pointer-events-none absolute inset-px rounded-[inherit]">
         <span className="absolute left-0 top-0 h-5 w-5 rounded-tl-xl border-l border-t border-white/20" />
       </div>
 
-      <SessionStatus />
+      <SessionStatus 
+        onNewChat={history?.onCreateChat} 
+        isHistoryVisible={history?.isVisible}
+        isHistoryCollapsed={isHistoryCollapsed}
+        onToggleHistory={toggleHistory}
+      />
 
-      <ErrorBanner errorType={errorType} />
-      <OfflineBanner />
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        {history?.isVisible && !isHistoryCollapsed ? (
+          <ChatHistoryRail
+            chats={history.chats}
+            activeChatId={history.activeChatId}
+            isLoading={history.isLoading}
+            onSelectChat={history.onSelectChat}
+            onDeleteChat={history.onDeleteChat}
+          />
+        ) : null}
 
-      {hasMessages ? <MessageList messages={messages} /> : <EmptyState onSend={onSend} disabled={disabled} />}
+        <div className="flex min-h-0 flex-1 flex-col">
 
-      {shouldShowPromptRail && (
-        <SuggestedPromptRail
-          onSend={onSend}
-          disabled={disabled}
-          className="px-8 pb-4"
-        />
-      )}
+          <ErrorBanner errorType={errorType} />
+          <OfflineBanner />
+          {hasMessages ? (
+            <MessageList
+              messages={messages}
+              hasMoreHistory={history?.hasMoreMessages}
+              isLoadingOlder={history?.isLoadingOlderMessages}
+              onLoadOlder={history?.onLoadOlderMessages}
+            />
+          ) : (
+            <EmptyState onSend={onSend} disabled={disabled} />
+          )}
 
-      {isThinking && <TypingIndicator />}
 
-      <Composer onSend={onSend} disabled={disabled} />
+          {isThinking && <TypingIndicator />}
+
+          <Composer onSend={onSend} disabled={disabled} voice={voice} />
+        </div>
+      </div>
+
+      {/* Voice transcript overlay — localized to chat panel now */}
+      {voice?.isVoiceMode && <VoiceTranscript onDeactivate={voice.onDeactivate} />}
     </div>
   );
 }

@@ -28,24 +28,26 @@ vi.mock("@/i18n/navigation", () => ({
 
 const messages = {
   header: {
-    focusInput: "Focus Input",
-    focusInputHint: "Operator cursor",
     adminConsole: "Admin Console",
     adminConsoleHint: "System controls",
-    pulseInterface: "Pulse interface",
+    documentsLibrary: "Documents",
+    documentsLibraryHint: "Upload and review",
   },
 };
 
 describe("TopBar", () => {
-  it("renders bespoke header actions for input focus and admin access", () => {
+  it("renders bespoke header actions for admin and documents access", () => {
     render(
       <NextIntlClientProvider locale="en" messages={messages}>
         <TopBar />
       </NextIntlClientProvider>,
     );
 
-    expect(screen.getByText("Focus Input")).toBeInTheDocument();
-    expect(screen.getByText("Operator cursor")).toBeInTheDocument();
+    expect(screen.getByText("Admin Console")).toBeInTheDocument();
+    expect(screen.getByText("System controls")).toBeInTheDocument();
+    expect(screen.getByText("Documents")).toBeInTheDocument();
+    expect(screen.getByText("Upload and review")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Admin Console/i })).toHaveAttribute("href", "/admin");
+    expect(screen.getByRole("link", { name: /Documents/i })).toHaveAttribute("href", "/documents");
   });
 });

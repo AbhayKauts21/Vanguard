@@ -110,9 +110,7 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
             activeChatId={history.activeChatId}
             isLoading={history.isLoading}
             onSelectChat={history.onSelectChat}
-            onCreateChat={history.onCreateChat}
             onDeleteChat={history.onDeleteChat}
-            onToggleCollapse={() => setHistoryCollapsed(true)}
           />
         ) : null}
 

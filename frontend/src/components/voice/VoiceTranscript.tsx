@@ -2,6 +2,8 @@
 
 import { useVoiceStore } from "@/domains/voice/model";
 import { AnimatePresence, motion } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 /**
  * Voice transcript overlay — displays real-time user speech and CLEO response
@@ -139,23 +141,15 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
                   transition={{ duration: 0.3 }}
                   className="self-start max-w-[85%]"
                 >
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className="flex items-end h-3 gap-[1px]">
-                      <div className="waveform-bar animate-waveform" style={{ animationDelay: "0.1s" }} />
-                      <div className="waveform-bar animate-waveform" style={{ animationDelay: "0.3s" }} />
-                      <div className="waveform-bar animate-waveform" style={{ animationDelay: "0.2s" }} />
-                    </div>
-                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                      CLEO Core
-                    </span>
-                  </div>
                   <div className="rounded-2xl rounded-tl-none border border-emerald-500/20 bg-emerald-500/[0.05] px-5 py-3 backdrop-blur-md">
-                    <p className="text-white/80 text-[13px] leading-relaxed font-light">
-                      {cleoTranscript}
+                    <div className="text-white/80 text-[13px] leading-relaxed font-light prose-invert prose-sm overflow-hidden">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {cleoTranscript}
+                      </ReactMarkdown>
                       {phase === "speaking" && (
                         <span className="inline-block w-[2px] h-4 bg-emerald-400/60 ml-1 animate-pulse" />
                       )}
-                    </p>
+                    </div>
                   </div>
                 </motion.div>
               )}

@@ -1,0 +1,420 @@
+openapi: 3.1.0
+info:
+  title: CLEO API
+  description: |
+    CLEO — Contextual Learning & Enterprise Oracle.
+    AI-powered enterprise assistant backend providing RAG-based chat, voice synthesis, 
+    document management, and real-time system synchronization.
+  version: 1.0.0
+  contact:
+    name: Team Vanguard
+    url: https://github.com/AbhayKauts21/Vanguard
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local Development Server
+  - url: /api/v1
+    description: Relative path for production deployments
+
+components:
+  securitySchemes:
+    JWTAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Provide the access token in the format `Bearer <token>`.
+
+  schemas:
+    # --- Auth & Identity ---
+    UserResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        full_name: { type: string, nullable: true }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        last_login_at: { type: string, format: date-time, nullable: true }
+        roles: { type: array, items: { $ref: '#/components/schemas/RoleResponse' } }
+        permissions: { type: array, items: { $ref: '#/components/schemas/PermissionResponse' } }
+
+    RoleResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, nullable: true }
+        permissions: { type: array, items: { $ref: '#/components/schemas/PermissionResponse' } }
+
+    PermissionResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        description: { type: string, nullable: true }
+
+    AuthSessionResponse:
+      type: object
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, default: bearer }
+        access_token_expires_in: { type: integer, example: 1800 }
+        refresh_token_expires_in: { type: integer, example: 1209600 }
+        user: { $ref: '#/components/schemas/UserResponse' }
+
+    # --- Chat & RAG ---
+    ConversationMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string }
+
+    ChatMessageSender:
+      type: string
+      enum: [user, assistant]
+      description: The role of the message author.
+
+    Citation:
+      type: object
+      properties:
+        page_id: { type: integer }
+        page_title: { type: string }
+        source_url: { type: string }
+        source_type: { type: string, default: bookstack }
+        source_name: { type: string }
+        document_uid: { type: string }
+        score: { type: number, format: float }
+        tier: { type: string, enum: [primary, secondary, tertiary] }
+
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string, minLength: 1, maxLength: 2000 }
+        conversation_id: { type: string, nullable: true }
+        conversation_history: { type: array, items: { $ref: '#/components/schemas/ConversationMessage' } }
+        max_history: { type: integer, default: 10, maximum: 20 }
+
+    ChatResponse:
+      type: object
+      properties:
+        answer: { type: string }
+        primary_citations: { type: array, items: { $ref: '#/components/schemas/Citation' } }
+        secondary_citations: { type: array, items: { $ref: '#/components/schemas/Citation' } }
+        hidden_sources_count: { type: integer }
+        mode_used: { type: string, default: rag }
+        max_confidence: { type: number, format: float }
+        conversation_id: { type: string, nullable: true }
+
+    ChatSummaryResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        message_count: { type: integer }
+        last_message_preview: { type: string, nullable: true }
+
+    # --- Voice ---
+    TTSRequest:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 5000 }
+        voice: { type: string, nullable: true }
+        language: { type: string, nullable: true, example: en-US }
+        stream: { type: boolean, default: true }
+
+    # --- System & Admin ---
+    SyncStatusResponse:
+      type: object
+      properties:
+        is_syncing: { type: boolean }
+        total_pages_synced: { type: integer }
+        total_chunks_synced: { type: integer }
+        last_sync_at: { type: string, format: date-time, nullable: true }
+        next_sync_at: { type: string, format: date-time, nullable: true }
+        source_key: { type: string, nullable: true }
+
+    AuditLog:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        event_code: { type: integer }
+        user_id: { type: string, format: uuid, nullable: true }
+        resource_type: { type: string, nullable: true }
+        resource_id: { type: string, nullable: true }
+        context: { type: object }
+        created_at: { type: string, format: date-time }
+
+    # --- Errors ---
+    ErrorResponse:
+      type: object
+      properties:
+        detail: { type: string }
+
+paths:
+  # --- Authentication ---
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                full_name: { type: string, nullable: true }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSessionResponse' }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Authenticate user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthSessionResponse' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Get current user profile
+      security:
+        - JWTAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+
+  # --- Chat (Stateless) ---
+  /chat/:
+    post:
+      tags: [chat]
+      summary: RAG conversational endpoint (one-shot)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChatRequest' }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChatResponse' }
+
+  /chat/stream:
+    post:
+      tags: [chat]
+      summary: Streaming RAG conversational endpoint
+      description: Returns tokens as Server-Sent Events (SSE).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChatRequest' }
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema: { type: string, format: binary }
+
+  # --- Chat Sessions (Persistent) ---
+  /chats/:
+    get:
+      tags: [chats]
+      summary: List user's chat sessions
+      security:
+        - JWTAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ChatSummaryResponse' } }
+                  has_more: { type: boolean }
+    post:
+      tags: [chats]
+      summary: Create new chat session
+      security:
+        - JWTAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, nullable: true }
+      responses:
+        '201':
+          description: Created
+
+  /chats/{chat_id}/messages/stream:
+    post:
+      tags: [chats]
+      summary: Send message to session (Stream)
+      security:
+        - JWTAuth: []
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string }
+      responses:
+        '200':
+          description: SSE stream
+
+  # --- Documents ---
+  /documents/upload:
+    post:
+      tags: [documents]
+      summary: Upload document for indexing
+      security:
+        - JWTAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                title: { type: string }
+                tags: { type: string, description: Comma-separated tags }
+                user_id: { type: string, format: uuid }
+      responses:
+        '202':
+          description: Accepted (Processing in background)
+
+  # --- Voice ---
+  /voice/tts:
+    post:
+      tags: [voice]
+      summary: Text-to-Speech synthesis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TTSRequest' }
+      responses:
+        '200':
+          description: Audio binary
+          content:
+            audio/mpeg:
+              schema: { type: string, format: binary }
+
+  # --- Admin & Sync ---
+  /admin/sync/status:
+    get:
+      tags: [admin]
+      summary: Get current sync status
+      security:
+        - JWTAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SyncStatusResponse' }
+
+  /admin/ingest:
+    post:
+      tags: [admin]
+      summary: Trigger full BookStack sync
+      security:
+        - JWTAuth: []
+      responses:
+        '200':
+          description: Sync started
+
+  # --- System ---
+  /system/logs:
+    get:
+      tags: [system]
+      summary: Fetch historical audit logs
+      security:
+        - JWTAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/AuditLog' } }
+
+  /system/events:
+    get:
+      tags: [system]
+      summary: Real-time audit log stream (SSE)
+      responses:
+        '200':
+          description: SSE stream
+
+  # --- Health ---
+  /health:
+    get:
+      tags: [health]
+      summary: Basic liveness probe
+      responses:
+        '200':
+          description: OK
+  /health/detailed:
+    get:
+      tags: [health]
+      summary: Detailed upstream health check
+      responses:
+        '200':
+          description: OK

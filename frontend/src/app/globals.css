@@ -220,3 +220,57 @@ header.glass-panel {
 ::selection {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* === Voice Transcript Markdown === */
+.voice-transcript-md h1,
+.voice-transcript-md h2,
+.voice-transcript-md h3,
+.voice-transcript-md h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 8px 0 4px;
+  line-height: 1.4;
+}
+
+.voice-transcript-md p {
+  margin: 4px 0;
+}
+
+.voice-transcript-md ul,
+.voice-transcript-md ol {
+  padding-left: 16px;
+  margin: 4px 0;
+}
+
+.voice-transcript-md li {
+  margin: 2px 0;
+}
+
+.voice-transcript-md strong {
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+.voice-transcript-md code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.voice-transcript-md pre {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+.voice-transcript-md a {
+  color: #6ee7b7;
+  text-decoration: underline;
+}

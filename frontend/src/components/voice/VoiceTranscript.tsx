@@ -2,6 +2,7 @@
 
 import { useVoiceStore } from "@/domains/voice/model";
 import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -24,6 +25,17 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
   const cleoTranscript = useVoiceStore((s) => s.cleoTranscript);
   const error = useVoiceStore((s) => s.error);
   const setError = useVoiceStore((s) => s.setError);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom as transcripts update
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [userTranscript, cleoTranscript]);
 
   if (!isVoiceMode) return null;
 
@@ -70,7 +82,10 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm rounded-xl" />
 
           {/* Transcript area */}
-          <div className="relative z-10 flex flex-col gap-6 max-h-[70%] overflow-y-auto pb-20">
+          <div 
+            ref={scrollRef}
+            className="relative z-10 flex flex-col gap-6 max-h-[82%] overflow-y-auto pb-32 scrollbar-none"
+          >
             {/* Error banner */}
             <AnimatePresence>
               {error && (
@@ -142,7 +157,7 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
                   className="self-start max-w-[85%]"
                 >
                   <div className="rounded-2xl rounded-tl-none border border-emerald-500/20 bg-emerald-500/[0.05] px-5 py-3 backdrop-blur-md">
-                    <div className="text-white/80 text-[13px] leading-relaxed font-light prose-invert prose-sm overflow-hidden">
+                    <div className="text-white/80 text-[13px] leading-relaxed font-light prose-invert prose-sm">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {cleoTranscript}
                       </ReactMarkdown>

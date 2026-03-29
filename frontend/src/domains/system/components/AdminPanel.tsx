@@ -23,7 +23,7 @@ export function AdminPanel() {
           <SyncControls />
           <Link
             href="/admin/bookstack-sync"
-            className="group relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-6 backdrop-blur-xl transition-all duration-500 hover:border-cyan-300/30 hover:bg-cyan-400/15"
+            className="group relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-6 backdrop-blur-xl transition-all duration-500 hover:border-cyan-300/30 hover:bg-cyan-400/15"
           >
             <div className="relative z-10">
               <div className="mb-3 flex items-center gap-3">
@@ -46,7 +46,7 @@ export function AdminPanel() {
           </div>
           
           {/* Footer decorative node connection graph placeholder */}
-          <div className="relative h-32 overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-white/[0.02] to-transparent p-6 backdrop-blur-sm">
+          <div className="relative h-32 overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-white/[0.02] to-transparent p-6 backdrop-blur-sm">
             <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] mix-blend-overlay"></div>
             <div className="relative z-10 flex h-full items-center justify-center">
               <span className="text-xs uppercase tracking-[0.2em] text-white/20 mix-blend-plus-lighter">

@@ -82,7 +82,6 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
   const toggleHistory = useChatStore((s) => s.toggleHistory);
   const setHistoryCollapsed = useChatStore((s) => s.setHistoryCollapsed);
   
-  const shouldShowPromptRail = hasMessages && messages.length <= 4 && !isThinking;
 
   useEffect(() => {
     if (!history?.isVisible) {
@@ -129,13 +128,6 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
             <EmptyState onSend={onSend} disabled={disabled} />
           )}
 
-          {shouldShowPromptRail && (
-            <SuggestedPromptRail
-              onSend={onSend}
-              disabled={disabled}
-              className="px-8 pb-4"
-            />
-          )}
 
           {isThinking && <TypingIndicator />}
 

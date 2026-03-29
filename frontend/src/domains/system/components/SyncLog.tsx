@@ -36,7 +36,7 @@ export function SyncLog() {
   const [logs] = useState<LogEntry[]>(createMockLogs);
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/50 hover:border-white/20">
+    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
       <div className="relative z-10 flex h-full flex-col">
         <h3 className="mb-4 text-lg font-medium text-white/90">Event Log Feed</h3>
         

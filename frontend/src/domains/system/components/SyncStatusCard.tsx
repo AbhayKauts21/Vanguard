@@ -7,7 +7,7 @@ export function SyncStatusCard() {
   const { syncStatus, isRefreshing, error } = useAdminSync();
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/50 hover:border-white/20">
+    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
       {/* Decorative gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
       
@@ -52,13 +52,13 @@ export function SyncStatusCard() {
         {syncStatus && (
         <>
           <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-xl bg-white/5 p-4 transition-colors hover:bg-white/10">
+            <div className="rounded-xl bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.08]">
               <div className="text-sm text-white/50">Indexed Pages</div>
               <div className="mt-1 text-2xl font-light text-white">
                 {syncStatus?.total_pages_synced ?? "—"}
               </div>
             </div>
-            <div className="rounded-xl bg-white/5 p-4 transition-colors hover:bg-white/10">
+            <div className="rounded-xl bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.08]">
               <div className="text-sm text-white/50">Vector Chunks</div>
               <div className="mt-1 text-2xl font-light text-white">
                 {syncStatus?.total_chunks_synced ?? "—"}

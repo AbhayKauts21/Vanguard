@@ -68,7 +68,7 @@ export function UserAccessPanel() {
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/50 hover:border-white/20">
+    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
       <div className="relative z-10">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
@@ -103,7 +103,7 @@ export function UserAccessPanel() {
               return (
                 <div
                   key={user.id}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"
+                  className="rounded-2xl border border-white/10 bg-white/[0.02] p-5"
                 >
                   <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>

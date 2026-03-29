@@ -43,7 +43,7 @@ function PageNode({
   onToggle: () => void;
 }) {
   return (
-    <label className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2 text-sm text-white/80">
+    <label className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-sm text-white/80 transition-colors hover:bg-white/[0.08]">
       <TreeCheckbox checked={checked} indeterminate={false} onChange={onToggle} />
       <span className="material-symbols-outlined text-[18px] text-white/35">description</span>
       <span className="truncate">{page.name}</span>
@@ -72,7 +72,7 @@ function ChapterNode({
   const indeterminate = selectedCount > 0 && !checked;
 
   return (
-    <div className="rounded-2xl border border-white/6 bg-black/20">
+    <div className="rounded-3xl border border-white/6 bg-black/35 backdrop-blur-md">
       <div className="flex items-center gap-3 px-4 py-3">
         <button
           type="button"
@@ -139,7 +139,7 @@ function BookNode({
   const indeterminate = selectedCount > 0 && !checked;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03]">
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] transition-colors hover:bg-white/[0.05]">
       <div className="flex items-center gap-3 px-4 py-4">
         <button
           type="button"
@@ -293,7 +293,7 @@ export function BookStackSyncManager() {
       )}
 
       <div className="flex flex-col lg:flex-row gap-8 items-start">
-        <section className="flex-1 min-w-0 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl">
+        <section className="flex-1 min-w-0 rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div className="min-w-0">
               <h2 className="text-lg font-medium text-white/90">Hierarchy</h2>
@@ -332,7 +332,7 @@ export function BookStackSyncManager() {
           )}
         </section>
 
-        <aside className="w-full lg:w-[320px] shrink-0 rounded-3xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl lg:sticky lg:top-8">
+        <aside className="w-full lg:w-[320px] shrink-0 rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl lg:sticky lg:top-8">
           <div className="mb-6">
             <h2 className="text-lg font-medium text-white/90">Sync Controls</h2>
             <p className="text-sm text-white/45">
@@ -341,15 +341,15 @@ export function BookStackSyncManager() {
           </div>
 
           <div className="grid gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]">
               <div className="text-xs uppercase tracking-[0.18em] text-white/35">Books</div>
               <div className="mt-2 text-3xl font-light text-white">{totals.books}</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]">
               <div className="text-xs uppercase tracking-[0.18em] text-white/35">Chapters</div>
               <div className="mt-2 text-3xl font-light text-white">{totals.chapters}</div>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]">
               <div className="text-xs uppercase tracking-[0.18em] text-white/35">Pages Included</div>
               <div className="mt-2 text-3xl font-light text-white">{selectedPageCount}</div>
             </div>
@@ -360,7 +360,7 @@ export function BookStackSyncManager() {
               type="button"
               onClick={() => void saveSelection()}
               disabled={isLoading || isSaving || !dirty}
-              className="w-full rounded-2xl bg-cyan-400/15 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full rounded-3xl bg-cyan-400/15 px-4 py-3 text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {isSaving ? "Saving selection..." : "Save selection"}
             </button>
@@ -368,7 +368,7 @@ export function BookStackSyncManager() {
               type="button"
               onClick={() => void syncNow()}
               disabled={isLoading || isSyncing}
-              className="w-full rounded-2xl bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full rounded-3xl bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {isSyncing ? "Syncing now..." : "Sync now"}
             </button>
@@ -376,13 +376,13 @@ export function BookStackSyncManager() {
               type="button"
               onClick={resetSelection}
               disabled={isLoading}
-              className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm font-medium text-white/75 transition hover:border-white/20 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-40"
+              className="w-full rounded-3xl border border-white/10 bg-transparent px-4 py-3 text-sm font-medium text-white/75 transition hover:border-white/20 hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Reset selection
             </button>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/55">
+          <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/55">
             <div className="mb-2 text-xs uppercase tracking-[0.18em] text-white/35">Selection semantics</div>
             <ul className="space-y-2">
               <li>Selecting a book includes every page in that book.</li>

@@ -37,7 +37,7 @@ export function SyncControls() {
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/50 hover:border-white/20">
+    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
       <div className="relative z-10 flex flex-col gap-6">
         <div>
           <h3 className="mb-2 text-lg font-medium text-white/90">Manual Overrides</h3>
@@ -65,7 +65,7 @@ export function SyncControls() {
             onChange={(e) => setPageId(e.target.value)}
             disabled={isTriggering}
             placeholder="Page ID"
-            className="w-full flex-1 rounded-xl border border-white/10 bg-black/50 px-4 py-2 text-sm text-white placeholder-white/30 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
+            className="w-full flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white placeholder-white/30 focus:border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all"
           />
           <button
             onClick={handleSingleSync}

@@ -13,6 +13,7 @@ import { SentenceChunker, synthesizeSpeech, speakWithBrowserTTS } from "@/domain
 import { api, consumeSSEStream } from "@/lib/api";
 import { CHATS_ENDPOINT, CHAT_STREAM_ENDPOINT } from "@/lib/constants";
 import type { ChatRequest, SSEDoneEvent } from "@/types";
+import { stripMarkdown } from "@/lib/utils/markdown";
 
 /**
  * useVoiceMode — master orchestrator for the voice-to-voice pipeline.
@@ -137,8 +138,11 @@ export function useVoiceMode() {
       appendCleoTranscript(sentence);
 
       try {
+        const speechText = stripMarkdown(sentence);
+        if (!speechText) return;
+
         const audioBlob = await synthesizeSpeech(
-          sentence,
+          speechText,
           {},
           ttsAbortRef.current?.signal,
         );
@@ -146,7 +150,7 @@ export function useVoiceMode() {
         if (audioBlob.size === 0) {
           const isFallbackEnabled = process.env.NEXT_PUBLIC_ENABLE_TTS_FALLBACK !== "false";
           if (isFallbackEnabled) {
-            await speakWithBrowserTTS(sentence);
+            await speakWithBrowserTTS(stripMarkdown(sentence));
           }
         } else {
           enqueueAudio(audioBlob);

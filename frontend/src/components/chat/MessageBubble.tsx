@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentPropsWithoutRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useTranslations } from "next-intl";
@@ -84,7 +85,7 @@ export function MessageBubble({
             h3: ({ children }) => <h3 className="text-[14px] font-bold text-white/90 mt-4 mb-2 uppercase tracking-wide">{children}</h3>,
             ul: ({ children }) => <ul className="list-disc ml-4 mb-3 space-y-1">{children}</ul>,
             ol: ({ children }) => <ol className="list-decimal ml-4 mb-3 space-y-1">{children}</ol>,
-            code: ({ node, inline, className, children, ...props }: any) => {
+            code: ({ className, children, ...props }: ComponentPropsWithoutRef<"code"> & { inline?: boolean; node?: unknown }) => {
               return (
                 <code
                   className={`${className} bg-white/10 rounded px-1.5 py-0.5 font-mono text-[12px] text-blue-300`}

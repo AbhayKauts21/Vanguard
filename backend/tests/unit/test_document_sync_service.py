@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 
 from app.domain.schemas import DocumentContentFormat, DocumentProviderType, DocumentReference, NormalizedDocument
+from app.services.bookstack_sync_config_service import BookStackSelectionFilter
 from app.services.document_sync_service import DocumentSyncService
 
 
@@ -163,3 +164,32 @@ async def test_sync_reference_upserts_changed_document(monkeypatch):
     assert ids[0].startswith("bookstack_default:42::chunk::")
     assert metadatas[0]["document_uid"] == "bookstack_default:42"
     assert metadatas[0]["source_key"] == "bookstack_default"
+
+
+def test_filter_references_respects_custom_selection():
+    service = DocumentSyncService(
+        session_factory=build_session_factory(FakeSession()),
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=FakeVectorStore(),
+    )
+    references = [
+        DocumentReference(
+            source_key="bookstack_default",
+            provider_type=DocumentProviderType.BOOKSTACK,
+            external_document_id="42",
+            metadata={"page_id": 42, "book_id": 7, "chapter_id": 3},
+        ),
+        DocumentReference(
+            source_key="bookstack_default",
+            provider_type=DocumentProviderType.BOOKSTACK,
+            external_document_id="99",
+            metadata={"page_id": 99, "book_id": 8, "chapter_id": None},
+        ),
+    ]
+
+    filtered = service._filter_references(
+        references=references,
+        selection_filter=BookStackSelectionFilter(mode="custom", enabled_book_ids={7}),
+    )
+
+    assert [reference.external_document_id for reference in filtered] == ["42"]

@@ -10,6 +10,7 @@ function resetChatStore() {
     chatSummaries: [],
     activeChatId: null,
     messageCache: {},
+    messagePageInfo: {},
     isThinking: false,
     streamingMessageId: null,
     errorType: null,
@@ -17,6 +18,8 @@ function resetChatStore() {
     guestConversationId: "guest-session",
     isLoadingChats: false,
     isLoadingMessages: false,
+    isLoadingOlderMessages: false,
+    isHistoryCollapsed: false,
   });
 }
 
@@ -92,15 +95,21 @@ describe("useChatStore", () => {
       },
     ]);
     useChatStore.getState().setActiveChat("chat-2", []);
-    useChatStore.getState().setChatMessages("chat-2", [
-      { id: "m-1", role: "user", content: "Persisted hello" },
-    ]);
+    useChatStore.getState().setChatMessages(
+      "chat-2",
+      [{ id: "m-1", role: "user", content: "Persisted hello" }],
+      { hasMore: true, nextBefore: "2026-03-27T08:00:00Z" },
+    );
 
     const state = useChatStore.getState();
     expect(state.mode).toBe("user");
     expect(state.chatSummaries.map((chat) => chat.id)).toEqual(["chat-2", "chat-1"]);
     expect(state.activeChatId).toBe("chat-2");
     expect(state.messageCache["chat-2"]).toHaveLength(1);
+    expect(state.messagePageInfo["chat-2"]).toEqual({
+      hasMore: true,
+      nextBefore: "2026-03-27T08:00:00Z",
+    });
     expect(state.messages[0].content).toBe("Persisted hello");
     expect(state.guestMessages).toEqual([]);
   });
@@ -123,9 +132,16 @@ describe("useChatStore", () => {
       messageCache: {
         "chat-1": [{ id: "user-1", role: "assistant", content: "Persisted" }],
       },
+      messagePageInfo: {
+        "chat-1": { hasMore: false, nextBefore: null },
+      },
       mode: "user",
       conversationId: "chat-1",
       guestConversationId: "guest-session",
+      isLoadingChats: false,
+      isLoadingMessages: false,
+      isLoadingOlderMessages: false,
+      isHistoryCollapsed: false,
     });
 
     useChatStore.getState().clearAuthenticatedState();
@@ -135,6 +151,7 @@ describe("useChatStore", () => {
     expect(state.activeChatId).toBeNull();
     expect(state.chatSummaries).toEqual([]);
     expect(state.messageCache).toEqual({});
+    expect(state.messagePageInfo).toEqual({});
     expect(state.messages).toEqual([{ id: "guest-1", role: "user", content: "Guest draft" }]);
     expect(state.conversationId).toBe("guest-session");
   });

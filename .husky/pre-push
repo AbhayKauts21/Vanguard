@@ -1,0 +1,15 @@
+cd -- "$(dirname -- "$0")/.." || exit 1
+
+echo "Running frontend typecheck..."
+cd frontend || exit 1
+npx tsc --noEmit || exit 1
+
+echo "Running frontend tests..."
+npm run test:smoke -- --maxWorkers=1 || exit 1
+
+echo "Running frontend build..."
+npm run build || exit 1
+
+echo "Running backend tests..."
+cd ../backend || exit 1
+PYTHONPATH=. ./venv/bin/python -m pytest --tb=short -q || exit 1

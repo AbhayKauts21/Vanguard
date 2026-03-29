@@ -76,6 +76,53 @@ class BookStackBook(BaseModel):
     slug: str
 
 
+class BookStackChapter(BaseModel):
+    """Represents a chapter from BookStack API."""
+    model_config = ConfigDict(extra="ignore")
+
+    id: int
+    name: str
+    slug: str
+    book_id: int
+    priority: int = 0
+
+
+class BookStackTreePage(BaseModel):
+    page_id: int
+    name: str
+
+
+class BookStackTreeChapter(BaseModel):
+    chapter_id: int
+    name: str
+    pages: List[BookStackTreePage] = Field(default_factory=list)
+
+
+class BookStackTreeBook(BaseModel):
+    book_id: int
+    name: str
+    pages: List[BookStackTreePage] = Field(default_factory=list)
+    chapters: List[BookStackTreeChapter] = Field(default_factory=list)
+
+
+class BookStackTreeResponse(BaseModel):
+    items: List[BookStackTreeBook] = Field(default_factory=list)
+
+
+class BookStackSyncConfigRequest(BaseModel):
+    enabled_book_ids: List[int] = Field(default_factory=list)
+    enabled_chapter_ids: List[int] = Field(default_factory=list)
+    enabled_page_ids: List[int] = Field(default_factory=list)
+
+
+class BookStackSyncConfigResponse(BaseModel):
+    source_key: str
+    selection_mode: Literal["all", "custom"] = "all"
+    enabled_book_ids: List[int] = Field(default_factory=list)
+    enabled_chapter_ids: List[int] = Field(default_factory=list)
+    enabled_page_ids: List[int] = Field(default_factory=list)
+
+
 # --- Vector / Chunk Models ---
 
 class TextChunk(BaseModel):
@@ -222,6 +269,8 @@ class ChatMessageResponse(BaseModel):
 class ChatMessagesResponse(BaseModel):
     chat: ChatSummaryResponse
     items: List[ChatMessageResponse] = Field(default_factory=list)
+    has_more: bool = False
+    next_before: Optional[datetime] = None
 
 
 class ChatSendResponse(BaseModel):

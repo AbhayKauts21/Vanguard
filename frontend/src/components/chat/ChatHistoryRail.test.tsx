@@ -12,10 +12,13 @@ const messages = {
     historyNoMessages: "No messages yet",
     historyMessageCount: "{count} messages",
     historyCollapse: "Hide history",
-    untitledChat: "New chat",
-  },
-  header: {
     newChat: "New Chat",
+    hideHistory: "Hide history",
+    untitledChat: "New chat",
+    deleteChatTitle: "Delete chat",
+    deleteChatMessage: "Are you sure you want to delete this chat?",
+    deleteChatConfirm: "Delete",
+    deleteChatCancel: "Cancel",
   },
 };
 
@@ -23,6 +26,7 @@ describe("ChatHistoryRail", () => {
   it("renders chats and allows selecting a different conversation", () => {
     const onSelectChat = vi.fn();
     const onCreateChat = vi.fn();
+    const onDeleteChat = vi.fn();
 
     render(
       <NextIntlClientProvider locale="en" messages={messages}>
@@ -48,6 +52,7 @@ describe("ChatHistoryRail", () => {
           activeChatId="chat-1"
           onSelectChat={onSelectChat}
           onCreateChat={onCreateChat}
+          onDeleteChat={onDeleteChat}
           onToggleCollapse={() => {}}
         />
       </NextIntlClientProvider>,
@@ -56,9 +61,8 @@ describe("ChatHistoryRail", () => {
     expect(screen.getByText("CheckingMate setup")).toBeInTheDocument();
     expect(screen.getByText("New chat")).toBeInTheDocument();
 
-    const buttons = screen.getAllByRole("button");
-    fireEvent.click(buttons[0]);
-    fireEvent.click(buttons[3]);
+    fireEvent.click(screen.getByTitle("New Chat"));
+    fireEvent.click(screen.getByRole("button", { name: /New chat.*No messages yet/i }));
 
     expect(onCreateChat).toHaveBeenCalledTimes(1);
     expect(onSelectChat).toHaveBeenCalledWith("chat-2");

@@ -1,11 +1,12 @@
 # ---- Stage 1: Build ----
-FROM node:20-alpine AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
 # Install dependencies first (better layer caching)
 COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps
+RUN npm ci --include=optional
+RUN node -e "for (const pkg of ['@tailwindcss/oxide', '@next/swc-linux-x64-gnu', '@parcel/watcher', '@rolldown/binding-linux-x64-gnu']) { try { console.log(pkg, '=>', require.resolve(pkg)); } catch (error) { console.log(pkg, '=> MISSING'); console.log(String(error)); process.exitCode = 1; } }"
 
 # Copy source and build
 COPY . .
@@ -16,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # ---- Stage 2: Production Runner ----
-FROM node:20-alpine AS runner
+FROM node:22-slim AS runner
 
 WORKDIR /app
 

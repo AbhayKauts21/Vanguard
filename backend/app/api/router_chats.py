@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 from uuid import UUID
 
@@ -59,10 +60,18 @@ async def list_chats(
 )
 async def get_chat_messages(
     chat_id: UUID,
+    limit: int = Query(default=10, ge=1, le=100),
+    before: datetime | None = Query(default=None),
     current_user: User = Depends(require_permissions("chat:use")),
     session: AsyncSession = Depends(get_db_session),
 ):
-    return await chat_service.get_chat_messages(session, current_user=current_user, chat_id=chat_id)
+    return await chat_service.get_chat_messages(
+        session,
+        current_user=current_user,
+        chat_id=chat_id,
+        limit=limit,
+        before=before,
+    )
 
 
 @router.post(

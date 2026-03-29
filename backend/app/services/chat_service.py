@@ -71,17 +71,32 @@ class ChatService:
         *,
         current_user: User,
         chat_id: UUID,
+        limit: int = 10,
+        before: datetime | None = None,
     ) -> ChatMessagesResponse:
         chat = await self._get_owned_chat(session, current_user=current_user, chat_id=chat_id)
-        messages = await chat_repository.list_messages_for_chat(session, chat_id=chat.id)
+        messages, has_more = await chat_repository.list_messages_page_for_chat(
+            session,
+            chat_id=chat.id,
+            limit=limit,
+            before=before,
+        )
+        total_message_count = await chat_repository.count_messages_for_chat(session, chat_id=chat.id)
+        latest_messages = await chat_repository.list_recent_messages_for_chat(
+            session,
+            chat_id=chat.id,
+            limit=1,
+        )
         summary = self._to_chat_summary(
             chat,
-            message_count=len(messages),
-            last_message_preview=messages[-1].content if messages else None,
+            message_count=total_message_count,
+            last_message_preview=latest_messages[-1].content if latest_messages else None,
         )
         return ChatMessagesResponse(
             chat=summary,
             items=[self._to_chat_message(message) for message in messages],
+            has_more=has_more,
+            next_before=messages[0].created_at if messages else None,
         )
 
     async def send_message(
@@ -154,7 +169,7 @@ class ChatService:
         final_event: dict[str, Any] | None = None
 
         try:
-            async for chunk in self.rag_service.answer_query_stream(payload.message, history=history, locale=locale):
+            async for chunk in self._stream_answer_query(payload.message, history=history, locale=locale):
                 if chunk.get("type") == "token":
                     token = str(chunk.get("content", ""))
                     buffered_tokens.append(token)
@@ -271,7 +286,7 @@ class ChatService:
         from app.core.exceptions import NoContextFoundError
 
         try:
-            return await self.rag_service.answer_query(question, history=history, locale=locale)
+            return await self._call_answer_query(question, history=history, locale=locale)
         except NoContextFoundError:
             return ChatResponse(
                 answer=NO_CONTEXT_RESPONSE,
@@ -282,6 +297,34 @@ class ChatService:
                 mode_used="rag",
                 max_confidence=0.0,
             )
+
+    async def _call_answer_query(
+        self,
+        question: str,
+        *,
+        history: list[ConversationMessage],
+        locale: str,
+    ) -> ChatResponse:
+        try:
+            return await self.rag_service.answer_query(question, history=history, locale=locale)
+        except TypeError as exc:
+            if "locale" not in str(exc):
+                raise
+            return await self.rag_service.answer_query(question, history=history)
+
+    def _stream_answer_query(
+        self,
+        question: str,
+        *,
+        history: list[ConversationMessage],
+        locale: str,
+    ):
+        try:
+            return self.rag_service.answer_query_stream(question, history=history, locale=locale)
+        except TypeError as exc:
+            if "locale" not in str(exc):
+                raise
+            return self.rag_service.answer_query_stream(question, history=history)
 
     @staticmethod
     def _generate_title(content: str) -> str:

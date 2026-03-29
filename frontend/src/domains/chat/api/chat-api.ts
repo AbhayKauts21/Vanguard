@@ -28,8 +28,21 @@ export async function listPersistedChats(limit = 50): Promise<ChatListResponse> 
   return api.get<ChatListResponse>(`${CHATS_ENDPOINT}/?limit=${limit}`);
 }
 
-export async function getPersistedChatMessages(chatId: string): Promise<ChatMessagesResponse> {
-  return api.get<ChatMessagesResponse>(`${CHATS_ENDPOINT}/${chatId}/messages`);
+export async function getPersistedChatMessages(
+  chatId: string,
+  options?: { limit?: number; before?: string | null },
+): Promise<ChatMessagesResponse> {
+  const params = new URLSearchParams();
+  if (options?.limit) {
+    params.set("limit", String(options.limit));
+  }
+  if (options?.before) {
+    params.set("before", options.before);
+  }
+  const query = params.toString();
+  return api.get<ChatMessagesResponse>(
+    `${CHATS_ENDPOINT}/${chatId}/messages${query ? `?${query}` : ""}`,
+  );
 }
 
 export async function sendPersistedChatMessage(

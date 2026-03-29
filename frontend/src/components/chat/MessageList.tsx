@@ -18,17 +18,42 @@ export interface ChatMessage {
   isStreaming?: boolean;
 }
 
+interface MessageListProps {
+  messages: ChatMessage[];
+  hasMoreHistory?: boolean;
+  isLoadingOlder?: boolean;
+  onLoadOlder?: () => void;
+}
+
 /**
  * Scrollable message list with auto-scroll.
  * Matches original HTML: space-y-12 spacing, thread layer backdrop.
  */
-export function MessageList({ messages }: { messages: ChatMessage[] }) {
+export function MessageList({
+  messages,
+  hasMoreHistory = false,
+  isLoadingOlder = false,
+  onLoadOlder,
+}: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isScrolledUp, setIsScrolledUp] = useState(false);
+  const prependStateRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const lastScrollTopRef = useRef<number | null>(null);
+  const hasBeenAwayFromTopRef = useRef(false);
 
   // Auto-scroll logic
   useEffect(() => {
+    const container = containerRef.current;
+    if (prependStateRef.current && container) {
+      const { scrollHeight, scrollTop } = prependStateRef.current;
+      const delta = container.scrollHeight - scrollHeight;
+      container.scrollTop = scrollTop + delta;
+      lastScrollTopRef.current = container.scrollTop;
+      prependStateRef.current = null;
+      return;
+    }
+
     if (!isScrolledUp) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
@@ -37,8 +62,33 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
   // Handle manual scroll to detect if user has scrolled up
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
+    const previousScrollTop = lastScrollTopRef.current ?? el.scrollTop;
+    const isScrollingUp = el.scrollTop < previousScrollTop;
     const isAtBottom = Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop) < 20;
     setIsScrolledUp(!isAtBottom);
+
+    if (el.scrollTop > 120) {
+      hasBeenAwayFromTopRef.current = true;
+    }
+
+    const enteredTopZone = previousScrollTop >= 80 && el.scrollTop < 80;
+    if (
+      enteredTopZone &&
+      isScrollingUp &&
+      hasBeenAwayFromTopRef.current &&
+      hasMoreHistory &&
+      !isLoadingOlder &&
+      onLoadOlder &&
+      messages.length > 0
+    ) {
+      prependStateRef.current = {
+        scrollHeight: el.scrollHeight,
+        scrollTop: el.scrollTop,
+      };
+      onLoadOlder();
+    }
+
+    lastScrollTopRef.current = el.scrollTop;
   };
 
   const scrollToBottom = () => {
@@ -57,6 +107,12 @@ export function MessageList({ messages }: { messages: ChatMessage[] }) {
     >
       {/* Thread synapse backdrop */}
       <div className="absolute inset-0 pointer-events-none opacity-20" id="thread-layer" />
+
+      {hasMoreHistory || isLoadingOlder ? (
+        <div className="pb-4 text-center text-xs uppercase tracking-[0.18em] text-white/35">
+          {isLoadingOlder ? "Loading older messages..." : "Scroll up to load earlier messages"}
+        </div>
+      ) : null}
 
       {messages.map((msg, i) => (
         <MessageBubble

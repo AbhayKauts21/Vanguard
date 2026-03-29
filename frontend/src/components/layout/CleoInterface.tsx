@@ -18,12 +18,14 @@ export default function CleoInterface() {
   const chatSummaries = useChatStore((s) => s.chatSummaries);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const isLoadingChats = useChatStore((s) => s.isLoadingChats);
+  const isLoadingOlderMessages = useChatStore((s) => s.isLoadingOlderMessages);
+  const messagePageInfo = useChatStore((s) => s.messagePageInfo);
   const deleteConversation = useChatStore((s) => s.deleteConversation);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const { send } = useChat();
   const { sendStream } = useChatStream();
-  const { createNewChat, loadChat } = useChatHistory();
+  const { createNewChat, loadChat, loadOlderMessages } = useChatHistory();
 
   /* Use streaming when enabled via env. */
   const handleSend = env.enableStreaming ? sendStream : send;
@@ -58,7 +60,12 @@ export default function CleoInterface() {
               chats: chatSummaries,
               activeChatId,
               isLoading: isLoadingChats,
+              hasMoreMessages: activeChatId ? (messagePageInfo[activeChatId]?.hasMore ?? false) : false,
+              isLoadingOlderMessages,
               onSelectChat: loadChat,
+              onLoadOlderMessages: () => {
+                void loadOlderMessages();
+              },
               onDeleteChat: (id) => void deleteConversation(id),
               onCreateChat: () => {
                 void createNewChat();

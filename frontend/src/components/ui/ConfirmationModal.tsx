@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { GlassCard } from "./GlassCard";
 import { cn } from "@/lib/utils";
 
@@ -25,31 +24,20 @@ export function ConfirmationModal({
   onCancel,
   isDestructive = false,
 }: ConfirmationModalProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      setMounted(true);
-    } else {
-      const timer = setTimeout(() => setMounted(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
-
-  if (!mounted) return null;
+  if (!isOpen) return null;
 
   return (
     <div
       className={cn(
         "fixed inset-0 z-[200] flex items-center justify-center p-4 transition-all duration-300",
-        isOpen ? "bg-black/40 backdrop-blur-sm" : "bg-transparent backdrop-blur-0 pointer-events-none"
+        "bg-black/40 backdrop-blur-sm"
       )}
       onClick={onCancel}
     >
       <GlassCard
         className={cn(
           "w-full max-w-sm overflow-hidden p-6 shadow-2xl transition-all duration-300 transform",
-          isOpen ? "scale-100 opacity-100 translate-y-0" : "scale-95 opacity-0 translate-y-4"
+          "scale-100 opacity-100 translate-y-0"
         )}
         onClick={(e) => e.stopPropagation()}
       >

@@ -1,5 +1,7 @@
 "use client";
 
+import { Link } from "@/i18n/navigation";
+
 import { SyncStatusCard } from "./SyncStatusCard";
 import { SyncControls } from "./SyncControls";
 import { HealthGrid } from "./HealthGrid";
@@ -19,6 +21,21 @@ export function AdminPanel() {
         <div className="flex flex-col gap-6 lg:col-span-1">
           <SyncStatusCard />
           <SyncControls />
+          <Link
+            href="/admin/bookstack-sync"
+            className="group relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-6 backdrop-blur-xl transition-all duration-500 hover:border-cyan-300/30 hover:bg-cyan-400/15"
+          >
+            <div className="relative z-10">
+              <div className="mb-3 flex items-center gap-3">
+                <span className="material-symbols-outlined text-cyan-200">library_books</span>
+                <span className="text-xs uppercase tracking-[0.18em] text-cyan-100/80">BookStack Control</span>
+              </div>
+              <div className="text-lg font-medium text-white">Open selective sync manager</div>
+              <p className="mt-2 text-sm text-cyan-50/70">
+                Browse books, chapters, and pages before deciding what enters the indexed knowledge base.
+              </p>
+            </div>
+          </Link>
         </div>
 
         {/* Center / Right Columns */}

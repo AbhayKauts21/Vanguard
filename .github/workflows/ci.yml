@@ -65,6 +65,8 @@ jobs:
   frontend-test:
     name: Frontend Tests & Build
     runs-on: ubuntu-latest
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
     defaults:
       run:
         working-directory: frontend
@@ -73,18 +75,23 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=optional
 
       - name: Type check
         run: npx tsc --noEmit
 
       - name: Run tests
-        run: npm test -- --run
+        run: npm run test:smoke -- --maxWorkers=1
+
+      - name: Diagnose native bindings
+        run: |
+          node -v
+          node -e "for (const pkg of ['@tailwindcss/oxide', '@next/swc-linux-x64-gnu', '@parcel/watcher', '@rolldown/binding-linux-x64-gnu']) { try { console.log(pkg, '=>', require.resolve(pkg)); } catch (error) { console.log(pkg, '=> MISSING'); console.log(String(error)); } }"
 
       - name: Build
         run: npm run build
@@ -102,12 +109,12 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=optional
 
       - name: ESLint
         run: npm run lint

@@ -40,8 +40,6 @@ export function ChatHistoryRail({
   onToggleCollapse,
 }: ChatHistoryRailProps) {
   const t = useTranslations("chat");
-  const headerT = useTranslations("header");
-
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const renderedChats = useMemo(
@@ -65,6 +63,24 @@ export function ChatHistoryRail({
             {t("historySubtitle")}
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onCreateChat}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/60 transition hover:bg-white/[0.08] hover:text-white"
+            title={t("newChat")}
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+          </button>
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/60 transition hover:bg-white/[0.08] hover:text-white"
+            title={t("hideHistory")}
+          >
+            <span className="material-symbols-outlined text-[18px]">left_panel_close</span>
+          </button>
+        </div>
       </div>
 
       <div className="max-h-[13rem] overflow-y-auto p-3 md:max-h-none md:h-[calc(100%-4.5rem)] md:pb-4">
@@ -86,57 +102,56 @@ export function ChatHistoryRail({
             {renderedChats.map((chat) => {
               const isActive = chat.id === activeChatId;
               return (
-                <button
+                <div
                   key={chat.id}
-                  type="button"
-                  onClick={() => onSelectChat(chat.id)}
                   className={[
-                    "block group w-full rounded-2xl border px-4 py-3 text-left transition-all",
+                    "group flex w-full items-start gap-2 rounded-2xl border p-2 transition-all",
                     isActive
                       ? "border-cyan-300/30 bg-cyan-300/10 shadow-[0_0_0_1px_rgba(103,232,249,0.08)]"
                       : "border-white/8 bg-white/[0.03] hover:border-white/15 hover:bg-white/[0.06]",
                   ].join(" ")}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="line-clamp-2 text-sm font-medium text-white/90">
-                      {chat.title}
-                    </p>
-                    <div className="flex items-start gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSelectChat(chat.id)}
+                    className="block min-w-0 flex-1 rounded-xl px-2 py-1 text-left"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="line-clamp-2 text-sm font-medium text-white/90">
+                        {chat.title}
+                      </p>
                       <span
                         className={[
                           "mt-1.5 size-2 shrink-0 rounded-full",
                           isActive ? "bg-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.7)]" : "bg-white/15",
                         ].join(" ")}
                       />
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTargetId(chat.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 -m-1 hover:text-red-400"
-                        title="Delete chat"
-                      >
-                        <span className="material-symbols-outlined text-[16px] font-light">delete</span>
-                      </button>
                     </div>
-                  </div>
 
-                  {chat.last_message_preview ? (
-                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/45">
-                      {chat.last_message_preview}
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-xs leading-5 text-white/35">
-                      {t("historyNoMessages")}
-                    </p>
-                  )}
+                    {chat.last_message_preview ? (
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-white/45">
+                        {chat.last_message_preview}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs leading-5 text-white/35">
+                        {t("historyNoMessages")}
+                      </p>
+                    )}
 
-                  <div className="mt-3 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.16em] text-white/30">
-                    <span>{chat.timestamp}</span>
-                    <span>{t("historyMessageCount", { count: chat.message_count })}</span>
-                  </div>
-                </button>
+                    <div className="mt-3 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.16em] text-white/30">
+                      <span>{chat.timestamp}</span>
+                      <span>{t("historyMessageCount", { count: chat.message_count })}</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTargetId(chat.id)}
+                    className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/35 opacity-0 transition hover:bg-red-500/10 hover:text-red-400 group-hover:opacity-100"
+                    title={t("deleteChatTitle")}
+                  >
+                    <span className="material-symbols-outlined text-[16px] font-light">delete</span>
+                  </button>
+                </div>
               );
             })}
           </div>

@@ -109,6 +109,40 @@ class ChatRepository:
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
+    async def list_messages_page_for_chat(
+        self,
+        session: AsyncSession,
+        *,
+        chat_id: UUID,
+        limit: int,
+        before: datetime | None = None,
+    ) -> tuple[list[ChatMessageRecord], bool]:
+        normalized_limit = max(1, min(limit, 100))
+        stmt = select(ChatMessageRecord).where(ChatMessageRecord.chat_id == chat_id)
+        if before is not None:
+            stmt = stmt.where(ChatMessageRecord.created_at < before)
+        stmt = (
+            stmt.order_by(ChatMessageRecord.created_at.desc(), ChatMessageRecord.id.desc())
+            .limit(normalized_limit + 1)
+        )
+        result = await session.execute(stmt)
+        messages = list(result.scalars().all())
+        has_more = len(messages) > normalized_limit
+        if has_more:
+            messages = messages[:normalized_limit]
+        messages.reverse()
+        return messages, has_more
+
+    async def count_messages_for_chat(
+        self,
+        session: AsyncSession,
+        *,
+        chat_id: UUID,
+    ) -> int:
+        stmt = select(func.count(ChatMessageRecord.id)).where(ChatMessageRecord.chat_id == chat_id)
+        result = await session.execute(stmt)
+        return int(result.scalar_one())
+
     async def list_recent_messages_for_chat(
         self,
         session: AsyncSession,

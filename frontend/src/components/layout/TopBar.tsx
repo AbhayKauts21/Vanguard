@@ -14,15 +14,6 @@ import { Link } from "@/i18n/navigation";
 export function TopBar() {
   const t = useTranslations("header");
 
-  function handleShockwave(event: MouseEvent<HTMLButtonElement>) {
-    spawnShockwave(event.clientX, event.clientY);
-  }
-
-  function focusInput() {
-    const input = document.getElementById("cleo-input") as HTMLInputElement | null;
-    input?.focus();
-  }
-
   return (
     <header className="flex items-center justify-between border-b border-white/10 px-10 py-5 glass-panel" style={{ zIndex: 150 }}>
       <div className="flex items-center gap-6 group cursor-pointer">
@@ -34,12 +25,6 @@ export function TopBar() {
 
       <div className="flex flex-1 justify-end gap-6">
         <div className="flex items-center gap-3">
-          <HeaderAction
-            icon="center_focus_strong"
-            label={t("focusInput")}
-            subtitle={t("focusInputHint")}
-            onClick={focusInput}
-          />
           <HeaderAction
             icon="deployed_code"
             label={t("adminConsole")}
@@ -57,20 +42,6 @@ export function TopBar() {
         <div className="flex gap-4 items-center">
           <LanguageSwitcher />
           <AuthStatusMenu />
-          <button
-            className="flex items-center justify-center rounded-full h-9 w-9 bg-white/5 text-white/70 border border-white/10 transition-all hover:bg-white/10"
-            onClick={handleShockwave}
-            title={t("pulseInterface")}
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">settings</span>
-          </button>
-          <button
-            className="flex items-center justify-center rounded-full h-9 w-9 bg-white/5 text-white/70 border border-white/10 transition-all hover:bg-white/10"
-            onClick={focusInput}
-            title={t("focusInput")}
-          >
-            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">north_east</span>
-          </button>
         </div>
       </div>
     </header>

@@ -22,6 +22,8 @@ from app.domain.schemas import (
 )
 from app.repositories.chat_repository import chat_repository
 from app.services.rag_service import rag_service as default_rag_service
+from app.services.audit_service import audit_service
+from app.domain.audit_log import AuditEventCode
 
 
 class ChatService:
@@ -41,6 +43,7 @@ class ChatService:
             user_id=current_user.id,
             title=title or None,
         )
+        await audit_service.logger(current_user.id).event(AuditEventCode.CHAT_STARTED).resource("chat", chat.id).desc("New chat session started.").commit(session)
         await session.commit()
         return self._to_chat_summary(chat, message_count=0, last_message_preview=None)
 
@@ -247,6 +250,7 @@ class ChatService:
     ) -> None:
         chat = await self._get_owned_chat(session, current_user=current_user, chat_id=chat_id)
         await chat_repository.soft_delete_chat(session, chat=chat)
+        await audit_service.logger(current_user.id).event(AuditEventCode.CHAT_DELETED).resource("chat", chat.id).desc(f"Chat '{chat.title or 'Untitled'}' deleted.").commit(session)
         await session.commit()
 
     async def _build_history(self, session, *, chat_id: UUID) -> list[ConversationMessage]:
@@ -275,6 +279,7 @@ class ChatService:
             return
         generated = self._generate_title(first_user_message)
         await chat_repository.update_chat_title(session, chat=chat, title=generated)
+        await audit_service.logger(chat.user_id).event(AuditEventCode.CHAT_TITLED).resource("chat", chat.id).desc(f"Chat auto-titled to '{generated}'.").context(title=generated).commit(session)
 
     async def _build_chat_summary_after_send(self, session, *, chat_id: UUID, user_id: UUID) -> ChatSummaryResponse:
         chat = await chat_repository.get_chat_for_user(session, chat_id=chat_id, user_id=user_id)

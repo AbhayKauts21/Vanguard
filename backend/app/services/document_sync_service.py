@@ -43,6 +43,8 @@ from app.services.text_processor import (
     TextProcessor,
     text_processor as default_text_processor,
 )
+from app.services.audit_service import audit_service
+from app.domain.audit_log import AuditEventCode
 
 
 @dataclass
@@ -96,6 +98,7 @@ class DocumentSyncService:
                 trigger_type=self._normalize_trigger(trigger).value,
                 status=SyncStatus.SYNCING.value,
             )
+            await audit_service.logger().event(AuditEventCode.SYNC_TRIGGERED).desc(f"BookStack sync ({trigger}) started.").context(trigger=trigger).commit(session)
             await session.commit()
 
             counters = _SyncCounters()
@@ -154,6 +157,7 @@ class DocumentSyncService:
                     documents_deleted=counters.deleted,
                     documents_failed=counters.failed,
                 )
+                await audit_service.logger().event(AuditEventCode.SYNC_COMPLETED).desc(f"BookStack sync finished: {counters.seen} seen, {counters.upserted} upserted, {counters.deleted} deleted.").context(seen=counters.seen, upserted=counters.upserted, deleted=counters.deleted, failed=counters.failed).commit(session)
                 await session.commit()
                 self.status = SyncStatus.COMPLETED
                 self.last_sync_at = datetime.now(timezone.utc)
@@ -182,8 +186,8 @@ class DocumentSyncService:
                     documents_failed=counters.failed,
                     error_detail=str(exc),
                 )
+                await audit_service.logger().event(AuditEventCode.SYNC_FAILED).desc(f"BookStack sync failed: {str(exc)}").context(error=str(exc)).failed().commit(session)
                 await session.commit()
-                self.status = SyncStatus.FAILED
                 raise IngestionError(detail=f"Full sync failed: {exc}") from exc
 
     async def delta_sync(
@@ -418,32 +422,55 @@ class DocumentSyncService:
         source_key = source_key or settings.BOOKSTACK_SOURCE_KEY
         async with self.session_factory() as session:
             source = await document_repository.get_source_by_key(session, source_key)
+            
+            # 1. Total Chunks from Pinecone
+            try:
+                stats = await self.vector_store.get_index_stats()
+                total_chunks = stats.get("namespace_vectors", 0)
+            except Exception:
+                total_chunks = 0
+
             if source is None:
                 return SyncStatusResponse(
-                    status=self.status,
+                    is_syncing=self.status == SyncStatus.SYNCING,
+                    total_pages_synced=0,
+                    total_chunks_synced=total_chunks,
                     last_sync_at=self.last_sync_at,
-                    pages_in_index=0,
                     source_key=source_key,
                 )
 
+            # 2. Latest Run for Status & Timing
             latest_run = await document_sync_run_repository.get_latest_run_for_source(
                 session,
                 source.id,
             )
-            pages_in_index = await document_repository.count_active_documents_for_source(
+            
+            # 3. Active Pages from Postgres
+            pages_synced = await document_repository.count_active_documents_for_source(
                 session,
                 source.id,
             )
-            status = self.status
+
+            is_syncing = self.status == SyncStatus.SYNCING
             last_sync_at = self.last_sync_at
+            last_duration = 0.0
+            error_msg = None
+
             if latest_run is not None:
-                status = SyncStatus(latest_run.status)
+                is_syncing = latest_run.status == SyncStatus.SYNCING.value
                 last_sync_at = latest_run.completed_at or latest_run.started_at
+                if latest_run.completed_at:
+                    last_duration = (latest_run.completed_at - latest_run.started_at).total_seconds()
+                if latest_run.status == SyncStatus.FAILED.value:
+                    error_msg = latest_run.error_detail
 
             return SyncStatusResponse(
-                status=status,
+                is_syncing=is_syncing,
+                total_pages_synced=pages_synced,
+                total_chunks_synced=total_chunks,
                 last_sync_at=last_sync_at,
-                pages_in_index=pages_in_index,
+                last_sync_duration=last_duration,
+                error=error_msg,
                 source_key=source.source_key,
             )
 
@@ -623,6 +650,7 @@ class DocumentSyncService:
         record.last_indexed_at = None
         record.last_error = None
         session.add(record)
+        await audit_service.logger().event(AuditEventCode.DOC_DELETED).resource("document_record", record.id).desc(f"Document record '{record.title}' marked as deleted.").context(title=record.title, external_id=record.external_document_id).commit(session)
         await session.commit()
 
     def _apply_document_to_record(

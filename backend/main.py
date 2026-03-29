@@ -25,6 +25,7 @@ from app.api.router_documents import router as documents_router
 from app.api.router_rbac import router as rbac_router
 from app.api.router_voice import router as voice_router
 from app.api.router_webhook import router as webhook_router
+from app.api.router_system import router as system_router
 from app.core.config import settings
 from app.core.exceptions import (
     CleoError,
@@ -152,6 +153,7 @@ def get_application() -> FastAPI:
     _app.include_router(admin_router, prefix=settings.API_V1_STR)
     _app.include_router(voice_router, prefix=settings.API_V1_STR)
     _app.include_router(webhook_router, prefix=settings.API_V1_STR)
+    _app.include_router(system_router, prefix=settings.API_V1_STR)
 
     return _app
 

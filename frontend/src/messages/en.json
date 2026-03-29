@@ -316,6 +316,24 @@
     "selectionSemantics": "Selection semantics",
     "semanticsBook": "Selecting a book includes every page in that book.",
     "semanticsChapter": "Selecting a chapter includes all pages inside that chapter.",
-    "semanticsPage": "Individual pages stay supported for partial sync scopes."
+    "semanticsPage": "Individual pages stay supported for partial sync scopes.",
+    "events": {
+      "1001": "User logged in",
+      "1002": "User logged out",
+      "1003": "User registered",
+      "1004": "Password reset requested",
+      "1005": "Password changed",
+      "2001": "Document uploaded",
+      "2002": "Document ready",
+      "2003": "Document processing failed",
+      "2004": "Document deleted",
+      "3001": "Chat started",
+      "3002": "Chat deleted",
+      "3003": "Chat titled",
+      "4001": "Sync triggered",
+      "4002": "Sync completed",
+      "4003": "Sync failed",
+      "5001": "Security alert"
+    }
   }
 }

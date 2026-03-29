@@ -521,10 +521,13 @@ class FullSyncResult(BaseModel):
 
 class SyncStatusResponse(BaseModel):
     """Current state of the auto-sync system."""
-    status: SyncStatus
+    is_syncing: bool
+    total_pages_synced: int = 0
+    total_chunks_synced: int = 0
     last_sync_at: Optional[datetime] = None
+    last_sync_duration: float = 0.0
+    error: Optional[str] = None
     next_sync_at: Optional[datetime] = None
-    pages_in_index: int = 0
     source_key: Optional[str] = None
 
 

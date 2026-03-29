@@ -93,6 +93,29 @@ class User(Base):
         back_populates="user",
         lazy="selectin",
     )
+    audit_logs: Mapped[list["AuditLog"]] = relationship(
+        back_populates="actor",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    event_code: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor_id: Mapped[UUID | None] = mapped_column(Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    resource_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    resource_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    context: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="SUCCESS")
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow, server_default=func.now()
+    )
+
+    actor: Mapped[User | None] = relationship(back_populates="audit_logs")
 
 
 class Role(Base):

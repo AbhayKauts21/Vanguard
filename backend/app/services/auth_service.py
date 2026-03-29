@@ -37,6 +37,8 @@ from app.repositories.auth_repository import auth_repository
 from app.repositories.rbac_repository import rbac_repository
 from app.repositories.user_repository import user_repository
 from app.services.identity_mapper import to_user_response
+from app.services.audit_service import audit_service
+from app.domain.audit_log import AuditEventCode
 
 
 class AuthService:
@@ -72,6 +74,8 @@ class AuthService:
         session.add(user)
         await session.flush()
 
+        await audit_service.logger(user.id).event(AuditEventCode.USER_LOGGED_IN).desc(f"User {user.email} registered and logged in.").commit(session)
+
         response = await self._issue_session(session, user)
         await session.commit()
 
@@ -91,6 +95,8 @@ class AuthService:
             raise AuthenticationError(detail="This user account is inactive.")
 
         await user_repository.update_last_login(session, user, datetime.now(timezone.utc))
+        await audit_service.logger(user.id).event(AuditEventCode.USER_LOGGED_IN).desc(f"User {user.email} logged in.").commit(session)
+        
         response = await self._issue_session(session, user)
         await session.commit()
 
@@ -136,6 +142,7 @@ class AuthService:
 
         if stored_token.revoked_at is None:
             await auth_repository.revoke_refresh_token(session, stored_token)
+            await audit_service.logger(UUID(token_payload["sub"])).event(AuditEventCode.USER_LOGGED_OUT).desc("User logged out.").commit(session)
             await session.commit()
 
         return LogoutResponse()

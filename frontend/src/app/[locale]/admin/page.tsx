@@ -3,7 +3,12 @@ import { AdminPanel } from "@/domains/system/components/AdminPanel";
 import { AdminPanelSkeleton } from "@/domains/system/components/AdminPanelSkeleton";
 import { TopBar, AppShell } from "@/components/layout";
 
-export default function AdminPage() {
+import { setRequestLocale } from "next-intl/server";
+
+export default async function AdminPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+
   return (
     <AppShell>
       <TopBar />

@@ -81,8 +81,7 @@ processors:
     metric_statements:
       - context: datapoint
         statements:
-          - set(attributes["http_target"], attributes["http_target"]) where attributes["http_target"] != nil
-          - set(attributes["http_target"], "unknown") where attributes["http_target"] == nil and IsMatch(metric.name, ".*http_server.*")
+          - set(attributes["http_target"], "unknown") where attributes["http_target"] == nil
 
 exporters:
   # Tempo exporter - distributed tracing backend

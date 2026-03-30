@@ -35,15 +35,6 @@ export function AdminPanelSkeleton() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl">
-            <Skeleton className="h-5 w-36 mb-2" />
-            <Skeleton className="h-3 w-56 mb-6" />
-            <Skeleton className="h-12 w-full rounded-xl mb-4" />
-            <div className="flex gap-2">
-              <Skeleton className="h-10 flex-1 rounded-xl" />
-              <Skeleton className="h-10 w-16 rounded-xl" />
-            </div>
-          </div>
         </div>
 
         {/* Right columns — HealthGrid + SyncLog skeletons */}

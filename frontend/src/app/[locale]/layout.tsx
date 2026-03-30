@@ -1,5 +1,5 @@
 import { NextIntlClientProvider, hasLocale } from "next-intl";
-import { getMessages, setRequestLocale } from "next-intl/server";
+import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Inter } from "next/font/google";
 import { routing } from "@/i18n/routing";
@@ -27,13 +27,12 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  setRequestLocale(locale);
 
   if (!hasLocale(routing.locales, locale)) {
     notFound();
   }
 
-  const messages = await getMessages();
+  const messages = await getMessages({ locale });
 
   return (
     <html lang={locale} className="dark">

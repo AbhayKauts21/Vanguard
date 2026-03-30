@@ -171,6 +171,24 @@ services:
       - "9090:9090"   # Prometheus UI
     restart: unless-stopped
 
+docker compose -f docker-compose.observability.yml up -d  # ======================================================================
+  # PROMTAIL - Docker log scraper → Loki
+  # Scrapes stdout/stderr from all containers and ships to Loki
+  # ======================================================================
+  promtail:
+    image: grafana/promtail:3.2.1
+    container_name: cleo-promtail
+    command: ["-config.file=/etc/promtail/promtail.yaml"]
+    volumes:
+      - ./observability/promtail/promtail.yaml:/etc/promtail/promtail.yaml
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - cleo-network
+    depends_on:
+      - loki
+    restart: unless-stopped
+
   # ======================================================================
   # GRAFANA - Observability Dashboard
   # ======================================================================

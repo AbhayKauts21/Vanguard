@@ -18,8 +18,12 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION, DEPLOYMENT_ENVIRONMENT
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
+from opentelemetry._logs import set_logger_provider
 from opentelemetry.propagate import set_global_textmap
 from opentelemetry.propagators.b3 import B3MultiFormat
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -72,6 +76,9 @@ def initialize_opentelemetry(config: OpenTelemetryConfig) -> None:
     
     # Initialize metrics
     _setup_metrics(resource, config)
+
+    # Initialize logs
+    _setup_logging(resource, config)
     
     # Set B3 propagator for cross-service trace context
     set_global_textmap(B3MultiFormat())
@@ -143,6 +150,27 @@ def _setup_metrics(resource: Resource, config: OpenTelemetryConfig) -> None:
     # Set global meter provider
     metrics.set_meter_provider(meter_provider)
     logger.info("[OTEL] Metrics configured")
+
+
+def _setup_logging(resource: Resource, config: OpenTelemetryConfig) -> None:
+    """Configure OTLP log exporter so logs are shipped to the collector → Loki"""
+
+    otlp_log_exporter = OTLPLogExporter(
+        endpoint=config.otlp_endpoint,
+        insecure=True,
+    )
+
+    logger_provider = LoggerProvider(resource=resource)
+    logger_provider.add_log_record_processor(
+        BatchLogRecordProcessor(otlp_log_exporter)
+    )
+    set_logger_provider(logger_provider)
+
+    # Attach OTel handler to Python root logger so all loguru/stdlib logs flow through
+    handler = LoggingHandler(level=logging.DEBUG, logger_provider=logger_provider)
+    logging.getLogger().addHandler(handler)
+
+    logger.info("[OTEL] Log exporter configured → OTel Collector → Loki")
 
 
 def instrument_fastapi(app) -> None:

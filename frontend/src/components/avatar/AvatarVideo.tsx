@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef } from "react";
 import { useLocale } from "next-intl";
 import { useHeyGenAvatar } from "@/domains/avatar/hooks/useHeyGenAvatar";

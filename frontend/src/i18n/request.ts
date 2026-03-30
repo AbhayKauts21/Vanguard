@@ -2,15 +2,18 @@ import { getRequestConfig } from "next-intl/server";
 import { routing } from "./routing";
 
 /* Loads the correct message bundle per locale for server components. */
-export default getRequestConfig(async ({ requestLocale }) => {
-  let locale = await requestLocale;
+export default getRequestConfig(async ({ locale, requestLocale }) => {
+  let resolvedLocale = locale ?? await requestLocale;
 
-  if (!locale || !routing.locales.includes(locale as typeof routing.locales[number])) {
-    locale = routing.defaultLocale;
+  if (
+    !resolvedLocale ||
+    !routing.locales.includes(resolvedLocale as typeof routing.locales[number])
+  ) {
+    resolvedLocale = routing.defaultLocale;
   }
 
   return {
-    locale,
-    messages: (await import(`@/messages/${locale}.json`)).default,
+    locale: resolvedLocale,
+    messages: (await import(`@/messages/${resolvedLocale}.json`)).default,
   };
 });

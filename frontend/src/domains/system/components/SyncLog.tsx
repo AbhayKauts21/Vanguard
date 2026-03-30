@@ -1,3 +1,5 @@
+"use client";
+
 import { useTranslations } from "next-intl";
 import { useAuditStream } from "../hooks/useAuditStream";
 import { formatDistanceToNow } from "date-fns";

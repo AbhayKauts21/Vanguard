@@ -4,7 +4,6 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 
 import { SyncStatusCard } from "./SyncStatusCard";
-import { SyncControls } from "./SyncControls";
 import { HealthGrid } from "./HealthGrid";
 import { SyncLog } from "./SyncLog";
 import { UserAccessPanel } from "./UserAccessPanel";
@@ -23,7 +22,6 @@ export function AdminPanel() {
         {/* Left Column - Priority Status */}
         <div className="flex flex-col gap-6 lg:col-span-1">
           <SyncStatusCard />
-          <SyncControls />
           <Link
             href="/admin/bookstack-sync"
             className="group relative overflow-hidden rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-6 backdrop-blur-xl transition-all duration-500 hover:border-cyan-300/30 hover:bg-cyan-400/15"

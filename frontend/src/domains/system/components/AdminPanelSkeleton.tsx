@@ -35,21 +35,12 @@ export function AdminPanelSkeleton() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl">
-            <Skeleton className="h-5 w-36 mb-2" />
-            <Skeleton className="h-3 w-56 mb-6" />
-            <Skeleton className="h-12 w-full rounded-xl mb-4" />
-            <div className="flex gap-2">
-              <Skeleton className="h-10 flex-1 rounded-xl" />
-              <Skeleton className="h-10 w-16 rounded-xl" />
-            </div>
-          </div>
         </div>
 
         {/* Right columns — HealthGrid + SyncLog skeletons */}
         <div className="flex flex-col gap-6 lg:col-span-2">
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl">
+          <div className="grid gap-6 md:grid-cols-2 items-start">
+            <div className="rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl h-[480px] flex flex-col">
               <Skeleton className="h-5 w-32 mb-1" />
               <Skeleton className="h-3 w-48 mb-6" />
               <div className="grid gap-3">
@@ -65,7 +56,7 @@ export function AdminPanelSkeleton() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl">
+            <div className="rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl h-[480px] flex flex-col">
               <Skeleton className="h-5 w-28 mb-4" />
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (

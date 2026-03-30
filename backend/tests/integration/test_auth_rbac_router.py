@@ -15,6 +15,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.router_admin import router as admin_router
 from app.api.router_auth import router as auth_router
 from app.api.router_rbac import router as rbac_router
+from app.core.config import settings
 from app.core.exceptions import CleoError, cleo_exception_handler, http_exception_handler
 from app.core.security import hash_password
 from app.db.base import Base
@@ -302,7 +303,9 @@ async def test_viewer_cannot_access_rbac_or_admin_routes(auth_test_context):
     assert first.status_code == 201
     assert second.status_code == 201
     assert {role["name"] for role in first.json()["user"]["roles"]} == {"admin"}
-    assert {role["name"] for role in second.json()["user"]["roles"]} == {"admin"}
+    assert {role["name"] for role in second.json()["user"]["roles"]} == {
+        settings.AUTH_DEFAULT_ROLE
+    }
 
     # Manually downgrade 'second' to viewer to verify 403 logic still works
     session_factory = auth_test_context["session_factory"]

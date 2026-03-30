@@ -226,25 +226,25 @@ header.glass-panel {
 .voice-transcript-md h2,
 .voice-transcript-md h3,
 .voice-transcript-md h4 {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
-  margin: 8px 0 4px;
+  margin: 12px 0 6px;
   line-height: 1.4;
 }
 
 .voice-transcript-md p {
-  margin: 4px 0;
+  margin: 8px 0;
 }
 
 .voice-transcript-md ul,
 .voice-transcript-md ol {
-  padding-left: 16px;
-  margin: 4px 0;
+  padding-left: 20px;
+  margin: 8px 0;
 }
 
 .voice-transcript-md li {
-  margin: 2px 0;
+  margin: 4px 0;
 }
 
 .voice-transcript-md strong {
@@ -253,21 +253,23 @@ header.glass-panel {
 }
 
 .voice-transcript-md code {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 1px 5px;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-family: monospace;
+  color: #a7f3d0; /* emerald-200 for code */
 }
 
 .voice-transcript-md pre {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 12px 16px;
   overflow-x: auto;
-  margin: 6px 0;
+  margin: 10px 0;
   font-size: 12px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 .voice-transcript-md a {

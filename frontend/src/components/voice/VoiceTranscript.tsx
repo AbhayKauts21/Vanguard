@@ -31,11 +31,15 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    // Use rAF to ensure DOM has rendered the new content before scrolling
-    requestAnimationFrame(() => {
+    
+    // Explicitly scroll to the bottom immediately and on next frame to be sure
+    el.scrollTop = el.scrollHeight;
+    const rafId = requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight;
     });
-  }, [userTranscript, cleoTranscript]);
+    
+    return () => cancelAnimationFrame(rafId);
+  }, [userTranscript, cleoTranscript, phase]);
 
   if (!isVoiceMode) return null;
 
@@ -84,10 +88,10 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
           {/* Scrollable transcript area — takes all space except bottom bar */}
           <div
             ref={scrollRef}
-            className="relative z-10 flex-1 overflow-y-auto p-6"
+            className="relative z-10 flex-1 overflow-y-auto p-6 pointer-events-auto h-full"
             style={{ overscrollBehavior: "contain" }}
           >
-            <div className="flex flex-col gap-4 min-h-full justify-end">
+            <div className="flex flex-col gap-6 py-6 pb-24 min-h-full">
               {/* Error banner */}
               <AnimatePresence>
                 {error && (
@@ -136,11 +140,11 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
                         mic
                       </span>
                     </div>
-                    <div className="rounded-2xl rounded-tr-none border border-purple-500/20 bg-purple-500/[0.08] px-5 py-3 backdrop-blur-md">
-                      <p className="text-white/90 text-[13px] leading-relaxed font-light break-words">
+                    <div className="rounded-2xl rounded-tr-none border border-purple-500/20 bg-purple-500/[0.08] px-5 py-3 backdrop-blur-md shadow-lg shadow-purple-500/5">
+                      <p className="text-white/90 text-[14px] leading-relaxed font-light break-words">
                         {userTranscript}
                         {phase === "listening" && (
-                          <span className="inline-block w-[2px] h-4 bg-purple-400/60 ml-1 animate-pulse" />
+                          <span className="inline-block w-[2px] h-4 bg-purple-400/60 ml-1 animate-pulse align-middle" />
                         )}
                       </p>
                     </div>
@@ -168,16 +172,16 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
                         CLEO Core
                       </span>
                     </div>
-                    <div className="rounded-2xl rounded-tl-none border border-emerald-500/20 bg-emerald-500/[0.05] px-5 py-3 backdrop-blur-md">
+                    <div className="rounded-2xl rounded-tl-none border border-emerald-500/20 bg-emerald-500/[0.05] px-5 py-3 backdrop-blur-md shadow-lg shadow-emerald-500/5">
                       <div
-                        className="voice-transcript-md text-white/80 text-[13px] leading-relaxed font-light"
+                        className="voice-transcript-md text-white/80 text-[14px] leading-relaxed font-light"
                         style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
                       >
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {cleoTranscript}
                         </ReactMarkdown>
                         {phase === "speaking" && (
-                          <span className="inline-block w-[2px] h-4 bg-emerald-400/60 ml-1 animate-pulse" />
+                          <span className="inline-block w-[2px] h-4 bg-emerald-400/60 ml-1 animate-pulse align-middle" />
                         )}
                       </div>
                     </div>

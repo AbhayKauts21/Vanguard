@@ -2,6 +2,7 @@
 
 import { useLocale } from "next-intl";
 import { useRouter, usePathname } from "@/i18n/navigation";
+import { useTransition } from "react";
 
 /* Toggle between supported locales — styled to match header buttons. */
 export function LanguageSwitcher() {
@@ -12,8 +13,12 @@ export function LanguageSwitcher() {
   const nextLocale = locale === "en" ? "es" : "en";
   const label = locale === "en" ? "ES" : "EN";
 
+  const [isPending, startTransition] = useTransition();
+
   function switchLocale() {
-    router.replace(pathname, { locale: nextLocale });
+    startTransition(() => {
+      router.replace(pathname, { locale: nextLocale });
+    });
   }
 
   return (

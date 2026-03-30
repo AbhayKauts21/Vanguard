@@ -26,6 +26,8 @@ export function SessionStatus({
   const newConversation = useChatStore((s) => s.newConversation);
   const clearMessages = useChatStore((s) => s.clearMessages);
   const hasMessages = useChatStore((s) => s.messages.length > 0);
+  const activeChatId = useChatStore((s) => s.activeChatId);
+  const deleteConversation = useChatStore((s) => s.deleteConversation);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -41,6 +43,15 @@ export function SessionStatus({
 
   const handlePrimaryAction = mode === "user" ? onNewChat ?? (() => {}) : newConversation;
   const primaryLabel = mode === "user" ? headerT("newChat") : headerT("newSession");
+
+  const handleClearThread = () => {
+    if (mode === "guest") {
+      clearMessages();
+    } else {
+      if (activeChatId) deleteConversation(activeChatId);
+      else clearMessages();
+    }
+  };
 
   return (
     <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5">
@@ -78,14 +89,12 @@ export function SessionStatus({
           label={primaryLabel}
           onClick={handlePrimaryAction}
         />
-        {mode === "guest" ? (
-          <ActionButton
-            icon="ink_eraser"
-            label={headerT("clearThread")}
-            onClick={clearMessages}
-            disabled={!hasMessages}
-          />
-        ) : null}
+        <ActionButton
+          icon="ink_eraser"
+          label={headerT("clearThread")}
+          onClick={handleClearThread}
+          disabled={!hasMessages}
+        />
       </div>
     </div>
   );

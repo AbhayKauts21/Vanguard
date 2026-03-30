@@ -87,6 +87,6 @@ describe("SessionStatus", () => {
     fireEvent.click(screen.getByRole("button", { name: "New Chat" }));
 
     expect(onNewChat).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("button", { name: "Clear Thread" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear Thread" })).toBeInTheDocument();
   });
 });

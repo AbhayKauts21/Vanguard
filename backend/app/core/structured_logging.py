@@ -112,6 +112,52 @@ def configure_structured_logging(
             format=_json_format_function,
             level=level,
         )
+
+        # --- OTel sink: forward every loguru record to the OTLP log exporter ---
+        try:
+            import logging as _logging
+            from opentelemetry.sdk._logs import LoggingHandler as _OTelHandler
+            from opentelemetry._logs import get_logger_provider
+
+            _lp = get_logger_provider()
+            if _lp is not None:
+                _otel_handler = _OTelHandler(
+                    level=_logging.DEBUG,
+                    logger_provider=_lp,
+                )
+                # Bridge: loguru record → stdlib LogRecord → OTel handler
+                _stdlib_bridge = _logging.getLogger("loguru.otel_bridge")
+                _stdlib_bridge.setLevel(_logging.DEBUG)
+                _stdlib_bridge.propagate = False
+                _stdlib_bridge.addHandler(_otel_handler)
+
+                def _otel_sink(message):
+                    record = message.record
+                    level_map = {
+                        "TRACE": _logging.DEBUG,
+                        "DEBUG": _logging.DEBUG,
+                        "INFO": _logging.INFO,
+                        "SUCCESS": _logging.INFO,
+                        "WARNING": _logging.WARNING,
+                        "ERROR": _logging.ERROR,
+                        "CRITICAL": _logging.CRITICAL,
+                    }
+                    lvl = level_map.get(record["level"].name, _logging.INFO)
+                    lr = _logging.LogRecord(
+                        name=record["name"],
+                        level=lvl,
+                        pathname=record["file"].path,
+                        lineno=record["line"],
+                        msg=record["message"],
+                        args=(),
+                        exc_info=None,
+                    )
+                    _stdlib_bridge.handle(lr)
+
+                logger.add(_otel_sink, level=level)
+        except Exception:
+            pass  # OTel not available — skip silently
+
     else:
         # Add pretty formatter for development
         logger.add(

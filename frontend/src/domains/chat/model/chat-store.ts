@@ -262,12 +262,20 @@ export const useChatStore = create<ChatState>()(
 
       clearMessages: () =>
         set((state) => {
-          if (state.mode !== "guest") {
-            return {};
+          if (state.mode === "guest") {
+            return {
+              messages: [],
+              guestMessages: [],
+              streamingMessageId: null,
+              isThinking: false,
+              errorType: null,
+            };
           }
           return {
             messages: [],
-            guestMessages: [],
+            messageCache: state.activeChatId
+              ? { ...state.messageCache, [state.activeChatId]: [] }
+              : state.messageCache,
             streamingMessageId: null,
             isThinking: false,
             errorType: null,

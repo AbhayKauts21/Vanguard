@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "@/i18n/navigation";
+
 import { AppShell, TopBar, FooterStatusBar, SplitPanelLayout } from "@/components/layout";
 import { ChatPanel } from "@/components/chat";
 import { AvatarPanel } from "@/components/avatar";
@@ -22,6 +25,18 @@ export default function CleoInterface() {
   const messagePageInfo = useChatStore((s) => s.messagePageInfo);
   const deleteConversation = useChatStore((s) => s.deleteConversation);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const router = useRouter();
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (isHydrated && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isHydrated, isAuthenticated, router]);
 
   const { send } = useChat();
   const { sendStream } = useChatStream();
@@ -44,6 +59,8 @@ export default function CleoInterface() {
     onDeactivate: deactivate,
     onSendVoiceMessage: sendVoiceMessage,
   };
+
+  if (isHydrated && !isAuthenticated) return null;
 
   return (
     <AppShell>

@@ -41,8 +41,8 @@ export function HealthGrid() {
   const t = useTranslations("system");
 
   return (
-    <div className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
-      <div className="relative z-10">
+    <div className="group relative h-[480px] flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-black/35 p-6 backdrop-blur-xl transition-all duration-500 hover:bg-black/40 hover:border-white/20">
+      <div className="relative z-10 flex h-full flex-col">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-medium text-white/90">{t("systemHealth")}</h3>
@@ -57,7 +57,7 @@ export function HealthGrid() {
           </div>
         )}
 
-        <div className="grid gap-3">
+        <div className="flex-1 overflow-y-auto pr-2 grid gap-3 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
           <ServiceCard 
             name={t("backendApi")} 
             status={health?.status === "offline" ? "offline" : "online"} 

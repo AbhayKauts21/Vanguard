@@ -130,12 +130,23 @@ def configure_structured_logging(
     if json_format:
         root_logger = logging.getLogger()
         root_logger.setLevel(getattr(logging, level))
-        
-        # Remove existing handlers
+
+        # Preserve any existing OTel LoggingHandlers (added by telemetry.py)
+        # only remove non-OTel handlers so OTLP log export keeps working
+        try:
+            from opentelemetry.sdk._logs import LoggingHandler as OTelLoggingHandler
+            otel_handlers = [h for h in root_logger.handlers if isinstance(h, OTelLoggingHandler)]
+        except Exception:
+            otel_handlers = []
+
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
-        
-        # Add JSON handler
+
+        # Re-add OTel handlers first so they receive every log record
+        for h in otel_handlers:
+            root_logger.addHandler(h)
+
+        # Add JSON stdout handler
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(StructuredJSONFormatter())
         root_logger.addHandler(handler)

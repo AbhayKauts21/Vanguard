@@ -138,7 +138,7 @@ def _setup_metrics(resource: Resource, config: OpenTelemetryConfig) -> None:
     # Create metric reader with periodic export
     metric_reader = PeriodicExportingMetricReader(
         otlp_metric_exporter,
-        export_interval_millis=60000,  # Export every 60 seconds
+        export_interval_millis=15000,  # Export every 15s to match Prometheus scrape interval
     )
     
     # Create meter provider

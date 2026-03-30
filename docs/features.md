@@ -221,6 +221,37 @@
 
 ---
 
+### v0.9.1 — GitHub Actions CI/CD Pipeline (2026-03-23)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-127 | **CI Pipeline** — 3-job GitHub Actions workflow: backend tests (pytest), frontend type-check + lint + vitest + build, Docker image build verification on main | ✅ Done | `.github/workflows/ci.yml` |
+| F-128 | **Backend CI Job** — Python 3.13, pip cache, full pytest suite with mocked Azure/Pinecone/Postgres env vars | ✅ Done | `.github/workflows/ci.yml` (backend job) |
+| F-129 | **Frontend CI Job** — Node 22, npm cache, tsc --noEmit, eslint, vitest smoke tests, next build | ✅ Done | `.github/workflows/ci.yml` (frontend job) |
+| F-130 | **Docker Build Verification** — Builds backend + frontend images on every main push to catch Dockerfile regressions | ✅ Done | `.github/workflows/ci.yml` (docker-build job) |
+| F-131 | **Concurrency Control** — `cancel-in-progress: true` prevents redundant CI runs on rapid pushes | ✅ Done | `.github/workflows/ci.yml` |
+
+---
+
+### v0.9.2 — Automated Deployment Workflow (2026-03-23)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-132 | **Manual Deploy Workflow** — `workflow_dispatch` with inputs: action (deploy/destroy), deploy_target (all/backend/frontend/observability/nginx), version tags, domain names | ✅ Done | `.github/workflows/deploy.yml` |
+| F-133 | **Input Validation Job** — Validates `BACKEND_ENV_JSON` and `FRONTEND_ENV_JSON` GitHub variables are valid JSON before any deployment proceeds | ✅ Done | `.github/workflows/deploy.yml` (validate job) |
+| F-134 | **Terraform Provision Job** — Checks VM existence via terraform state, runs plan + Trivy security scan + apply only on first deploy, skips on re-deploy | ✅ Done | `.github/workflows/deploy.yml` (provision job) |
+| F-135 | **Trivy IaC Security Scan** — Scans terraform plan JSON for HIGH/CRITICAL misconfigurations before apply | ✅ Done | `.github/workflows/deploy.yml` (Trivy Security Scan step) |
+| F-136 | **Auto GitHub Secrets Injection** — After first terraform apply, SSH key + Postgres credentials are encrypted with PyNaCl and saved as GitHub Actions secrets via API | ✅ Done | `.github/workflows/deploy.yml` (Save SSH key step) |
+| F-137 | **VM Setup Job** — Waits for cloud-init, syncs repo via authenticated git clone/reset to correct branch | ✅ Done | `.github/workflows/deploy.yml` (setup-vm job) |
+| F-138 | **Backend Deploy Job** — Injects `.env` from `BACKEND_ENV_JSON` + Postgres secrets, smart start (full up vs targeted rebuild), backend health check | ✅ Done | `.github/workflows/deploy.yml` (deploy-backend job) |
+| F-139 | **Frontend Deploy Job** — Injects `.env.local` + compose `.env` from `FRONTEND_ENV_JSON`, no-cache rebuild, frontend health check | ✅ Done | `.github/workflows/deploy.yml` (deploy-frontend job) |
+| F-140 | **Observability Deploy Job** — Targeted restart of grafana, otel-collector, tempo, loki, prometheus with Grafana health check | ✅ Done | `.github/workflows/deploy.yml` (deploy-observability job) |
+| F-141 | **NGINX + HTTPS Job** — Installs NGINX + Certbot, configures HTTP first, waits for DNS propagation, obtains Let's Encrypt cert via webroot, upgrades to full HTTPS with HSTS, sets auto-renewal cron | ✅ Done | `.github/workflows/deploy.yml` (configure-nginx job) |
+| F-142 | **NGINX Reverse Proxy Config** — Separate server blocks for frontend (3000), backend API (8000) with SSE/streaming support, Grafana (3002), all with TLS 1.2/1.3 | ✅ Done | `.github/workflows/deploy.yml` (Upgrade NGINX to HTTPS step) |
+| F-143 | **SSH Key Lifecycle Management** — SSH key written to `/tmp`, masked in logs, cleaned up in `always()` step to prevent leakage | ✅ Done | `.github/workflows/deploy.yml` (all deploy jobs) |
+
+---
+
 ### v0.10.0 — Provider-Based Document Integration (2026-03-27)
 
 | # | Feature | Status | Module |
@@ -235,10 +266,26 @@
 | F-134 | **Source-Aware Health Reporting** — `/health/detailed` now reports BookStack source health and last sync metadata from the provider-aware sync layer | ✅ Done | `backend/main.py` |
 | F-135 | **Provider Integration Test Coverage** — Unit tests for provider normalization, provider-aware chunking, sync idempotency, and compatibility delegation | ✅ Done | `backend/tests/unit/test_bookstack_provider.py`, `backend/tests/unit/test_document_sync_service.py`, `backend/tests/unit/test_ingestion_pipeline_components.py`, `backend/tests/unit/test_ingestion_service.py` |
 | F-136 | **BookStack Provider Architecture Doc** — Internal developer guide for the provider model, sync flow, config, and future provider extension path | ✅ Done | `docs/context/BOOKSTACK_PROVIDER_ARCHITECTURE.md` |
-| F-127 | **GitHub Actions Terraform Workflow** — Automated CI/CD with 3 jobs: terraform-plan (on PR with plan comment), terraform-apply (on main merge), terraform-drift-detection (daily cron) | ✅ Done | `.github/workflows/terraform.yml` |
-| F-128 | **Terraform Plan PR Comments** — Workflow posts formatted terraform plan output as PR comment with diff highlighting | ✅ Done | `.github/workflows/terraform.yml` (terraform-plan job) |
-| F-129 | **Terraform Apply Auto-deploy** — Main branch merges trigger automatic `terraform apply` with production environment protection | ✅ Done | `.github/workflows/terraform.yml` (terraform-apply job) |
-| F-130 | **Terraform Drift Detection** — Daily scheduled job checks for infrastructure drift and reports in workflow summary | ✅ Done | `.github/workflows/terraform.yml` (terraform-drift-detection job) |
+
+---
+
+### v0.11.0 — Full Observability Stack (2026-03-29)
+
+| # | Feature | Status | Module |
+|---|---|---|---|
+| F-144 | **Docker Compose Observability Stack** — Single compose file orchestrating 9 services: backend (3 replicas), frontend (2 replicas), OTel Collector, Tempo, Loki, Prometheus, Grafana, Promtail | ✅ Done | `docker-compose.observability.yml` |
+| F-145 | **OpenTelemetry Collector** — Receives OTLP gRPC (4317) + HTTP (4318), processes with batch/memory-limiter/resource-detection, exports to Tempo (traces), Loki (logs), Prometheus (metrics) | ✅ Done | `observability/otel-collector-config.yaml` |
+| F-146 | **Backend OTLP Trace Exporter** — `TracerProvider` with `BatchSpanProcessor` + `OTLPSpanExporter` over gRPC, B3 propagation, FastAPI + HTTPX + SQLAlchemy auto-instrumentation | ✅ Done | `backend/app/core/telemetry.py` |
+| F-147 | **Backend OTLP Log Exporter** — `LoggerProvider` with `BatchLogRecordProcessor` + `OTLPLogExporter` over gRPC, attached to Python root logger so all loguru/stdlib logs ship to OTel Collector → Loki | ✅ Done | `backend/app/core/telemetry.py` (_setup_logging) |
+| F-148 | **Backend OTLP Metrics Exporter** — `MeterProvider` with `PeriodicExportingMetricReader` + `OTLPMetricExporter`, exports every 60s | ✅ Done | `backend/app/core/telemetry.py` (_setup_metrics) |
+| F-149 | **Structured JSON Logging with Trace Correlation** — loguru + stdlib JSON formatter injects `trace_id`, `span_id`, `request_id` into every log line | ✅ Done | `backend/app/core/structured_logging.py` |
+| F-150 | **Grafana Tempo** — Distributed tracing backend (v2.6.1), receives OTLP traces from collector, filesystem storage | ✅ Done | `observability/tempo/tempo.yaml` |
+| F-151 | **Grafana Loki** — Log aggregation (v3.2.1), receives logs from OTel Collector + Promtail, 7-day retention, TSDB schema v13 | ✅ Done | `observability/loki/loki.yaml` |
+| F-152 | **Promtail Docker Log Scraper** — Scrapes all container stdout via Docker socket, parses JSON fields (level, trace_id, request_id), ships to Loki with service_name labels | ✅ Done | `observability/promtail/promtail.yaml` |
+| F-153 | **Prometheus** — Metrics backend (v3.0.1), scrapes OTel Collector exporter (8889), remote-write receiver enabled | ✅ Done | `observability/prometheus/prometheus.yaml` |
+| F-154 | **Grafana Dashboards** — 4 pre-provisioned dashboards: Overview, API Performance, Logs (Loki), Traces (Tempo) with auto-load from filesystem | ✅ Done | `observability/grafana/dashboards/` |
+| F-155 | **Grafana Datasource Provisioning** — Auto-configured Tempo, Loki, Prometheus datasources with trace↔log↔metric correlation (TraceID derived fields, exemplars) | ✅ Done | `observability/grafana/provisioning/datasources/datasources.yaml` |
+| F-156 | **Frontend OTel Tracing** — Browser-side `WebTracerProvider` with OTLP/HTTP exporter, instruments Fetch, XHR, user interactions, document load | ✅ Done | `frontend/src/instrumentation.ts` |
 
 ---
 
@@ -246,7 +293,7 @@
 
 | # | Feature | Priority | Target |
 |---|---|---|---|
-| F-131 | **Azure VM Auto-scaling** — Implement VM scale sets based on CPU/memory thresholds | 🔥 High | v0.10.0 |
-| F-132 | **Azure Key Vault Integration** — Migrate secrets and credentials to Azure Key Vault | 🔥 High | v0.10.0 |
-| F-133 | **Azure Monitor Integration** — Configure Azure Monitor for VM metrics, logs, and alerts | 🟡 Medium | v0.10.0 |
-| F-134 | **Terraform State Remote Backend** — Migrate state to Azure Storage with state locking | 🟡 Medium | v0.11.0 |
+| F-157 | **Azure VM Auto-scaling** — VM scale sets based on CPU/memory thresholds | 🔥 High | v0.12.0 |
+| F-158 | **Azure Key Vault Integration** — Migrate secrets and credentials to Azure Key Vault | 🔥 High | v0.12.0 |
+| F-159 | **Terraform Remote State Backend** — Migrate state to Azure Storage with state locking | 🟡 Medium | v0.12.0 |
+| F-160 | **Azure Monitor Integration** — VM metrics, logs, and alerts via Azure Monitor | 🟡 Medium | v0.12.0 |

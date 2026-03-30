@@ -102,20 +102,14 @@ exporters:
   prometheus:
     endpoint: "0.0.0.0:8889"
     namespace: cleo
-    const_labels:
-      environment: ${env:ENVIRONMENT}
     send_timestamps: true
     metric_expiration: 5m
-    resource_to_telemetry_conversion:
-      enabled: true
 
   # Prometheus Remote Write exporter (alternative to scraping)
   prometheusremotewrite:
     endpoint: http://prometheus:9090/api/v1/write
     tls:
       insecure: true
-    resource_to_telemetry_conversion:
-      enabled: true
 
   # Debug exporter - detailed output for troubleshooting
   debug:

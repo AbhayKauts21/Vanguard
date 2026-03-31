@@ -42,12 +42,18 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
         request_id = getattr(request.state, "request_id", None)
         user_id = self._extract_user_id(request)
         
+        # Resolve the matched route template (e.g. /api/v1/chat/{session_id})
+        # This is what populates http.target correctly in Prometheus metrics.
+        route = request.scope.get("route")
+        http_target = route.path if (route and hasattr(route, "path")) else request.url.path
+
         # Add custom attributes to span
         if span and span.is_recording():
             attributes = {
                 "request.id": request_id,
                 "user.id": user_id,
-                "http.route": request.url.path,
+                "http.target": http_target,
+                "http.route": http_target,
                 "http.method": request.method,
                 "http.scheme": request.url.scheme,
                 "http.host": request.url.hostname,

@@ -173,6 +173,24 @@ def _setup_logging(resource: Resource, config: OpenTelemetryConfig) -> None:
     logger.info("[OTEL] Log exporter configured → OTel Collector → Loki")
 
 
+def _server_request_hook(span, scope: dict) -> None:
+    """
+    Hook called by FastAPIInstrumentor on every incoming request.
+    Populates http.target with the matched route template so Prometheus
+    labels show e.g. '/api/v1/chat/{session_id}' instead of 'unknown'.
+    """
+    if not (span and span.is_recording()):
+        return
+
+    # FastAPI stores the matched route on the ASGI scope after routing
+    route = scope.get("route")
+    if route and hasattr(route, "path"):
+        span.set_attribute("http.target", route.path)
+    elif scope.get("path"):
+        # Fallback: raw path (no path params collapsed, but better than unknown)
+        span.set_attribute("http.target", scope["path"])
+
+
 def instrument_fastapi(app) -> None:
     """
     Instrument FastAPI application with OpenTelemetry.
@@ -187,6 +205,7 @@ def instrument_fastapi(app) -> None:
         app,
         tracer_provider=trace.get_tracer_provider(),
         excluded_urls="health,metrics,docs,openapi.json",  # Exclude health checks
+        server_request_hook=_server_request_hook,
     )
     
     logger.info("[OTEL] FastAPI instrumentation complete")

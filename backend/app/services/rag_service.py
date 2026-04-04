@@ -64,6 +64,8 @@ class RAGService:
         history: List[ConversationMessage] | None = None,
         locale: str = "en",
         user_id: str | None = None,
+        is_voice_mode: bool = False,
+        vibe: str = "professional",
     ) -> ChatResponse:
         """Full RAG pipeline — returns answer with citations."""
         rlog = logger.bind(request_id="sync")
@@ -124,6 +126,8 @@ class RAGService:
             question=question,
             context_chunks=context_docs,
             history=history,
+            is_voice_mode=is_voice_mode,
+            vibe=vibe,
         )
         gen_ms = round((time.perf_counter() - t0) * 1000, 1)
         total_ms = round((time.perf_counter() - t_start) * 1000, 1)
@@ -153,6 +157,8 @@ class RAGService:
         history: List[ConversationMessage] | None = None,
         locale: str = "en",
         user_id: str | None = None,
+        is_voice_mode: bool = False,
+        vibe: str = "professional",
     ) -> AsyncGenerator[dict, None]:
         """Streaming RAG pipeline — yields tokens + final summary dict based on confidence routing."""
         rlog = logger.bind(request_id="stream")
@@ -213,6 +219,8 @@ class RAGService:
                 question=question,
                 context_chunks=context_docs,
                 history=history,
+                is_voice_mode=is_voice_mode,
+                vibe=vibe,
             )
             async for token in token_stream:
                 token_count += 1

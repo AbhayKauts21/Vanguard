@@ -22,10 +22,6 @@ networks:
   cleo-network:
     driver: bridge
 
-volumes:
-  # Data volumes use SSD bind mounts at /data/docker-volumes/ (persistent 60GB SSD at /dev/sda)
-  # Directories created on server: /data/docker-volumes/{tempo,loki,prometheus,grafana}
-
 services:
   # ======================================================================
   # DATABASE - Using External PostgreSQL on VM

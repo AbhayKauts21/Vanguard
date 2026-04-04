@@ -1,15 +1,5 @@
 /**
- * STT Engine — Web Speech API implementation.
- *
- * Provides a clean abstraction over the browser's SpeechRecognition API.
- * Designed for easy swap to Azure Speech SDK in the future by implementing
- * the same start/stop/callbacks interface.
- *
- * Key behaviors:
- * - Continuous mode: keeps listening until explicitly stopped
- * - Interim results: delivers partial transcripts for live typewriter display
- * - Auto-restart: handles the browser's tendency to stop recognition on silence
- * - Cleanup: safely disposes on stop() to prevent memory leaks
+ * STT Engine — Browser Web Speech API wrapper.
  */
 
 import type { STTConfig, STTEngineCallbacks } from "@/domains/voice/model/types";
@@ -21,9 +11,7 @@ export const DEFAULT_STT_CONFIG: STTConfig = {
   interimResults: true,
 };
 
-/**
- * Check if the browser supports the Web Speech API SpeechRecognition.
- */
+/** browser support check. */
 export function isSpeechRecognitionSupported(): boolean {
   if (typeof window === "undefined") return false;
   return !!(
@@ -32,9 +20,7 @@ export function isSpeechRecognitionSupported(): boolean {
   );
 }
 
-/**
- * Get the SpeechRecognition constructor (with vendor prefix fallback).
- */
+/** get vendor-prefixed constructor. */
 function getSpeechRecognitionCtor(): typeof SpeechRecognition | null {
   if (typeof window === "undefined") return null;
   return (

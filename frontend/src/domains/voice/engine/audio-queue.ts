@@ -82,6 +82,14 @@ export class AudioQueue {
     this.itemCounter = 0;
   }
 
+  /**
+   * Clear all pending items in the queue without stopping the currently
+   * playing chunk. Used for mid-speech sentiment hot-swaps.
+   */
+  clearPending(): void {
+    this.queue = [];
+  }
+
   async resume(): Promise<void> {
     await this.ensureAudioContext();
   }

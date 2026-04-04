@@ -5,6 +5,11 @@ export interface ChatRequest {
   message: string;
   conversation_id?: string;
   conversation_history?: { role: string; content: string }[];
+  is_voice_mode?: boolean;
+  vibe?: string;
+  local_time?: string;
+  location?: string;
+  interrupted_context?: string;
 }
 
 export interface ChatSummary {

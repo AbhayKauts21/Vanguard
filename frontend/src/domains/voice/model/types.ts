@@ -50,6 +50,7 @@ export interface TTSRequest {
   voice: string;
   rate?: string;
   pitch?: string;
+  sentiment?: string; // Neural Link sentiment style
 }
 
 /** Events emitted by the STT engine for the consumer hook. */
@@ -58,4 +59,5 @@ export interface STTEngineCallbacks {
   onError: (error: string) => void;
   onEnd: () => void;
   onStart: () => void;
+  onSpeechStart?: () => void; // Triggered when user begins speaking (for interruption)
 }

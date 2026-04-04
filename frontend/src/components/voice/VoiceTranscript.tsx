@@ -1,10 +1,13 @@
 "use client";
 
+import { useVoiceMode } from "@/domains/voice/hooks/useVoiceMode";
 import { useVoiceStore } from "@/domains/voice/model";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { VibeSelector } from "./VibeSelector";
+import { QuickActionToast } from "./QuickActionToast";
 
 /**
  * Voice transcript overlay — displays real-time user speech and CLEO response
@@ -25,7 +28,21 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
   const cleoTranscript = useVoiceStore((s) => s.cleoTranscript);
   const error = useVoiceStore((s) => s.error);
   const setError = useVoiceStore((s) => s.setError);
+  const setSuggestions = useVoiceStore((s) => s.setSuggestions);
+  const isMuted = useVoiceStore((s) => s.isMuted);
+  const setMuted = useVoiceStore((s) => s.setMuted);
+  const { interrupt } = useVoiceMode();
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Proactive interactive engagement: suggest "Do you want to know more?" after long responses
+  useEffect(() => {
+    if (phase === "speaking" && cleoTranscript.length > 200) {
+      const timer = setTimeout(() => {
+        setSuggestions(["Tell me more", "Summarize this", "That's enough"]);
+      }, 5000); // Show suggestions after 5 seconds of speaking a long response
+      return () => clearTimeout(timer);
+    }
+  }, [phase, cleoTranscript.length, setSuggestions]);
 
   // Auto-scroll to bottom as transcripts update
   useEffect(() => {
@@ -91,6 +108,35 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
             className="relative z-10 flex-1 overflow-y-auto p-6 pointer-events-auto h-full"
             style={{ overscrollBehavior: "contain" }}
           >
+            {/* Top Bar for Vibe Selection and Metadata */}
+            <div className="sticky top-0 z-20 flex items-center justify-center gap-4 pb-8 pt-2">
+              <VibeSelector />
+              
+              {/* Privacy Mute Toggle */}
+              <button
+                type="button"
+                onClick={() => setMuted(!isMuted)}
+                className={`group flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-300 pointer-events-auto backdrop-blur-xl ${
+                  isMuted 
+                    ? "bg-red-500/20 border-red-500/40 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]" 
+                    : "bg-white/5 border-white/10 text-white/40 hover:bg-white/10 hover:border-white/20 hover:text-white/60 shadow-lg"
+                }`}
+                title={isMuted ? "Unmute Microphone" : "Mute Microphone"}
+              >
+                <span className={`material-symbols-outlined text-[20px] transition-transform duration-300 ${isMuted ? "scale-110" : "scale-100"}`}>
+                  {isMuted ? "mic_off" : "mic"}
+                </span>
+                
+                {/* Mute status pulse */}
+                {isMuted && (
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </span>
+                )}
+              </button>
+            </div>
+
             <div className="flex flex-col gap-6 py-6 pb-24 min-h-full">
               {/* Error banner */}
               <AnimatePresence>
@@ -191,8 +237,29 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
             </div>
           </div>
 
+          {/* Quick Action Suggestions Overlay */}
+          <QuickActionToast />
+
           {/* Phase status pill + Stop Button — pinned to bottom */}
           <div className="relative z-10 flex justify-center items-center gap-3 pointer-events-auto shrink-0 py-4">
+            {/* Interrupt Button (Only when speaking) */}
+            <AnimatePresence>
+              {phase === "speaking" && (
+                <motion.button
+                  initial={{ opacity: 0, x: 10, scale: 0.9 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 10, scale: 0.9 }}
+                  onClick={interrupt}
+                  className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 backdrop-blur-md text-emerald-400 hover:bg-emerald-500/20 transition-all shadow-[0_0_15px_rgba(16,185,129,0.15)] group"
+                >
+                  <span className="material-symbols-outlined text-[18px] group-hover:rotate-12 transition-transform">
+                    waving_hand
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Interrupt</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+
             <motion.div
               key={phase}
               initial={{ scale: 0.9, opacity: 0 }}

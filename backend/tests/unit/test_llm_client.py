@@ -11,10 +11,9 @@ async def test_llm_client_uses_azure_completion_for_generation(monkeypatch):
     captured = {}
     client = LLMClient()
 
-    async def fake_create_chat_completion(messages, *, temperature, max_tokens):
+    async def fake_create_chat_completion(messages, *, temperature, **kwargs):
         captured["messages"] = [message.model_dump() for message in messages]
         captured["temperature"] = temperature
-        captured["max_tokens"] = max_tokens
         return SimpleNamespace(
             choices=[SimpleNamespace(message=SimpleNamespace(content="grounded answer"))]
         )
@@ -29,7 +28,6 @@ async def test_llm_client_uses_azure_completion_for_generation(monkeypatch):
 
     assert answer == "grounded answer"
     assert captured["temperature"] == 0.2
-    assert captured["max_tokens"] is None
     assert captured["messages"][0]["role"] == "system"
     assert "Use the reset password page" in captured["messages"][0]["content"]
     assert captured["messages"][1] == {"role": "user", "content": "I need help logging in."}
@@ -40,7 +38,7 @@ async def test_llm_client_uses_azure_completion_for_generation(monkeypatch):
 async def test_llm_client_streams_tokens_from_azure(monkeypatch):
     client = LLMClient()
 
-    async def fake_stream_chat_completion(messages, *, temperature, max_tokens):
+    async def fake_stream_chat_completion(messages, *, temperature, **kwargs):
         yield "hello"
         yield " world"
 

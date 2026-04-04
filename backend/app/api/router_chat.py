@@ -38,7 +38,12 @@ async def chat(request: Request, body: ChatRequest):
 
     response = await rag_service.answer_query(
         body.message,
-        history=body.conversation_history[-body.max_history:] if body.conversation_history else None
+        history=body.conversation_history[-body.max_history:] if body.conversation_history else None,
+        is_voice_mode=body.is_voice_mode,
+        vibe=body.vibe or "professional",
+        local_time=body.local_time,
+        location=body.location,
+        interrupted_context=body.interrupted_context,
     )
     response.conversation_id = body.conversation_id
 
@@ -57,7 +62,12 @@ async def chat_stream(request: Request, body: ChatRequest):
         try:
             async for chunk in rag_service.answer_query_stream(
                 body.message,
-                history=body.conversation_history[-body.max_history:] if body.conversation_history else None
+                history=body.conversation_history[-body.max_history:] if body.conversation_history else None,
+                is_voice_mode=body.is_voice_mode,
+                vibe=body.vibe or "professional",
+                local_time=body.local_time,
+                location=body.location,
+                interrupted_context=body.interrupted_context,
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except NoContextFoundError:

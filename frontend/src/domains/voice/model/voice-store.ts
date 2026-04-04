@@ -20,6 +20,12 @@ interface VoiceState {
   error: string | null;
   /** Whether the browser supports speech recognition. */
   isSupported: boolean;
+  /** Emotional vibe for Neural Link (Azure style). */
+  vibe: "professional" | "friendly" | "cheerful" | "empathetic";
+  /** Proactive interactive suggestions (e.g. "Do you want to know more?"). */
+  suggestions: string[];
+  /** Whether the microphone is muted (Neural Link listening but ignoring audio). */
+  isMuted: boolean;
 
   /* ── Actions ── */
 
@@ -29,6 +35,8 @@ interface VoiceState {
   stopVoiceMode: () => void;
   /** Transition to a specific phase. */
   setPhase: (phase: VoicePhase) => void;
+  /** Toggle microphone mute state. */
+  setMuted: (muted: boolean) => void;
   /** Update the live user transcript (interim results). */
   setUserTranscript: (transcript: string) => void;
   /** Lock in the final user transcript before sending to chat. */
@@ -43,6 +51,10 @@ interface VoiceState {
   setError: (error: string | null) => void;
   /** Set browser support flag. */
   setSupported: (supported: boolean) => void;
+  /** Set the emotional vibe. */
+  setVibe: (vibe: "professional" | "friendly" | "cheerful" | "empathetic") => void;
+  /** Set the proactive interactive suggestions. */
+  setSuggestions: (suggestions: string[]) => void;
   /** Full reset to idle defaults. */
   reset: () => void;
 }
@@ -56,16 +68,13 @@ const INITIAL_STATE = {
   audioLevel: 0,
   error: null,
   isSupported: true,
+  vibe: "professional" as const,
+  suggestions: [] as string[],
+  isMuted: false,
 };
 
 /**
  * Zustand store for the voice-to-voice pipeline.
- *
- * Drives:
- * - VoiceModeButton state
- * - VoiceTranscript overlay text
- * - Energy core avatar sync (via audioLevel + phase)
- * - Composer disable state in voice mode
  */
 export const useVoiceStore = create<VoiceState>((set) => ({
   ...INITIAL_STATE,
@@ -79,11 +88,14 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       cleoTranscript: "",
       audioLevel: 0,
       error: null,
+      suggestions: [],
     }),
 
   stopVoiceMode: () => set({ ...INITIAL_STATE }),
 
   setPhase: (phase) => set({ phase }),
+
+  setMuted: (muted) => set({ isMuted: muted }),
 
   setUserTranscript: (transcript) => set({ userTranscript: transcript }),
 
@@ -93,9 +105,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
 
   appendCleoTranscript: (text) =>
     set((s) => ({
-      cleoTranscript: s.cleoTranscript
-        ? `${s.cleoTranscript} ${text}`
-        : text,
+      cleoTranscript: s.cleoTranscript ? `${s.cleoTranscript} ${text}` : text,
     })),
 
   setAudioLevel: (level) => set({ audioLevel: level }),
@@ -103,11 +113,14 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   setError: (error) =>
     set((s) => ({
       error,
-      // If error during active session, stay in voice mode but halt phase
       ...(error && s.isVoiceMode ? { phase: "idle" as VoicePhase } : {}),
     })),
 
   setSupported: (supported) => set({ isSupported: supported }),
+
+  setVibe: (vibe) => set({ vibe }),
+
+  setSuggestions: (suggestions) => set({ suggestions }),
 
   reset: () => set({ ...INITIAL_STATE }),
 }));

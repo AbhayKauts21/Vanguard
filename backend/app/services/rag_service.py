@@ -63,6 +63,25 @@ class RAGService:
         rlog = logger.bind(request_id="sync")
         t_start = time.perf_counter()
 
+        if self._is_small_talk(question):
+            system_prompt = self._get_small_talk_system_prompt(local_time, location)
+            answer = await self.llm_client.generate(
+                question=question,
+                context_chunks=[],
+                history=history,
+                is_voice_mode=is_voice_mode,
+                vibe=vibe,
+                local_time=local_time,
+                location=location,
+                interrupted_context=interrupted_context,
+                system_prompt_override=system_prompt
+            )
+            return ChatResponse(
+                answer=answer,
+                mode_used="rag",
+                max_confidence=1.0
+            )
+
         normalized_q = question.lower().strip().lstrip("¿¡").rstrip("?")
         if locale in SHORTCUT_RESPONSES and normalized_q in SHORTCUT_RESPONSES[locale]:
             return ChatResponse(
@@ -123,6 +142,23 @@ class RAGService:
     ) -> AsyncGenerator[dict, None]:
         """Yields tokens + final summary based on confidence routing."""
         rlog = logger.bind(request_id="stream")
+
+        if self._is_small_talk(question):
+            system_prompt = self._get_small_talk_system_prompt(local_time, location)
+            async for token in self.llm_client.generate_stream(
+                question=question,
+                context_chunks=[],
+                history=history,
+                is_voice_mode=is_voice_mode,
+                vibe=vibe,
+                local_time=local_time,
+                location=location,
+                interrupted_context=interrupted_context,
+                system_prompt_override=system_prompt
+            ):
+                yield {"type": "token", "content": token}
+            yield {"type": "done", "mode_used": "rag", "max_confidence": 1.0}
+            return
         
         normalized_q = question.lower().strip().lstrip("¿¡").rstrip("?")
         if locale in SHORTCUT_RESPONSES and normalized_q in SHORTCUT_RESPONSES[locale]:
@@ -244,5 +280,32 @@ STRICT RULES:
     def _build_user_filter(self, user_id: str | None) -> dict | None:
         if not user_id: return None
         return {"$or": [{"source_type": {"$ne": "user_upload"}}, {"user_id": {"$eq": user_id}}]}
+
+    def _is_small_talk(self, question: str) -> bool:
+        """Determines if a query is just a greeting or general small talk."""
+        q = question.lower().strip().rstrip("?.!")
+        greetings = {
+            "hi", "hello", "hey", "hola", "good morning", "good afternoon", "good evening",
+            "how are you", "how's it going", "howdy", "cleo", "cleo?",
+            "thanks", "thank you", "gracias", "bye", "goodbye", "see ya",
+            "who are you", "what is your name", "who created you"
+        }
+        if q in greetings:
+            return True
+        if q.startswith(("hi cleo", "hello cleo", "hey cleo")):
+            return True
+        return False
+
+    def _get_small_talk_system_prompt(self, local_time: str | None, location: str | None) -> str:
+        persona_context = f"CURRENT_TIME: {local_time or 'Unknown'}\nCURRENT_LOCATION: {location or 'Unknown'}"
+        return f"""You are CLEO, an advanced AI assistant for Andino Global.
+            
+{persona_context}
+
+RULES:
+1. Handle greetings and small talk naturally and warmly.
+2. Maintain your persona as a professional yet accessible assistant.
+3. If asked about your creators, mention the Project Vanguard team.
+4. Keep it concise if in voice mode."""
 
 rag_service = RAGService()

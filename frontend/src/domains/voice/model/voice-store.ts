@@ -24,6 +24,8 @@ interface VoiceState {
   vibe: "professional" | "friendly" | "cheerful" | "empathetic";
   /** Proactive interactive suggestions (e.g. "Do you want to know more?"). */
   suggestions: string[];
+  /** Whether the microphone is muted (Neural Link listening but ignoring audio). */
+  isMuted: boolean;
 
   /* ── Actions ── */
 
@@ -33,6 +35,8 @@ interface VoiceState {
   stopVoiceMode: () => void;
   /** Transition to a specific phase. */
   setPhase: (phase: VoicePhase) => void;
+  /** Toggle microphone mute state. */
+  setMuted: (muted: boolean) => void;
   /** Update the live user transcript (interim results). */
   setUserTranscript: (transcript: string) => void;
   /** Lock in the final user transcript before sending to chat. */
@@ -66,6 +70,7 @@ const INITIAL_STATE = {
   isSupported: true,
   vibe: "professional" as const,
   suggestions: [] as string[],
+  isMuted: false,
 };
 
 /**
@@ -89,6 +94,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   stopVoiceMode: () => set({ ...INITIAL_STATE }),
 
   setPhase: (phase) => set({ phase }),
+
+  setMuted: (muted) => set({ isMuted: muted }),
 
   setUserTranscript: (transcript) => set({ userTranscript: transcript }),
 

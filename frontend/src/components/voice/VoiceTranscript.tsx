@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { VibeSelector } from "./VibeSelector";
+import { QuickActionToast } from "./QuickActionToast";
 
 /**
  * Voice transcript overlay — displays real-time user speech and CLEO response
@@ -25,7 +27,18 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
   const cleoTranscript = useVoiceStore((s) => s.cleoTranscript);
   const error = useVoiceStore((s) => s.error);
   const setError = useVoiceStore((s) => s.setError);
+  const setSuggestions = useVoiceStore((s) => s.setSuggestions);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Proactive interactive engagement: suggest "Do you want to know more?" after long responses
+  useEffect(() => {
+    if (phase === "speaking" && cleoTranscript.length > 200) {
+      const timer = setTimeout(() => {
+        setSuggestions(["Tell me more", "Summarize this", "That's enough"]);
+      }, 5000); // Show suggestions after 5 seconds of speaking a long response
+      return () => clearTimeout(timer);
+    }
+  }, [phase, cleoTranscript.length, setSuggestions]);
 
   // Auto-scroll to bottom as transcripts update
   useEffect(() => {
@@ -91,6 +104,11 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
             className="relative z-10 flex-1 overflow-y-auto p-6 pointer-events-auto h-full"
             style={{ overscrollBehavior: "contain" }}
           >
+            {/* Top Bar for Vibe Selection and Metadata */}
+            <div className="sticky top-0 z-20 flex justify-center pb-8 pt-2">
+              <VibeSelector />
+            </div>
+
             <div className="flex flex-col gap-6 py-6 pb-24 min-h-full">
               {/* Error banner */}
               <AnimatePresence>
@@ -190,6 +208,9 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
               </AnimatePresence>
             </div>
           </div>
+
+          {/* Quick Action Suggestions Overlay */}
+          <QuickActionToast />
 
           {/* Phase status pill + Stop Button — pinned to bottom */}
           <div className="relative z-10 flex justify-center items-center gap-3 pointer-events-auto shrink-0 py-4">

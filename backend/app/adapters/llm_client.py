@@ -6,7 +6,7 @@ from loguru import logger
 
 from app.adapters.azure_openai_client import azure_openai_client
 from app.core.config import settings
-from app.core.prompts import RAG_SYSTEM_PROMPT, RAG_USER_PROMPT
+from app.core.prompts import RAG_SYSTEM_PROMPT, RAG_USER_PROMPT, VOICE_SYSTEM_PROMPT
 from app.domain.schemas import AzureChatMessage, ConversationMessage
 
 
@@ -27,15 +27,23 @@ class LLMClient:
         question: str,
         context_chunks: List[str],
         history: Optional[List[ConversationMessage]],
+        is_voice_mode: bool = False,
+        vibe: str = "professional",
     ) -> List[AzureChatMessage]:
         """Build Azure-compatible messages for constrained RAG generation."""
         context = "\n\n---\n\n".join(context_chunks)
         history = history or []
 
+        # Tier 1: System Prompt Selection
+        if is_voice_mode:
+            system_content = VOICE_SYSTEM_PROMPT.format(context=context, vibe=vibe)
+        else:
+            system_content = RAG_SYSTEM_PROMPT.format(context=context)
+
         messages = [
             AzureChatMessage(
                 role="system",
-                content=RAG_SYSTEM_PROMPT.format(context=context),
+                content=system_content,
             )
         ]
         for msg in history:
@@ -55,12 +63,16 @@ class LLMClient:
         context_chunks: List[str],
         temperature: float = 0.2,
         history: Optional[List[ConversationMessage]] = None,
+        is_voice_mode: bool = False,
+        vibe: str = "professional",
     ) -> str:
         """Generate a non-streaming response for the RAG answer path."""
         messages = self._build_messages(
             question=question,
             context_chunks=context_chunks,
             history=history,
+            is_voice_mode=is_voice_mode,
+            vibe=vibe,
         )
 
         try:
@@ -81,12 +93,16 @@ class LLMClient:
         context_chunks: List[str],
         temperature: float = 0.2,
         history: Optional[List[ConversationMessage]] = None,
+        is_voice_mode: bool = False,
+        vibe: str = "professional",
     ) -> AsyncGenerator[str, None]:
         """Stream tokens for real-time UI response."""
         messages = self._build_messages(
             question=question,
             context_chunks=context_chunks,
             history=history,
+            is_voice_mode=is_voice_mode,
+            vibe=vibe,
         )
 
         try:

@@ -48,4 +48,14 @@ describe("CitationList", () => {
     expect(screen.getByText("Retrieval Modes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Collapse" })).toBeInTheDocument();
   });
+
+  it("returns null when no citations are provided", () => {
+    const { container } = render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <CitationList primary={[]} secondary={[]} all={[]} />
+      </NextIntlClientProvider>,
+    );
+
+    expect(container.firstChild).toBeNull();
+  });
 });

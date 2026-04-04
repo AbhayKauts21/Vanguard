@@ -1,5 +1,13 @@
 /**
  * TTS Engine — Azure Text-to-Speech via backend proxy.
+ *
+ * Sends text to the backend TTS endpoint which streams back MP3 audio.
+ * Returns audio Blobs ready for the AudioQueue.
+ *
+ * Architecture:
+ *   Frontend (TTS Engine) → POST /api/v1/voice/tts → Backend (Azure Speech SDK) → Audio Blob
+ *
+ * Fallback: Web Speech API SpeechSynthesis for offline/demo mode.
  */
 
 import { env } from "@/lib/env";
@@ -25,7 +33,6 @@ export async function synthesizeSpeech(
     voice: options.voice ?? env.voice.ttsVoice,
     rate: options.rate ?? "+0%",
     pitch: options.pitch ?? "+0Hz",
-    sentiment: options.sentiment,
   };
 
   const response = await fetch(`${env.apiBaseUrl}${TTS_ENDPOINT}`, {

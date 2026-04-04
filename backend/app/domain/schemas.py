@@ -256,11 +256,6 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     conversation_history: List[ConversationMessage] = Field(default_factory=list)
     max_history: int = Field(default=10, le=20)
-    is_voice_mode: bool = Field(default=False)
-    vibe: Optional[str] = Field(default="professional")
-    local_time: Optional[str] = Field(default=None)
-    location: Optional[str] = Field(default=None)
-    interrupted_context: Optional[str] = Field(default=None)
 
 
 class ChatResponse(BaseModel):
@@ -282,8 +277,6 @@ class ChatCreateRequest(BaseModel):
 
 class ChatMessageCreateRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
-    is_voice_mode: bool = Field(default=False)
-    vibe: Optional[str] = Field(default="professional")
 
 
 class ChatSummaryResponse(BaseModel):
@@ -383,7 +376,6 @@ class TTSRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000, description="Text to synthesize.")
     voice: Optional[str] = Field(default=None, description="Override the default Azure TTS voice name.")
     language: Optional[str] = Field(default=None, description="Language hint (e.g. en-US) for SSML.")
-    sentiment: Optional[str] = Field(default=None, description="Emotional sentiment for SSML style.")
     stream: bool = Field(default=True, description="If true, return chunked streaming audio.")
 
 

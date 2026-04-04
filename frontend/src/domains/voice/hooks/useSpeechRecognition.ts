@@ -7,7 +7,13 @@ import { env } from "@/lib/env";
 import type { STTResult } from "@/domains/voice/model/types";
 
 /**
- * Manages the STT engine lifecycle.
+ * Hook wrapping the STT engine with React lifecycle management.
+ *
+ * Manages:
+ * - Engine instantiation and cleanup
+ * - Browser support detection
+ * - Interim/final transcript updates to voice store
+ * - Error handling and auto-recovery
  */
 export function useSpeechRecognition() {
   const engineRef = useRef<STTEngine | null>(null);
@@ -16,11 +22,19 @@ export function useSpeechRecognition() {
   const setError = useVoiceStore((s) => s.setError);
   const setSupported = useVoiceStore((s) => s.setSupported);
 
+  // Check browser support on mount
   useEffect(() => {
-    setSupported(isSpeechRecognitionSupported());
+    const supported = isSpeechRecognitionSupported();
+    setSupported(supported);
   }, [setSupported]);
 
-  const start = useCallback((onSpeechStart?: () => void) => {
+  const start = useCallback(() => {
+    if (!isSpeechRecognitionSupported()) {
+      setError("Speech recognition is not supported in this browser.");
+      return;
+    }
+
+    // Create a fresh engine per session
     const engine = new STTEngine({
       language: env.voice.sttLanguage,
       continuous: true,
@@ -31,24 +45,38 @@ export function useSpeechRecognition() {
 
     engine.start({
       onResult: (result: STTResult) => {
+        // Guard: ignore results if not in listening phase to prevent "hallucinations"
+        const state = useVoiceStore.getState();
+        if (state.phase !== "listening") return;
+
         setUserTranscript(result.transcript);
-        if (result.isFinal) setFinalTranscript(result.transcript);
+
+        if (result.isFinal) {
+          setFinalTranscript(result.transcript);
+        }
       },
-      onError: (err: string) => setError(err),
-      onStart: () => setError(null),
-      onEnd: () => {},
-      onSpeechStart,
+      onError: (error: string) => {
+        setError(error);
+      },
+      onEnd: () => {
+        // STT ended (might be auto-restart via engine)
+      },
+      onStart: () => {
+        setError(null);
+      },
     });
   }, [setUserTranscript, setFinalTranscript, setError]);
 
   const stop = useCallback((): string => {
     const engine = engineRef.current;
     if (!engine) return "";
+
     const transcript = engine.stop();
     engineRef.current = null;
     return transcript;
   }, []);
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       engineRef.current?.stop();

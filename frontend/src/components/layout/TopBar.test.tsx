@@ -11,10 +11,6 @@ vi.mock("@/domains/auth/components", () => ({
   AuthStatusMenu: () => <div>Auth Menu</div>,
 }));
 
-vi.mock("@/domains/auth/model", () => ({
-  useAuthStore: (selector: any) => selector({ user: { email: "test@example.com" } }),
-}));
-
 vi.mock("@/i18n/navigation", () => ({
   Link: ({
     href,

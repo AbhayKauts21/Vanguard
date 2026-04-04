@@ -126,8 +126,6 @@ class ChatService:
             history,
             locale=locale,
             user_id=str(current_user.id),
-            is_voice_mode=payload.is_voice_mode,
-            vibe=payload.vibe or "professional",
         )
         assistant_message = await chat_repository.create_message(
             session,
@@ -184,8 +182,6 @@ class ChatService:
                 history=history,
                 locale=locale,
                 user_id=str(current_user.id),
-                is_voice_mode=payload.is_voice_mode,
-                vibe=payload.vibe or "professional",
             ):
                 if chunk.get("type") == "token":
                     token = str(chunk.get("content", ""))
@@ -302,8 +298,6 @@ class ChatService:
         history: list[ConversationMessage],
         locale: str = "en",
         user_id: str | None = None,
-        is_voice_mode: bool = False,
-        vibe: str = "professional",
     ) -> ChatResponse:
         from app.core.exceptions import NoContextFoundError
 
@@ -313,8 +307,6 @@ class ChatService:
                 history=history,
                 locale=locale,
                 user_id=user_id,
-                is_voice_mode=is_voice_mode,
-                vibe=vibe,
             )
         except NoContextFoundError:
             return ChatResponse(
@@ -334,8 +326,6 @@ class ChatService:
         history: list[ConversationMessage],
         locale: str,
         user_id: str | None,
-        is_voice_mode: bool = False,
-        vibe: str = "professional",
     ) -> ChatResponse:
         try:
             return await self.rag_service.answer_query(
@@ -343,8 +333,6 @@ class ChatService:
                 history=history,
                 locale=locale,
                 user_id=user_id,
-                is_voice_mode=is_voice_mode,
-                vibe=vibe,
             )
         except TypeError as exc:
             message = str(exc)
@@ -371,8 +359,6 @@ class ChatService:
         history: list[ConversationMessage],
         locale: str,
         user_id: str | None,
-        is_voice_mode: bool = False,
-        vibe: str = "professional",
     ):
         try:
             return self.rag_service.answer_query_stream(
@@ -380,8 +366,6 @@ class ChatService:
                 history=history,
                 locale=locale,
                 user_id=user_id,
-                is_voice_mode=is_voice_mode,
-                vibe=vibe,
             )
         except TypeError as exc:
             message = str(exc)

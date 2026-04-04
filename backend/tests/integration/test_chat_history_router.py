@@ -57,7 +57,7 @@ async def seed_defaults(session: AsyncSession) -> None:
 
 
 class FakeRagService:
-    async def answer_query(self, question: str, history=None, locale="en", user_id=None, **kwargs) -> ChatResponse:
+    async def answer_query(self, question: str, history=None, locale="en", user_id=None) -> ChatResponse:
         citation = Citation(
             page_id=101,
             page_title="Testing Guide",
@@ -78,7 +78,7 @@ class FakeRagService:
             what_i_found=[{"page_title": "Testing Guide", "score": 0.97}],
         )
 
-    async def answer_query_stream(self, question: str, history=None, locale="en", user_id=None, **kwargs):
+    async def answer_query_stream(self, question: str, history=None, locale="en", user_id=None):
         yield {"type": "token", "content": "Streamed "}
         yield {"type": "token", "content": f"answer for: {question}"}
         yield {

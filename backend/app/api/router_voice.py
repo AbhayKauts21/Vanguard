@@ -66,7 +66,6 @@ async def tts(request: Request, body: TTSRequest):
                 text=body.text,
                 voice=body.voice,
                 language=body.language,
-                sentiment=body.sentiment,
             ):
                 yield chunk
 
@@ -91,7 +90,6 @@ async def tts(request: Request, body: TTSRequest):
             text=body.text,
             voice=body.voice,
             language=body.language,
-            sentiment=body.sentiment,
         )
     except Exception as e:
         rlog.error("request.failed", endpoint="/voice/tts", error=str(e))

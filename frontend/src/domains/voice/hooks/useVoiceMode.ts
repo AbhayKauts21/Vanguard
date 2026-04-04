@@ -9,23 +9,32 @@ import { useAvatarStore } from "@/domains/avatar/model/avatar-store";
 import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
 import { useSpeechRecognition } from "./useSpeechRecognition";
 import { useAudioAnalyser } from "./useAudioAnalyser";
-import { SentenceChunker, synthesizeSpeech } from "@/domains/voice/engine";
+import { SentenceChunker, synthesizeSpeech, speakWithBrowserTTS } from "@/domains/voice/engine";
 import { api, consumeSSEStream } from "@/lib/api";
 import { CHATS_ENDPOINT, CHAT_STREAM_ENDPOINT } from "@/lib/constants";
 import type { ChatRequest, SSEDoneEvent } from "@/types";
 import { stripMarkdown } from "@/lib/utils/markdown";
 
 /**
- * Orchestrates the voice-to-voice conversation pipeline.
+ * useVoiceMode — master orchestrator for the voice-to-voice pipeline.
+ *
+ * Lifecycle:
+ *   1. User clicks mic → startVoiceMode() → STT starts listening
+ *   2. User speaks → interim transcripts shown in real-time
+ *   3. User clicks stop (or silence timeout) → stopListening()
+ *      → final transcript → send to chat stream endpoint
+ *   4. SSE tokens stream back → sentence chunker → TTS per sentence
+ *      → audio queue → playback with avatar sync
+ *   5. All audio finishes → return to idle
+ *
+ * Coordinates: VoiceStore, ChatStore, AvatarStore, STT engine, TTS engine,
+ *              SentenceChunker, AudioQueue.
  */
 export function useVoiceMode() {
   const { start: startSTT, stop: stopSTT } = useSpeechRecognition();
-  const { enqueueAudio, stopAudio, resetAudio, clearPending, resumeAudio, isPlaying } = useAudioAnalyser(
-    useCallback((index: number) => {
-      currentChunkIndexRef.current.val = index;
-    }, [])
-  );
+  const { enqueueAudio, stopAudio, resetAudio, resumeAudio, isPlaying } = useAudioAnalyser();
 
+  // Voice store actions
   const startVoiceMode = useVoiceStore((s) => s.startVoiceMode);
   const stopVoiceMode = useVoiceStore((s) => s.stopVoiceMode);
   const setPhase = useVoiceStore((s) => s.setPhase);
@@ -33,6 +42,7 @@ export function useVoiceMode() {
   const appendCleoTranscript = useVoiceStore((s) => s.appendCleoTranscript);
   const setCleoTranscript = useVoiceStore((s) => s.setCleoTranscript);
 
+  // Chat store actions
   const addUserMessage = useChatStore((s) => s.addUserMessage);
   const setThinking = useChatStore((s) => s.setThinking);
   const startAssistantMessage = useChatStore((s) => s.startAssistantMessage);
@@ -47,118 +57,84 @@ export function useVoiceMode() {
   const chunkerRef = useRef<SentenceChunker | null>(null);
   const ttsAbortRef = useRef<AbortController | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const emittedSentencesRef = useRef<string[]>([]);
-  const currentChunkIndexRef = useRef<{ val: number }>({ val: -1 });
-  const lastInterruptedContextRef = useRef<string | null>(null);
-  const vibeRef = useRef<string>("professional");
-
   const phase = useVoiceStore((s) => s.phase);
   const userTranscript = useVoiceStore((s) => s.userTranscript);
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
-  const currentVibe = useVoiceStore((s) => s.vibe);
 
   /**
-   * Start STT and reset audio state.
+   * Enter voice mode — start STT listening.
    */
   const activate = useCallback(() => {
     startVoiceMode();
     resetAudio();
-    resumeAudio(); 
+    resumeAudio(); // Explicitly resume AudioContext on user gesture
     setCleoTranscript("");
-    emittedSentencesRef.current = [];
-    // eslint-disable-next-line react-hooks/immutability
-    currentChunkIndexRef.current.val = -1;
-    vibeRef.current = useVoiceStore.getState().vibe;
-    useVoiceStore.getState().setUserTranscript(""); 
-    
-    startSTT(() => {
-      const { phase } = useVoiceStore.getState();
-      if (phase === "speaking") {
-        const idx = currentChunkIndexRef.current.val;
-        if (idx >= 0) {
-          lastInterruptedContextRef.current = emittedSentencesRef.current
-            .slice(0, idx + 1)
-            .join(" ");
-        }
-
-        stopAudio();
-        resetAudio();
-        ttsAbortRef.current?.abort();
-        ttsAbortRef.current = new AbortController();
-      }
-    });
-  }, [startVoiceMode, resetAudio, resumeAudio, setCleoTranscript, startSTT, stopAudio]);
+    useVoiceStore.getState().setUserTranscript(""); // Clear user transcript on fresh activation
+    startSTT();
+  }, [startVoiceMode, resetAudio, resumeAudio, setCleoTranscript, startSTT]);
 
   /**
-   * Finalize user message and trigger response stream.
+   * Stop listening and send the captured transcript to the chat pipeline.
+   * This triggers the full processing → TTS → playback flow.
    */
   const sendVoiceMessage = useCallback(async () => {
+    // Stop STT and get final transcript
     const transcript = stopSTT();
     const finalTranscript = transcript || useVoiceStore.getState().userTranscript;
 
-    if (useVoiceStore.getState().isMuted) {
-      stopVoiceMode();
-      return;
-    }
-
     if (!finalTranscript.trim()) {
+      // Nothing was captured — go back to idle
       stopVoiceMode();
       return;
     }
 
+    // Transition to processing
     setPhase("processing");
 
+    // Update avatar to syncing state
     const avatarStore = useAvatarStore.getState();
-    if (avatarStore.isConnected) avatarStore.setState("listening");
+    if (avatarStore.isConnected) {
+      avatarStore.setState("listening");
+    }
 
-    const chatState = useChatStore.getState();
+    // Add user message to chat (also visible in text mode)
+    const state = useChatStore.getState();
+    const { messages, conversationId } = state;
     addUserMessage(finalTranscript);
     setThinking(true);
     setErrorType(null);
     setCleoTranscript("");
-    useVoiceStore.getState().setUserTranscript("");
+    useVoiceStore.getState().setUserTranscript(""); // Clear it after sending to prevent auto-re-trigger
 
-    const history = chatState.messages
+    // Prepare conversation history
+    const history = messages
       .filter((m) => !m.isStreaming)
       .slice(-10)
       .map((msg) => ({ role: msg.role, content: msg.content }));
 
+    // Cancel any in-flight stream
     abortRef.current?.abort();
-    abortRef.current = new AbortController();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
+    // TTS abort controller
     ttsAbortRef.current?.abort();
     ttsAbortRef.current = new AbortController();
 
+    // TTFT measurement
     const sendTimestamp = performance.now();
     let firstTokenRecorded = false;
-    let chatId = chatState.activeChatId;
+    let chatId = state.activeChatId;
     let streamPath = CHAT_STREAM_ENDPOINT;
-    
-    vibeRef.current = useVoiceStore.getState().vibe;
-    emittedSentencesRef.current = [];
-    // eslint-disable-next-line react-hooks/immutability
-    currentChunkIndexRef.current.val = -1;
-
-    const localTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const location = Intl.DateTimeFormat().resolvedOptions().timeZone.replace('_', ' ');
-
-    let body: ChatRequest = {
+    let body: ChatRequest | { message: string } = {
       message: finalTranscript,
-      conversation_id: chatState.conversationId,
+      conversation_id: conversationId,
       conversation_history: history,
-      is_voice_mode: true,
-      vibe: vibeRef.current,
-      local_time: localTime,
-      location: location,
-      interrupted_context: lastInterruptedContextRef.current || undefined,
     };
 
-    lastInterruptedContextRef.current = null;
-    stopSTT(); // Stop microphone explicitly while processing
-
+    // Sentence chunker → TTS per sentence
     chunkerRef.current = new SentenceChunker(async (sentence: string) => {
-      emittedSentencesRef.current.push(sentence);
+      // Queue TTS for this sentence
       appendCleoTranscript(sentence);
 
       try {
@@ -167,13 +143,22 @@ export function useVoiceMode() {
 
         const audioBlob = await synthesizeSpeech(
           speechText,
-          { sentiment: vibeRef.current },
+          {},
           ttsAbortRef.current?.signal,
         );
         
-        if (audioBlob.size > 0) enqueueAudio(audioBlob);
+        if (audioBlob.size === 0) {
+          const isFallbackEnabled = process.env.NEXT_PUBLIC_ENABLE_TTS_FALLBACK !== "false";
+          if (isFallbackEnabled) {
+            await speakWithBrowserTTS(stripMarkdown(sentence));
+          }
+        } else {
+          enqueueAudio(audioBlob);
+        }
       } catch (err) {
-        if ((err as Error).name !== "AbortError") console.error("TTS failed:", err);
+        if ((err as Error).name === "AbortError") return;
+        console.error("[VoiceMode] TTS synthesis failed:", err);
+        // Continue without audio — text still shows
       }
     });
 
@@ -186,25 +171,36 @@ export function useVoiceMode() {
           chatId = summary.id;
         }
         streamPath = `${CHATS_ENDPOINT}/${chatId}/messages/stream`;
-        body = { ...body }; // Context preserved
+        body = { message: finalTranscript };
       }
 
-      const response = await api.stream(streamPath, body, abortRef.current.signal);
+      const response = await api.stream(
+        streamPath,
+        body,
+        controller.signal,
+      );
+
       startAssistantMessage();
       setPhase("speaking");
 
       await consumeSSEStream(
         response,
-        (token) => {
+        /* onToken */
+        (token: string) => {
           if (!firstTokenRecorded) {
             firstTokenRecorded = true;
-            useTelemetryStore.getState().recordLatency(performance.now() - sendTimestamp);
+            const ttft = performance.now() - sendTimestamp;
+            useTelemetryStore.getState().recordLatency(ttft);
           }
+
           appendToken(token);
           chunkerRef.current?.feed(token);
         },
-        (event) => {
+        /* onDone */
+        (event: SSEDoneEvent) => {
+          // Flush remaining text to TTS
           chunkerRef.current?.flush();
+
           finishAssistantMessage({
             primary_citations: event.primary_citations || [],
             secondary_citations: event.secondary_citations || [],
@@ -215,23 +211,23 @@ export function useVoiceMode() {
             what_i_found: event.what_i_found,
           });
 
-          if (event.chat_summary) upsertChatSummary(event.chat_summary);
+          if (event.chat_summary) {
+            upsertChatSummary(event.chat_summary);
+          }
 
+          // Wait for audio queue to drain, then return to listening for to-and-fro conversation
           const waitForAudio = () => {
             if (isPlaying()) {
               requestAnimationFrame(waitForAudio);
             } else {
+              // Once audio stops, wait for an additional "Settle Delay" (800ms)
+              // to account for physical acoustic latency and buffer tails.
               setTimeout(() => {
-                if (useVoiceStore.getState().isVoiceMode) {
+                const { isVoiceMode } = useVoiceStore.getState();
+                if (isVoiceMode) {
+                  // Auto-restart listening for the next turn
                   setPhase("listening");
-                  startSTT(() => {
-                    if (useVoiceStore.getState().phase === "speaking") {
-                      stopAudio();
-                      resetAudio();
-                      ttsAbortRef.current?.abort();
-                      ttsAbortRef.current = new AbortController();
-                    }
-                  });
+                  startSTT();
                 } else {
                   setPhase("idle");
                 }
@@ -239,129 +235,136 @@ export function useVoiceMode() {
               }, 800);
             }
           };
+          
+          // Small delay (500ms) to ensure the first audio chunk has had time to synthesize/enqueue
+          // before we start the "isPlaying" check, preventing premature exit.
           setTimeout(waitForAudio, 500);
         },
-        (err) => {
+        /* onError */
+        (err: Error) => {
           chunkerRef.current?.flush();
+
           finishAssistantMessage({
             primary_citations: [],
             secondary_citations: [],
             all_citations: [],
             hidden_sources_count: 0,
             mode_used: "rag",
-            max_confidence: 0
+            max_confidence: 0,
           });
-          setErrorType(err.message.includes("429") ? "rate-limit" : "network");
+
+          if (err.message.includes("429")) {
+            setErrorType("rate-limit");
+          } else if (err.message.includes("5")) {
+            setErrorType("server");
+          } else {
+            setErrorType("network");
+          }
+
           setPhase("idle");
         },
       );
     } catch (err) {
-      if ((err as Error).name !== "AbortError") {
-        setError("Request failed.");
-        setPhase("idle");
-      }
+      if ((err as Error).name === "AbortError") return;
+      setThinking(false);
+      setError("Failed to send voice message. Please try again.");
+      setPhase("idle");
     }
-  }, [stopSTT, stopVoiceMode, setPhase, addUserMessage, setThinking, setErrorType, setCleoTranscript, appendCleoTranscript, startAssistantMessage, appendToken, finishAssistantMessage, setActiveChat, enqueueAudio, isAuthenticated, isPlaying, setError, upsertChatSummary, startSTT, stopAudio, resetAudio]);
+  }, [
+    stopSTT,
+    stopVoiceMode,
+    setPhase,
+    addUserMessage,
+    setThinking,
+    setErrorType,
+    setCleoTranscript,
+    appendCleoTranscript,
+    startAssistantMessage,
+    appendToken,
+    finishAssistantMessage,
+    setActiveChat,
+    enqueueAudio,
+    isAuthenticated,
+    isPlaying,
+    setError,
+    upsertChatSummary,
+  ]);
 
   /**
-   * Interrupt CLEO's speech manually.
-   */
-  const interrupt = useCallback(() => {
-    if (useVoiceStore.getState().phase !== "speaking") return;
-
-    // 1. Capture context
-    const idx = currentChunkIndexRef.current.val;
-    if (idx >= 0) {
-      lastInterruptedContextRef.current = emittedSentencesRef.current
-        .slice(0, idx + 1)
-        .join(" ");
-    }
-
-    // 2. Stop audio and streams
-    stopAudio();
-    resetAudio();
-    abortRef.current?.abort();
-    ttsAbortRef.current?.abort();
-    ttsAbortRef.current = new AbortController();
-    chunkerRef.current?.reset();
-
-    // 3. Transition to listening
-    setPhase("listening");
-    startSTT();
-  }, [stopAudio, resetAudio, setPhase, startSTT]);
-
-  /**
-   * Reset everything to idle.
+   * Deactivate voice mode — cancel everything and reset.
    */
   const deactivate = useCallback(() => {
     stopSTT();
     stopAudio();
     abortRef.current?.abort();
     ttsAbortRef.current?.abort();
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
     chunkerRef.current?.reset();
     stopVoiceMode();
   }, [stopSTT, stopAudio, stopVoiceMode]);
 
   /**
-   * Ctrl+Shift+V toggle.
+   * Keyboard shortcut: Ctrl+Shift+V toggles voice mode.
    */
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.ctrlKey && e.shiftKey && e.key === "V") {
+        e.preventDefault();
         const { isVoiceMode, isSupported } = useVoiceStore.getState();
         if (!isSupported) return;
-        isVoiceMode ? deactivate() : activate();
+
+        if (isVoiceMode) {
+          deactivate();
+        } else {
+          activate();
+        }
       }
     }
+
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [activate, deactivate]);
 
   /**
-   * Auto-send on silence (2.8s).
+   * Silence detection — automatically send message after user stops speaking.
    */
   useEffect(() => {
+    // Only monitor silence during the listening phase and for non-empty transcript
+    // Minimum length check (3 chars) to avoid triggering on ambient noise/breathing
     const trimmed = userTranscript.trim();
     if (!isVoiceMode || phase !== "listening" || trimmed.length < 3) {
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
       return;
     }
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    silenceTimerRef.current = setTimeout(sendVoiceMessage, 2800);
-    return () => { if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current); };
+
+    // Reset silence timer on every new transcript result
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+
+    silenceTimerRef.current = setTimeout(() => {
+      sendVoiceMessage();
+      silenceTimerRef.current = null;
+    }, 2800); // 2.8 seconds of silence
+
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+    };
   }, [isVoiceMode, phase, userTranscript, sendVoiceMessage]);
 
-  /**
-   * Hot-swap sentiment during speech.
-   */
-  useEffect(() => {
-    if (phase === "speaking" && currentVibe !== vibeRef.current) {
-      vibeRef.current = currentVibe;
-      clearPending();
-      const pendingIndices = emittedSentencesRef.current
-        .map((_, i) => i)
-        .filter(i => i > currentChunkIndexRef.current.val);
-
-      if (pendingIndices.length > 0) {
-        ttsAbortRef.current?.abort();
-        ttsAbortRef.current = new AbortController();
-        pendingIndices.forEach(async (index) => {
-          const sentence = emittedSentencesRef.current[index];
-          const speechText = stripMarkdown(sentence);
-          if (!speechText) return;
-          try {
-            const audioBlob = await synthesizeSpeech(speechText, { sentiment: currentVibe }, ttsAbortRef.current?.signal);
-            if (audioBlob.size > 0) enqueueAudio(audioBlob);
-          } catch (err) {
-            if ((err as Error).name !== "AbortError") console.error("Hot-swap failed:", err);
-          }
-        });
-      }
-    } else if (phase !== "speaking") {
-      vibeRef.current = currentVibe;
-    }
-  }, [currentVibe, phase, clearPending, enqueueAudio]);
-
-  return { activate, sendVoiceMessage, deactivate, interrupt };
+  return {
+    /** Enter voice mode (start listening). */
+    activate,
+    /** Stop listening and process the voice input. */
+    sendVoiceMessage,
+    /** Cancel voice mode entirely. */
+    deactivate,
+  };
 }

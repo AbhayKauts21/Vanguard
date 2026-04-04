@@ -11,7 +11,7 @@ import { useVoiceStore } from "@/domains/voice/model";
  * The audioLevel (0-1) drives the energy core's noise intensity and scale
  * during the "speaking" phase, creating the heartbeat/breathing sync effect.
  */
-export function useAudioAnalyser(onChunkStart?: (index: number) => void) {
+export function useAudioAnalyser() {
   const queueRef = useRef<AudioQueue | null>(null);
   const setAudioLevel = useVoiceStore((s) => s.setAudioLevel);
 
@@ -25,8 +25,8 @@ export function useAudioAnalyser(onChunkStart?: (index: number) => void) {
         onQueueDrained: () => {
           setAudioLevel(0);
         },
-        onChunkStart: (index) => {
-          onChunkStart?.(index);
+        onChunkStart: () => {
+          // Could trigger per-sentence UI updates here
         },
         onError: (error) => {
           console.error("[AudioQueue]", error);
@@ -38,7 +38,7 @@ export function useAudioAnalyser(onChunkStart?: (index: number) => void) {
     }
 
     return queueRef.current;
-  }, [setAudioLevel, onChunkStart]);
+  }, [setAudioLevel]);
 
   /** Enqueue an audio blob for sequential playback. */
   const enqueueAudio = useCallback(
@@ -59,11 +59,6 @@ export function useAudioAnalyser(onChunkStart?: (index: number) => void) {
     queueRef.current?.reset();
     setAudioLevel(0);
   }, [setAudioLevel]);
-
-  /** Clear pending chunks from the queue (keeps current playing). */
-  const clearPending = useCallback(() => {
-    queueRef.current?.clearPending();
-  }, []);
 
   /** Resume the audio context (required for autoplay policy). */
   const resumeAudio = useCallback(async () => {
@@ -89,7 +84,6 @@ export function useAudioAnalyser(onChunkStart?: (index: number) => void) {
     enqueueAudio,
     stopAudio,
     resetAudio,
-    clearPending,
     resumeAudio,
     isPlaying,
   };

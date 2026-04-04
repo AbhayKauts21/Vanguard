@@ -86,7 +86,7 @@ async def test_rag_filters_user_uploads_to_current_user():
     )
 
     with pytest.raises(Exception):
-        await service.answer_query("what is sso", user_id="user-123")
+        await service.answer_query("hello", user_id="user-123")
 
     assert store.last_filter == {
         "$or": [

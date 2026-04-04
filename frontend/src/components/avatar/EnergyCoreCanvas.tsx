@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import type { EnergyCoreVisualState } from "@/domains/avatar/model/energy-core";
-import { useVoiceStore } from "@/domains/voice/model";
 
 interface EnergyCoreCanvasProps {
   state: EnergyCoreVisualState;
@@ -19,13 +18,6 @@ interface EnergyCoreProfile {
   breathAmplitude: number;
   breathSpeed: number;
 }
-
-const VIBE_COLOR_MAP: Record<string, number> = {
-  professional: 0x4c7fff, // Blue
-  friendly: 0x22d3c5,     // Emerald
-  cheerful: 0xff9f1c,     // Amber
-  empathetic: 0xa855f7,   // Purple
-};
 
 const ENERGY_CORE_PROFILES: Record<EnergyCoreVisualState, EnergyCoreProfile> = {
   idle: {
@@ -162,17 +154,6 @@ export function EnergyCoreCanvas({ state, audioLevel = 0 }: EnergyCoreCanvasProp
   const maskRef = useRef<HTMLDivElement>(null);
   const targetStateRef = useRef<EnergyCoreProfile>(INITIAL_PROFILE);
   const audioLevelRef = useRef(0);
-  const vibe = useVoiceStore((s) => s.vibe);
-
-  // Derive final profile based on state and vibe
-  const activeProfile = useMemo(() => {
-    const base = ENERGY_CORE_PROFILES[state];
-    // Override color based on vibe if in speech phase, otherwise follow state defaults
-    if (state === "speech") {
-      return { ...base, color: VIBE_COLOR_MAP[vibe] };
-    }
-    return base;
-  }, [state, vibe]);
 
   // Keep audio level in a ref for the render loop (avoids re-creating the Three.js scene)
   useEffect(() => {
@@ -180,12 +161,12 @@ export function EnergyCoreCanvas({ state, audioLevel = 0 }: EnergyCoreCanvasProp
   }, [audioLevel]);
 
   useEffect(() => {
-    targetStateRef.current = activeProfile;
+    targetStateRef.current = ENERGY_CORE_PROFILES[state];
 
     if (maskRef.current) {
-      maskRef.current.style.transform = `translate(-50%, -50%) scale(${activeProfile.scale})`;
+      maskRef.current.style.transform = `translate(-50%, -50%) scale(${targetStateRef.current.scale})`;
     }
-  }, [activeProfile]);
+  }, [state]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -214,9 +195,9 @@ export function EnergyCoreCanvas({ state, audioLevel = 0 }: EnergyCoreCanvasProp
     const material = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
-        uColor: { value: new THREE.Color(activeProfile.color) },
-        uSpeed: { value: activeProfile.speed },
-        uNoiseIntensity: { value: activeProfile.noise },
+        uColor: { value: new THREE.Color(INITIAL_PROFILE.color) },
+        uSpeed: { value: INITIAL_PROFILE.speed },
+        uNoiseIntensity: { value: INITIAL_PROFILE.noise },
       },
       vertexShader,
       fragmentShader,
@@ -238,7 +219,7 @@ export function EnergyCoreCanvas({ state, audioLevel = 0 }: EnergyCoreCanvasProp
 
     let animationFrameId = 0;
     const clock = new THREE.Clock();
-    const targetColor = new THREE.Color(activeProfile.color);
+    const targetColor = new THREE.Color(INITIAL_PROFILE.color);
     const targetScale = new THREE.Vector3(1, 1, 1);
     const innerTargetScale = new THREE.Vector3(1, 1, 1);
 

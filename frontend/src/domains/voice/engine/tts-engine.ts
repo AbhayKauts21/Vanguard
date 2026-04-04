@@ -33,6 +33,7 @@ export async function synthesizeSpeech(
     voice: options.voice ?? env.voice.ttsVoice,
     rate: options.rate ?? "+0%",
     pitch: options.pitch ?? "+0Hz",
+    sentiment: options.sentiment,
   };
 
   const response = await fetch(`${env.apiBaseUrl}${TTS_ENDPOINT}`, {

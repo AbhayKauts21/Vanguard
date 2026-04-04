@@ -20,6 +20,8 @@ interface VoiceState {
   error: string | null;
   /** Whether the browser supports speech recognition. */
   isSupported: boolean;
+  /** Emotional vibe for Neural Link (Azure style). */
+  vibe: "professional" | "friendly" | "cheerful" | "empathetic";
 
   /* ── Actions ── */
 
@@ -43,6 +45,8 @@ interface VoiceState {
   setError: (error: string | null) => void;
   /** Set browser support flag. */
   setSupported: (supported: boolean) => void;
+  /** Set the emotional vibe. */
+  setVibe: (vibe: "professional" | "friendly" | "cheerful" | "empathetic") => void;
   /** Full reset to idle defaults. */
   reset: () => void;
 }
@@ -56,6 +60,7 @@ const INITIAL_STATE = {
   audioLevel: 0,
   error: null,
   isSupported: true,
+  vibe: "professional" as const,
 };
 
 /**
@@ -108,6 +113,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
     })),
 
   setSupported: (supported) => set({ isSupported: supported }),
+
+  setVibe: (vibe) => set({ vibe }),
 
   reset: () => set({ ...INITIAL_STATE }),
 }));

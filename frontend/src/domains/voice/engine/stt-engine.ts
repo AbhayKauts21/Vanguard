@@ -93,6 +93,10 @@ export class STTEngine {
       this.callbacks?.onStart();
     };
 
+    recognition.onspeechstart = () => {
+      this.callbacks?.onSpeechStart?.();
+    };
+
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interimTranscript = "";
       let finalSegment = "";

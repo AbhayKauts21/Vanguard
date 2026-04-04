@@ -28,7 +28,7 @@ export function useSpeechRecognition() {
     setSupported(supported);
   }, [setSupported]);
 
-  const start = useCallback(() => {
+  const start = useCallback((onSpeechStart?: () => void) => {
     if (!isSpeechRecognitionSupported()) {
       setError("Speech recognition is not supported in this browser.");
       return;
@@ -64,6 +64,7 @@ export function useSpeechRecognition() {
       onStart: () => {
         setError(null);
       },
+      onSpeechStart,
     });
   }, [setUserTranscript, setFinalTranscript, setError]);
 

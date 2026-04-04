@@ -20,6 +20,7 @@ class TTSService:
         text: str,
         voice: Optional[str] = None,
         language: Optional[str] = None,
+        sentiment: Optional[str] = None,
     ) -> bytes:
         """Synthesize text into audio bytes.
 
@@ -46,12 +47,14 @@ class TTSService:
             text_length=len(text),
             voice=effective_voice,
             language=language,
+            sentiment=sentiment,
         )
 
         return await azure_speech_client.synthesize(
             text=text.strip(),
             voice=voice,
             language=language,
+            sentiment=sentiment,
         )
 
     async def synthesize_stream(
@@ -59,6 +62,7 @@ class TTSService:
         text: str,
         voice: Optional[str] = None,
         language: Optional[str] = None,
+        sentiment: Optional[str] = None,
     ) -> AsyncIterator[bytes]:
         """Stream audio chunks from Azure Speech synthesis.
 
@@ -82,6 +86,7 @@ class TTSService:
             text=text.strip(),
             voice=voice,
             language=language,
+            sentiment=sentiment,
         ):
             yield chunk
 

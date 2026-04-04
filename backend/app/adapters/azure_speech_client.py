@@ -22,6 +22,18 @@ import azure.cognitiveservices.speech as speechsdk
 class AzureSpeechClient:
     """Wraps Azure Cognitive Services Speech SDK for TTS."""
 
+    # Map internal sentiment tags to Azure neural voice styles.
+    # Standard styles: cheerful, empathetic, excited, friendly, hopeful, sad, shouting, whispering, terrified, angry, unfriendly.
+    STYLE_MAP = {
+        "cheerful": "cheerful",
+        "excited": "excited",
+        "friendly": "friendly",
+        "empathetic": "empathetic",
+        "angry": "angry",
+        "professional": "friendly",  # Use friendly as base premium
+        "formal": "friendly",
+    }
+
     def __init__(self) -> None:
         self._synthesizer = None
         self._speech_config = None
@@ -93,6 +105,7 @@ class AzureSpeechClient:
         text: str,
         voice: Optional[str] = None,
         language: Optional[str] = None,
+        sentiment: Optional[str] = None,
     ) -> bytes:
         """Synthesize *text* into audio bytes (MP3) using SSML.
 
@@ -104,9 +117,17 @@ class AzureSpeechClient:
         effective_lang = language or "en-US"
 
         # Construct a robust SSML string.
+        # If sentiment is provided and exists in map, wrap in <mstts:express-as>.
+        style = self.STYLE_MAP.get(sentiment.lower()) if sentiment else None
+        
+        inner_content = _escape_xml(text)
+        if style:
+            inner_content = f'<mstts:express-as style="{style}">{inner_content}</mstts:express-as>'
+
         ssml = (
-            f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="{effective_lang}">'
-            f'<voice name="{effective_voice}">{_escape_xml(text)}</voice>'
+            f'<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+            f'xmlns:mstts="http://www.w3.org/2001/mstts" xml:lang="{effective_lang}">'
+            f'<voice name="{effective_voice}">{inner_content}</voice>'
             f"</speak>"
         )
 
@@ -164,6 +185,7 @@ class AzureSpeechClient:
         text: str,
         voice: Optional[str] = None,
         language: Optional[str] = None,
+        sentiment: Optional[str] = None,
     ):
         """Yield audio chunks as they are synthesized — for streaming responses.
 
@@ -176,10 +198,8 @@ class AzureSpeechClient:
         bytes
             Audio data chunks (each ~4-16 KB depending on SDK buffering).
         """
-        # For v1, synthesize full audio then yield in chunks for streaming response.
-        # A future iteration can use the SDK's pull audio output stream for true
         # incremental delivery.
-        audio_data = await self.synthesize(text, voice=voice, language=language)
+        audio_data = await self.synthesize(text, voice=voice, language=language, sentiment=sentiment)
 
         chunk_size = 8192  # 8 KB chunks
         stream = io.BytesIO(audio_data)

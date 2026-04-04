@@ -43,9 +43,9 @@ export function VibeSelector() {
             <AnimatePresence>
               {isActive && (
                 <motion.span
-                  initial={{ opacity: 0, w: 0 }}
-                  animate={{ opacity: 1, w: "auto" }}
-                  exit={{ opacity: 0, w: 0 }}
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
                   className="relative z-10 text-[10px] font-medium ml-2 mr-1 overflow-hidden whitespace-nowrap"
                 >
                   {v.label}

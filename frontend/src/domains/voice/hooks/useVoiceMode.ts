@@ -70,8 +70,19 @@ export function useVoiceMode() {
     resumeAudio(); // Explicitly resume AudioContext on user gesture
     setCleoTranscript("");
     useVoiceStore.getState().setUserTranscript(""); // Clear user transcript on fresh activation
-    startSTT();
-  }, [startVoiceMode, resetAudio, resumeAudio, setCleoTranscript, startSTT]);
+    
+    // Interruption: stop current audio if user starts speaking
+    startSTT(() => {
+      const { phase } = useVoiceStore.getState();
+      if (phase === "speaking") {
+        console.log("[VoiceMode] Interruption detected — stopping audio");
+        stopAudio();
+        resetAudio();
+        ttsAbortRef.current?.abort();
+        ttsAbortRef.current = new AbortController();
+      }
+    });
+  }, [startVoiceMode, resetAudio, resumeAudio, setCleoTranscript, startSTT, stopAudio]);
 
   /**
    * Stop listening and send the captured transcript to the chat pipeline.
@@ -126,10 +137,14 @@ export function useVoiceMode() {
     let firstTokenRecorded = false;
     let chatId = state.activeChatId;
     let streamPath = CHAT_STREAM_ENDPOINT;
-    let body: ChatRequest | { message: string } = {
+    const currentVibe = useVoiceStore.getState().vibe;
+
+    let body: ChatRequest | { message: string; is_voice_mode: boolean; vibe: string } = {
       message: finalTranscript,
       conversation_id: conversationId,
       conversation_history: history,
+      is_voice_mode: true,
+      vibe: currentVibe,
     };
 
     // Sentence chunker → TTS per sentence
@@ -143,7 +158,7 @@ export function useVoiceMode() {
 
         const audioBlob = await synthesizeSpeech(
           speechText,
-          {},
+          { sentiment: currentVibe },
           ttsAbortRef.current?.signal,
         );
         
@@ -171,7 +186,11 @@ export function useVoiceMode() {
           chatId = summary.id;
         }
         streamPath = `${CHATS_ENDPOINT}/${chatId}/messages/stream`;
-        body = { message: finalTranscript };
+        body = { 
+          message: finalTranscript,
+          is_voice_mode: true,
+          vibe: currentVibe,
+        };
       }
 
       const response = await api.stream(
@@ -227,7 +246,17 @@ export function useVoiceMode() {
                 if (isVoiceMode) {
                   // Auto-restart listening for the next turn
                   setPhase("listening");
-                  startSTT();
+                  
+                  // Re-attach interruption handler
+                  startSTT(() => {
+                    const { phase } = useVoiceStore.getState();
+                    if (phase === "speaking") {
+                      stopAudio();
+                      resetAudio();
+                      ttsAbortRef.current?.abort();
+                      ttsAbortRef.current = new AbortController();
+                    }
+                  });
                 } else {
                   setPhase("idle");
                 }

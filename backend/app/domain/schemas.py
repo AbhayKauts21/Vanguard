@@ -258,6 +258,9 @@ class ChatRequest(BaseModel):
     max_history: int = Field(default=10, le=20)
     is_voice_mode: bool = Field(default=False)
     vibe: Optional[str] = Field(default="professional")
+    local_time: Optional[str] = Field(default=None)
+    location: Optional[str] = Field(default=None)
+    interrupted_context: Optional[str] = Field(default=None)
 
 
 class ChatResponse(BaseModel):

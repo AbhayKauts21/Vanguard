@@ -155,6 +155,7 @@ export function useVoiceMode() {
     };
 
     lastInterruptedContextRef.current = null;
+    stopSTT(); // Stop microphone explicitly while processing
 
     chunkerRef.current = new SentenceChunker(async (sentence: string) => {
       emittedSentencesRef.current.push(sentence);
@@ -260,7 +261,34 @@ export function useVoiceMode() {
         setPhase("idle");
       }
     }
-  }, [stopSTT, stopVoiceMode, setPhase, addUserMessage, setThinking, setErrorType, setCleoTranscript, appendCleoTranscript, startAssistantMessage, appendToken, finishAssistantMessage, setActiveChat, enqueueAudio, isAuthenticated, isPlaying, setError, upsertChatSummary]);
+  }, [stopSTT, stopVoiceMode, setPhase, addUserMessage, setThinking, setErrorType, setCleoTranscript, appendCleoTranscript, startAssistantMessage, appendToken, finishAssistantMessage, setActiveChat, enqueueAudio, isAuthenticated, isPlaying, setError, upsertChatSummary, startSTT, stopAudio, resetAudio]);
+
+  /**
+   * Interrupt CLEO's speech manually.
+   */
+  const interrupt = useCallback(() => {
+    if (useVoiceStore.getState().phase !== "speaking") return;
+
+    // 1. Capture context
+    const idx = currentChunkIndexRef.current.val;
+    if (idx >= 0) {
+      lastInterruptedContextRef.current = emittedSentencesRef.current
+        .slice(0, idx + 1)
+        .join(" ");
+    }
+
+    // 2. Stop audio and streams
+    stopAudio();
+    resetAudio();
+    abortRef.current?.abort();
+    ttsAbortRef.current?.abort();
+    ttsAbortRef.current = new AbortController();
+    chunkerRef.current?.reset();
+
+    // 3. Transition to listening
+    setPhase("listening");
+    startSTT();
+  }, [stopAudio, resetAudio, setPhase, startSTT]);
 
   /**
    * Reset everything to idle.
@@ -335,5 +363,5 @@ export function useVoiceMode() {
     }
   }, [currentVibe, phase, clearPending, enqueueAudio]);
 
-  return { activate, sendVoiceMessage, deactivate };
+  return { activate, sendVoiceMessage, deactivate, interrupt };
 }

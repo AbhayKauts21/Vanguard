@@ -1,5 +1,6 @@
 "use client";
 
+import { useVoiceMode } from "@/domains/voice/hooks/useVoiceMode";
 import { useVoiceStore } from "@/domains/voice/model";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useRef } from "react";
@@ -30,6 +31,7 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
   const setSuggestions = useVoiceStore((s) => s.setSuggestions);
   const isMuted = useVoiceStore((s) => s.isMuted);
   const setMuted = useVoiceStore((s) => s.setMuted);
+  const { interrupt } = useVoiceMode();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Proactive interactive engagement: suggest "Do you want to know more?" after long responses
@@ -240,6 +242,24 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
 
           {/* Phase status pill + Stop Button — pinned to bottom */}
           <div className="relative z-10 flex justify-center items-center gap-3 pointer-events-auto shrink-0 py-4">
+            {/* Interrupt Button (Only when speaking) */}
+            <AnimatePresence>
+              {phase === "speaking" && (
+                <motion.button
+                  initial={{ opacity: 0, x: 10, scale: 0.9 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 10, scale: 0.9 }}
+                  onClick={interrupt}
+                  className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 backdrop-blur-md text-emerald-400 hover:bg-emerald-500/20 transition-all shadow-[0_0_15px_rgba(16,185,129,0.15)] group"
+                >
+                  <span className="material-symbols-outlined text-[18px] group-hover:rotate-12 transition-transform">
+                    waving_hand
+                  </span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Interrupt</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+
             <motion.div
               key={phase}
               initial={{ scale: 0.9, opacity: 0 }}

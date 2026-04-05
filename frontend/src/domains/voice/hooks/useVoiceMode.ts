@@ -18,7 +18,7 @@ import {
 } from "@/domains/voice/engine";
 import { api, consumeSSEStream } from "@/lib/api";
 import { CHATS_ENDPOINT, CHAT_STREAM_ENDPOINT } from "@/lib/constants";
-import type { ChatRequest, SSEDoneEvent } from "@/types";
+import type { ChatRequest, SSEDoneEvent, SSEVoiceReadyEvent } from "@/types";
 import { stripMarkdown } from "@/lib/utils/markdown";
 
 const POST_PLAYBACK_SETTLE_MS = 800;
@@ -57,6 +57,29 @@ function splitVoiceResponse(text: string): string[] {
   return sentences && sentences.length > 0 ? sentences : [normalized];
 }
 
+function decodePreparedVoiceAudio(
+  base64Audio: string,
+  contentType: string,
+): Blob | null {
+  if (!base64Audio) {
+    return null;
+  }
+
+  try {
+    const binary = atob(base64Audio);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], {
+      type: contentType || "audio/mpeg",
+    });
+  } catch (error) {
+    console.error("[VoiceMode] Failed to decode prepared voice audio:", error);
+    return null;
+  }
+}
+
 /**
  * useVoiceMode — master orchestrator for the voice-to-voice pipeline.
  *
@@ -66,8 +89,9 @@ function splitVoiceResponse(text: string): string[] {
  *   3. User clicks stop (or silence timeout) → sendVoiceMessage()
  *      → final transcript → send to chat stream endpoint with voice_mode=true
  *   4. SSE tokens stream back → text chat updates normally
- *   5. Final done event returns voice_response → TTS speaks the short reply
- *   6. Playback drains → STT reopens for the next turn
+ *   5. voice_ready returns prepared audio + short spoken text → playback starts
+ *   6. done finalizes chat metadata while the full answer is already visible
+ *   7. Playback drains → STT reopens for the next turn
  */
 export function useVoiceMode() {
   const { start: startSTT, stop: stopSTT } = useSpeechRecognition();
@@ -349,6 +373,8 @@ export function useVoiceMode() {
 
       let doneEvent: SSEDoneEvent | null = null;
       let streamError: Error | null = null;
+      let preparedVoiceText = "";
+      let preparedVoiceQueued = false;
 
       await consumeSSEStream(
         response,
@@ -400,6 +426,21 @@ export function useVoiceMode() {
 
           setPhase("idle");
         },
+        (event: SSEVoiceReadyEvent) => {
+          const voiceText = normalizeVoiceText(event.voice_response);
+          const audioBlob = decodePreparedVoiceAudio(
+            event.voice_audio_base64,
+            event.voice_audio_content_type,
+          );
+
+          preparedVoiceText = voiceText;
+          spokenVoiceTextRef.current = voiceText;
+
+          if (audioBlob && audioBlob.size > 0) {
+            preparedVoiceQueued = true;
+            enqueueAudio(audioBlob);
+          }
+        },
       );
 
       if (streamError || turnId !== turnRef.current || !doneEvent) {
@@ -408,14 +449,18 @@ export function useVoiceMode() {
 
       const finalDoneEvent = doneEvent as SSEDoneEvent;
       const voiceText =
+        preparedVoiceText ||
         normalizeVoiceText(finalDoneEvent.voice_response ?? "") ||
         clampVoiceFallback(
           useChatStore.getState().messages.slice(-1)[0]?.content ?? "",
         );
 
-      if (voiceText) {
+      if (!preparedVoiceQueued && voiceText) {
         spokenVoiceTextRef.current = voiceText;
         await speakVoiceResponse(voiceText, turnId);
+      }
+
+      if (preparedVoiceQueued || voiceText) {
         await waitForPlaybackToSettle(turnId);
       }
 

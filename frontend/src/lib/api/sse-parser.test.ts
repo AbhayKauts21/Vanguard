@@ -22,6 +22,18 @@ describe("parseSSELine", () => {
     });
   });
 
+  it("parses a voice_ready event", () => {
+    const line =
+      'data: {"type":"voice_ready","voice_response":"Short spoken answer.","voice_audio_base64":"YXVkaW8=","voice_audio_content_type":"audio/mpeg"}';
+    const result = parseSSELine(line);
+    expect(result).toEqual({
+      type: "voice_ready",
+      voice_response: "Short spoken answer.",
+      voice_audio_base64: "YXVkaW8=",
+      voice_audio_content_type: "audio/mpeg",
+    });
+  });
+
   it("returns null for empty lines", () => {
     expect(parseSSELine("")).toBeNull();
     expect(parseSSELine("  ")).toBeNull();

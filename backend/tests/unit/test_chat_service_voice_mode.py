@@ -40,6 +40,18 @@ class FakeVoiceConversationService:
         return "Short spoken reply."
 
 
+class FakeTTSService:
+    def __init__(self):
+        self.calls = []
+
+    def content_type(self) -> str:
+        return "audio/mpeg"
+
+    async def synthesize(self, **kwargs):
+        self.calls.append(kwargs)
+        return b"voice-audio"
+
+
 def build_message_record(*, chat_id, sender, content, metadata=None):
     return SimpleNamespace(
         id=uuid4(),
@@ -91,9 +103,11 @@ async def test_send_message_returns_voice_response_without_persisting_it(monkeyp
         return None
 
     voice_service = FakeVoiceConversationService()
+    tts_service = FakeTTSService()
     service = ChatService(
         rag_service=FakeRAGService(),
         voice_conversation_service=voice_service,
+        tts_service=tts_service,
     )
 
     async def fake_get_owned_chat(session, *, current_user, chat_id):
@@ -140,10 +154,35 @@ async def test_send_message_returns_voice_response_without_persisting_it(monkeyp
     assert response.voice_response == "Short spoken reply."
     assert "voice_response" not in created_messages[-1]["metadata"]
     assert voice_service.calls[0]["mode_used"] == "rag"
+    assert tts_service.calls == []
 
 
 @pytest.mark.asyncio
-async def test_stream_message_adds_voice_response_and_persists_full_answer(monkeypatch):
+async def test_prepare_voice_turn_returns_rewrite_and_audio(monkeypatch):
+    voice_service = FakeVoiceConversationService()
+    tts_service = FakeTTSService()
+    service = ChatService(
+        rag_service=FakeRAGService(),
+        voice_conversation_service=voice_service,
+        tts_service=tts_service,
+    )
+
+    prepared = await service.prepare_voice_turn(
+        question="How do I reset my password?",
+        history=[ConversationMessage(role="user", content="I forgot my password.")],
+        locale="en",
+        user_id="user-123",
+    )
+
+    assert prepared.response.answer == "Full grounded answer with **markdown**."
+    assert prepared.response.voice_response == "Short spoken reply."
+    assert prepared.voice_audio_bytes == b"voice-audio"
+    assert prepared.voice_audio_content_type == "audio/mpeg"
+    assert tts_service.calls == [{"text": "Short spoken reply.", "language": "en"}]
+
+
+@pytest.mark.asyncio
+async def test_stream_message_emits_voice_ready_and_persists_full_answer(monkeypatch):
     user_id = uuid4()
     chat_id = uuid4()
     current_user = SimpleNamespace(id=user_id)
@@ -169,24 +208,12 @@ async def test_stream_message_adds_voice_response_and_persists_full_answer(monke
     async def fake_touch_chat(session, *, chat, when):
         return None
 
-    async def fake_stream_answer_query(question, *, history, locale, user_id):
-        yield {"type": "token", "content": "Full "}
-        yield {"type": "token", "content": "grounded "}
-        yield {"type": "token", "content": "answer."}
-        yield {
-            "type": "done",
-            "primary_citations": [],
-            "secondary_citations": [],
-            "all_citations": [],
-            "hidden_sources_count": 0,
-            "mode_used": "rag",
-            "max_confidence": 0.92,
-        }
-
     voice_service = FakeVoiceConversationService()
+    tts_service = FakeTTSService()
     service = ChatService(
         rag_service=FakeRAGService(),
         voice_conversation_service=voice_service,
+        tts_service=tts_service,
     )
 
     async def fake_get_owned_chat(session, *, current_user, chat_id):
@@ -217,7 +244,6 @@ async def test_stream_message_adds_voice_response_and_persists_full_answer(monke
         "_build_chat_summary_after_send",
         fake_build_chat_summary_after_send,
     )
-    monkeypatch.setattr(service, "_stream_answer_query", fake_stream_answer_query)
 
     events = [
         event
@@ -233,7 +259,13 @@ async def test_stream_message_adds_voice_response_and_persists_full_answer(monke
         )
     ]
 
+    assert events[0]["type"] == "voice_ready"
+    assert events[0]["voice_response"] == "Short spoken reply."
+    assert events[0]["voice_audio_base64"] == "dm9pY2UtYXVkaW8="
+    assert events[0]["voice_audio_content_type"] == "audio/mpeg"
+    assert events[1] == {"type": "token", "content": "Full grounded answer with **markdown**."}
     assert events[-1]["voice_response"] == "Short spoken reply."
     assert events[-1]["chat_summary"]["id"] == str(chat_id)
-    assert created_messages[-1]["content"] == "Full grounded answer."
+    assert created_messages[-1]["content"] == "Full grounded answer with **markdown**."
     assert "voice_response" not in created_messages[-1]["metadata"]
+    assert tts_service.calls == [{"text": "Short spoken reply.", "language": "en"}]

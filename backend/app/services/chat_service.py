@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import base64
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 from uuid import UUID
+
+from loguru import logger
 
 from app.core.exceptions import ResourceNotFoundError
 from app.core.prompts import NO_CONTEXT_RESPONSE
@@ -26,7 +30,15 @@ from app.services.audit_service import audit_service
 from app.services.voice_conversation_service import (
     voice_conversation_service as default_voice_conversation_service,
 )
+from app.services.tts_service import tts_service as default_tts_service
 from app.domain.audit_log import AuditEventCode
+
+
+@dataclass
+class PreparedVoiceTurn:
+    response: ChatResponse
+    voice_audio_bytes: bytes
+    voice_audio_content_type: str
 
 
 class ChatService:
@@ -35,9 +47,11 @@ class ChatService:
         *,
         rag_service=default_rag_service,
         voice_conversation_service=default_voice_conversation_service,
+        tts_service=default_tts_service,
     ) -> None:
         self.rag_service = rag_service
         self.voice_conversation_service = voice_conversation_service
+        self.tts_service = tts_service
 
     async def create_chat(
         self,
@@ -191,6 +205,42 @@ class ChatService:
         )
         await session.commit()
 
+        if payload.voice_mode:
+            prepared = await self.prepare_voice_turn(
+                question=payload.message,
+                history=history,
+                locale=locale,
+                user_id=str(current_user.id),
+            )
+            response = prepared.response
+
+            yield self.build_voice_ready_event(prepared)
+            yield {"type": "token", "content": response.answer}
+
+            await chat_repository.create_message(
+                session,
+                chat_id=chat.id,
+                sender=ChatMessageSender.ASSISTANT.value,
+                content=response.answer,
+                metadata=self._build_message_metadata(response),
+            )
+            await chat_repository.touch_chat(
+                session,
+                chat=chat,
+                when=datetime.now(timezone.utc),
+            )
+            await session.commit()
+
+            final_event = self.build_stream_done_event(response)
+            chat_summary = await self._build_chat_summary_after_send(
+                session,
+                chat_id=chat.id,
+                user_id=current_user.id,
+            )
+            final_event["chat_summary"] = chat_summary.model_dump(mode="json")
+            yield final_event
+            return
+
         buffered_tokens: list[str] = []
         final_event: dict[str, Any] | None = None
 
@@ -267,6 +317,74 @@ class ChatService:
         chat_summary = await self._build_chat_summary_after_send(session, chat_id=chat.id, user_id=current_user.id)
         final_event["chat_summary"] = chat_summary.model_dump(mode="json")
         yield final_event
+
+    async def prepare_voice_turn(
+        self,
+        *,
+        question: str,
+        history: list[ConversationMessage],
+        locale: str = "en",
+        user_id: str | None = None,
+        response: ChatResponse | None = None,
+    ) -> PreparedVoiceTurn:
+        base_response = response or await self._answer_with_fallback(
+            question,
+            history,
+            locale=locale,
+            user_id=user_id,
+        )
+        voice_text = await self.voice_conversation_service.create_voice_response(
+            question=question,
+            answer=base_response.answer,
+            history=history,
+            locale=locale,
+            mode_used=base_response.mode_used,
+        )
+        base_response.voice_response = voice_text
+
+        audio_bytes = b""
+        audio_content_type = self.tts_service.content_type()
+        if voice_text:
+            try:
+                audio_bytes = await self.tts_service.synthesize(
+                    text=voice_text,
+                    language=locale,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "chat_service.voice_audio_prep_failed",
+                    error=str(exc),
+                    locale=locale,
+                )
+
+        return PreparedVoiceTurn(
+            response=base_response,
+            voice_audio_bytes=audio_bytes,
+            voice_audio_content_type=audio_content_type,
+        )
+
+    def build_voice_ready_event(self, prepared: PreparedVoiceTurn) -> dict[str, str]:
+        return {
+            "type": "voice_ready",
+            "voice_response": prepared.response.voice_response or "",
+            "voice_audio_base64": base64.b64encode(prepared.voice_audio_bytes).decode("ascii")
+            if prepared.voice_audio_bytes
+            else "",
+            "voice_audio_content_type": prepared.voice_audio_content_type,
+        }
+
+    def build_stream_done_event(self, response: ChatResponse) -> dict[str, Any]:
+        return {
+            "type": "done",
+            "primary_citations": [citation.model_dump(mode="json") for citation in response.primary_citations],
+            "secondary_citations": [citation.model_dump(mode="json") for citation in response.secondary_citations],
+            "all_citations": [citation.model_dump(mode="json") for citation in response.all_citations],
+            "hidden_sources_count": response.hidden_sources_count,
+            "mode_used": response.mode_used,
+            "max_confidence": response.max_confidence,
+            "what_i_found": response.what_i_found,
+            "voice_response": response.voice_response,
+        }
 
     async def delete_chat(
         self,

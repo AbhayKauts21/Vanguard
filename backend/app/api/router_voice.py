@@ -26,20 +26,6 @@ router = APIRouter(
 
 _rate = f"{settings.RATE_LIMIT_PER_MINUTE}/minute"
 
-# Map our config string to an HTTP Content-Type.
-_AUDIO_CONTENT_TYPES = {
-    "audio-16khz-32kbitrate-mono-mp3": "audio/mpeg",
-    "audio-16khz-64kbitrate-mono-mp3": "audio/mpeg",
-    "audio-24khz-48kbitrate-mono-mp3": "audio/mpeg",
-    "audio-24khz-96kbitrate-mono-mp3": "audio/mpeg",
-    "audio-24khz-160kbitrate-mono-mp3": "audio/mpeg",
-    "audio-48khz-96kbitrate-mono-mp3": "audio/mpeg",
-}
-
-
-def _content_type() -> str:
-    return _AUDIO_CONTENT_TYPES.get(settings.AZURE_TTS_OUTPUT_FORMAT, "audio/mpeg")
-
 
 @router.post("/tts", summary="Text-to-Speech synthesis")
 @limiter.limit(_rate)
@@ -77,7 +63,7 @@ async def tts(request: Request, body: TTSRequest):
 
         return StreamingResponse(
             audio_stream(),
-            media_type=_content_type(),
+            media_type=tts_service.content_type(),
             headers={
                 "Content-Disposition": "inline",
                 "Cache-Control": "no-cache",
@@ -109,7 +95,7 @@ async def tts(request: Request, body: TTSRequest):
 
     return Response(
         content=audio_bytes,
-        media_type=_content_type(),
+        media_type=tts_service.content_type(),
         headers={
             "Content-Disposition": "inline",
             "Content-Length": str(len(audio_bytes)),

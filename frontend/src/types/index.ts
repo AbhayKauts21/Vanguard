@@ -99,7 +99,14 @@ export interface SSEDoneEvent {
   voice_response?: string | null;
 }
 
-export type SSEEvent = SSETokenEvent | SSEDoneEvent;
+export interface SSEVoiceReadyEvent {
+  type: "voice_ready";
+  voice_response: string;
+  voice_audio_base64: string;
+  voice_audio_content_type: string;
+}
+
+export type SSEEvent = SSETokenEvent | SSEDoneEvent | SSEVoiceReadyEvent;
 
 /* --- Admin / Sync --- */
 export interface SyncStatusResponse {

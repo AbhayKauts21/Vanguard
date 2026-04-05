@@ -101,27 +101,6 @@ class RAGService:
         rlog = logger.bind(request_id="sync")
         t_start = time.perf_counter()
 
-        shortcut = self._shortcut_response(question, locale)
-        if shortcut:
-            rlog.info("rag.shortcut_triggered", query=self._normalize_query(question), locale=locale)
-            return self._shortcut_chat_response(shortcut)
-
-        intent = await self.query_intent_service.classify(
-            question,
-            history=history,
-            locale=locale,
-        )
-        rlog.info("rag.intent_route", intent=intent, locale=locale)
-
-        if intent in {"general", "smalltalk"}:
-            return await self._complete_non_docs_response(
-                question=question,
-                history=history,
-                locale=locale,
-                intent=intent,
-                max_confidence=0.0,
-            )
-
         results, max_confidence = await self._search_results(
             question,
             user_id=user_id,
@@ -149,31 +128,6 @@ class RAGService:
         """Streaming RAG pipeline with intent-aware routing."""
         rlog = logger.bind(request_id="stream")
         t_start = time.perf_counter()
-
-        shortcut = self._shortcut_response(question, locale)
-        if shortcut:
-            rlog.info("rag.shortcut_triggered", query=self._normalize_query(question), locale=locale)
-            async for event in self._stream_shortcut(shortcut):
-                yield event
-            return
-
-        intent = await self.query_intent_service.classify(
-            question,
-            history=history,
-            locale=locale,
-        )
-        rlog.info("rag.intent_route", intent=intent, locale=locale)
-
-        if intent in {"general", "smalltalk"}:
-            async for event in self._stream_non_docs_response(
-                question=question,
-                history=history,
-                locale=locale,
-                intent=intent,
-                max_confidence=0.0,
-            ):
-                yield event
-            return
 
         results, max_confidence = await self._search_results(
             question,
@@ -225,7 +179,19 @@ class RAGService:
             }
             return
 
-        if max_confidence >= self._medium_confidence_threshold():
+        intent = await self.query_intent_service.classify(
+            question,
+            history=history,
+            locale=locale,
+        )
+        rlog.info(
+            "rag.intent_route",
+            intent=intent,
+            locale=locale,
+            stage="post_retrieval",
+        )
+
+        if max_confidence >= self._medium_confidence_threshold() and intent == "docs":
             rlog.info(
                 "rag.confidence_route",
                 tier="medium",
@@ -246,17 +212,28 @@ class RAGService:
             }
             return
 
-        rlog.info(
-            "rag.confidence_route",
-            tier="low",
-            max_confidence=round(max_confidence, 3),
-            mode="azure_fallback",
-        )
+        if max_confidence >= self._medium_confidence_threshold():
+            rlog.info(
+                "rag.confidence_route",
+                tier="medium_non_docs_fallback",
+                max_confidence=round(max_confidence, 3),
+                threshold=round(self._medium_confidence_threshold(), 3),
+                intent=intent,
+            )
+        else:
+            rlog.info(
+                "rag.confidence_route",
+                tier="low",
+                max_confidence=round(max_confidence, 3),
+                mode="azure_fallback",
+                intent=intent,
+            )
+
         async for event in self._stream_non_docs_response(
             question=question,
             history=history,
             locale=locale,
-            intent="docs",
+            intent=intent,
             max_confidence=max_confidence,
         ):
             yield event
@@ -336,7 +313,19 @@ class RAGService:
                 max_confidence=max_confidence,
             )
 
-        if max_confidence >= self._medium_confidence_threshold():
+        intent = await self.query_intent_service.classify(
+            question,
+            history=history,
+            locale=locale,
+        )
+        rlog.info(
+            "rag.intent_route",
+            intent=intent,
+            locale=locale,
+            stage="post_retrieval",
+        )
+
+        if max_confidence >= self._medium_confidence_threshold() and intent == "docs":
             return ChatResponse(
                 answer=self._uncertainty_message(locale),
                 primary_citations=[],
@@ -352,7 +341,7 @@ class RAGService:
             question=question,
             history=history,
             locale=locale,
-            intent="docs",
+            intent=intent,
             max_confidence=max_confidence,
         )
 

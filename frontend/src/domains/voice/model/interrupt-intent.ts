@@ -50,8 +50,18 @@ const CONTINUATION_MARKERS = [
   "sorry",
 ];
 
-const MIN_SINGLE_WORD_STABLE_MS = 260;
-const MIN_MULTI_WORD_STABLE_MS = 180;
+const LEADING_SOFTENERS = new Set([
+  "okay",
+  "ok",
+  "well",
+  "so",
+  "um",
+  "uh",
+  "hey",
+]);
+
+const MIN_SINGLE_WORD_STABLE_MS = 120;
+const MIN_MULTI_WORD_STABLE_MS = 90;
 
 export interface InterruptIntentInput {
   transcript: string;
@@ -81,15 +91,22 @@ function hasContinuationShape(text: string, wordCount: number): boolean {
     return true;
   }
 
+  const words = text.split(" ").filter(Boolean);
+  const effectiveWords =
+    words.length > 1 && LEADING_SOFTENERS.has(words[0] ?? "")
+      ? words.slice(1)
+      : words;
+  const effectiveText = effectiveWords.join(" ");
+
   if (startsWithPhrase(text, DIRECT_ADDRESS_PREFIXES) && wordCount >= 2) {
     return true;
   }
 
-  if (wordCount < 3) {
+  if (effectiveWords.length < 2) {
     return false;
   }
 
-  const [firstWord = ""] = text.split(" ");
+  const [firstWord = ""] = effectiveWords;
   return CONTINUATION_MARKERS.includes(firstWord);
 }
 

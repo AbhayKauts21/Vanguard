@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
+import { useAuthStore } from "@/domains/auth/model";
 import { TopBar } from "./TopBar";
 
 vi.mock("@/components/i18n/LanguageSwitcher", () => ({
@@ -37,6 +38,20 @@ const messages = {
 
 describe("TopBar", () => {
   it("renders bespoke header actions for admin and documents access", () => {
+    useAuthStore.setState({
+      accessToken: "token",
+      refreshToken: "refresh",
+      isAuthenticated: true,
+      user: {
+        id: "user-1",
+        email: "user@example.com",
+        is_active: true,
+        created_at: new Date().toISOString(),
+        roles: [],
+        permissions: [],
+      },
+    });
+
     render(
       <NextIntlClientProvider locale="en" messages={messages}>
         <TopBar />

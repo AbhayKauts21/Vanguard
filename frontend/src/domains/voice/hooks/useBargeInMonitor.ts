@@ -43,6 +43,7 @@ export function useBargeInMonitor({
     speakingRef.current = speaking;
     if (!speaking) {
       holdStartRef.current = null;
+      lastTriggerRef.current = 0;
     }
   }, [speaking]);
 
@@ -57,6 +58,8 @@ export function useBargeInMonitor({
       typeof window === "undefined" ||
       !navigator.mediaDevices?.getUserMedia
     ) {
+      holdStartRef.current = null;
+      lastTriggerRef.current = 0;
       return;
     }
 

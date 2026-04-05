@@ -13,7 +13,6 @@ interface ComposerProps {
     isSupported: boolean;
     phase: string;
     onActivate: () => void;
-    onInterrupt: () => void;
     onDeactivate: () => void;
     onSendVoiceMessage: () => void;
   };
@@ -71,7 +70,6 @@ export function Composer({ onSend, disabled = false, voice }: ComposerProps) {
           {voice?.isSupported && (
             <VoiceModeButton
               onActivate={voice.onActivate}
-              onInterrupt={voice.onInterrupt}
               onSend={voice.onSendVoiceMessage}
               disabled={disabled}
             />

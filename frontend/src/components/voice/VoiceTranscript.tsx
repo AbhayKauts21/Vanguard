@@ -9,10 +9,8 @@ import { AnimatePresence, motion } from "framer-motion";
  */
 export function VoiceTranscript({
   onDeactivate,
-  onInterrupt,
 }: {
   onDeactivate?: () => void;
-  onInterrupt?: () => void;
 }) {
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
   const phase = useVoiceStore((s) => s.phase);
@@ -100,16 +98,6 @@ export function VoiceTranscript({
               </div>
 
               <div className="flex items-center gap-2">
-                {phase === "speaking" ? (
-                  <button
-                    type="button"
-                    onClick={() => onInterrupt?.()}
-                    className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100 transition-all hover:border-emerald-300/40 hover:bg-emerald-500/20"
-                  >
-                    Interrupt & Listen
-                  </button>
-                ) : null}
-
                 {onDeactivate ? (
                   <button
                     type="button"
@@ -137,7 +125,7 @@ export function VoiceTranscript({
               ) : (
                 <p className="text-[13px] leading-relaxed text-white/45">
                   {phase === "speaking"
-                    ? "CLEO is speaking in the background. You can interrupt anytime."
+                    ? "CLEO is speaking in the background. Start talking to cut in."
                     : "Voice mode is active. Start speaking when you're ready."}
                 </p>
               )}

@@ -18,6 +18,19 @@ const mocks = vi.hoisted(() => ({
   cancelBrowserTTS: vi.fn(),
   apiStream: vi.fn(),
   consumeSSEStream: vi.fn(),
+  bargeInOptions: null as
+    | {
+        active: boolean;
+        speaking: boolean;
+        onSpeechDetected: () => void;
+      }
+    | null,
+  spokenInterruptOptions: null as
+    | {
+        onTranscriptCandidate?: (transcript: string) => void;
+        onInterruptIntent: (seedTranscript: string) => void;
+      }
+    | null,
 }));
 
 vi.mock("./useSpeechRecognition", () => ({
@@ -38,11 +51,24 @@ vi.mock("./useAudioAnalyser", () => ({
 }));
 
 vi.mock("./useBargeInMonitor", () => ({
-  useBargeInMonitor: () => undefined,
+  useBargeInMonitor: (options: {
+    active: boolean;
+    speaking: boolean;
+    onSpeechDetected: () => void;
+  }) => {
+    mocks.bargeInOptions = options;
+    return undefined;
+  },
 }));
 
 vi.mock("./useSpokenInterruptMonitor", () => ({
-  useSpokenInterruptMonitor: () => undefined,
+  useSpokenInterruptMonitor: (options: {
+    onTranscriptCandidate?: (transcript: string) => void;
+    onInterruptIntent: (seedTranscript: string) => void;
+  }) => {
+    mocks.spokenInterruptOptions = options;
+    return undefined;
+  },
 }));
 
 vi.mock("@/domains/voice/engine", () => ({
@@ -66,6 +92,8 @@ describe("useVoiceMode", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mocks.bargeInOptions = null;
+    mocks.spokenInterruptOptions = null;
 
     useVoiceStore.getState().reset();
     useChatStore.setState({
@@ -197,7 +225,8 @@ describe("useVoiceMode", () => {
       await result.current.interruptCurrentTurn();
     });
 
-    expect(mocks.stopAudio).toHaveBeenCalled();
+    expect(mocks.resetAudio).toHaveBeenCalled();
+    expect(mocks.resumeAudio).toHaveBeenCalled();
     expect(mocks.cancelBrowserTTS).toHaveBeenCalled();
     expect(mocks.startSTT).toHaveBeenCalled();
     expect(useVoiceStore.getState().isVoiceMode).toBe(true);
@@ -223,5 +252,41 @@ describe("useVoiceMode", () => {
       "okay can you compare that",
     );
     expect(useVoiceStore.getState().phase).toBe("listening");
+  });
+
+  it("auto-interrupts on sustained user speech and re-arms for the next spoken reply", async () => {
+    const { result, rerender } = renderHook(() => useVoiceMode());
+
+    act(() => {
+      useVoiceStore.getState().startVoiceMode();
+      useVoiceStore.getState().setPhase("speaking");
+    });
+    rerender();
+
+    act(() => {
+      mocks.spokenInterruptOptions?.onTranscriptCandidate?.("stop there");
+      mocks.bargeInOptions?.onSpeechDetected();
+    });
+
+    expect(mocks.resetAudio).toHaveBeenCalledTimes(1);
+    expect(mocks.startSTT).toHaveBeenLastCalledWith({
+      seedTranscript: "stop there",
+    });
+    expect(useVoiceStore.getState().phase).toBe("listening");
+
+    act(() => {
+      useVoiceStore.getState().setPhase("speaking");
+    });
+    rerender();
+
+    act(() => {
+      mocks.spokenInterruptOptions?.onTranscriptCandidate?.("wait compare");
+      mocks.bargeInOptions?.onSpeechDetected();
+    });
+
+    expect(mocks.resetAudio).toHaveBeenCalledTimes(2);
+    expect(mocks.startSTT).toHaveBeenLastCalledWith({
+      seedTranscript: "wait compare",
+    });
   });
 });

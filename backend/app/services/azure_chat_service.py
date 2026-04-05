@@ -106,6 +106,33 @@ class AzureChatService:
         async for token in stream:
             yield token
 
+    async def complete_chat(
+        self,
+        system_prompt: str,
+        messages: List[Dict[str, str]],
+        params: Optional[Any] = None,
+        history: Optional[List[Any]] = None,
+    ) -> str:
+        """Execute a non-streaming stateless direct chat call against Azure OpenAI."""
+        history = history or []
+
+        azure_msgs = [AzureChatMessage(role="system", content=system_prompt)]
+
+        for msg in history:
+            azure_msgs.append(AzureChatMessage(role=msg.role, content=msg.content))
+
+        for msg in messages:
+            azure_msgs.append(AzureChatMessage(role=msg["role"], content=msg["content"]))
+
+        response = await azure_openai_client.create_chat_completion(
+            azure_msgs,
+            temperature=params.temperature if params else 0.2,
+            max_tokens=params.max_tokens if params else None,
+        )
+        if not getattr(response, "choices", None):
+            return ""
+        return response.choices[0].message.content or ""
+
     def _normalize_response(
         self, request: AzureChatRequest, raw_response: Any
     ) -> AzureChatResponse:

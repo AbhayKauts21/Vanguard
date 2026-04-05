@@ -67,4 +67,26 @@ describe("interrupt intent heuristics", () => {
       }),
     ).toBe(false);
   });
+
+  it("accepts explicit interruption words faster on interim speech", () => {
+    expect(
+      isInterruptIntent({
+        transcript: "stop",
+        spokenText: "Here is the answer I found.",
+        isFinal: false,
+        stableMs: 140,
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts continuation requests with a soft leading okay", () => {
+    expect(
+      isInterruptIntent({
+        transcript: "okay compare that with pricing",
+        spokenText: "Here is the answer I found.",
+        isFinal: false,
+        stableMs: 120,
+      }),
+    ).toBe(true);
+  });
 });

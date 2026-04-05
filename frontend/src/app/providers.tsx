@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { TelemetryProvider } from "@/lib/telemetry-provider";
+import { DEFAULT_TIME_ZONE } from "@/i18n/config";
 import type { AbstractIntlMessages } from "use-intl";
 
 /* Root providers for client-side state management and observability. */
@@ -30,7 +31,11 @@ export function Providers({
   );
 
   return (
-    <NextIntlClientProvider locale={locale} messages={messages}>
+    <NextIntlClientProvider
+      locale={locale}
+      messages={messages}
+      timeZone={DEFAULT_TIME_ZONE}
+    >
       <TelemetryProvider>
         <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
       </TelemetryProvider>

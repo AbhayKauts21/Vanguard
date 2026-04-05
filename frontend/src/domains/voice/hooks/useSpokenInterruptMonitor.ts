@@ -16,10 +16,11 @@ interface UseSpokenInterruptMonitorOptions {
   speaking: boolean;
   getSpokenText: () => string;
   getSpeechDetectedAt: () => number;
+  onTranscriptCandidate?: (transcript: string) => void;
   onInterruptIntent: (seedTranscript: string) => void;
 }
 
-const SPEECH_GATE_WINDOW_MS = 1400;
+const SPEECH_GATE_WINDOW_MS = 4000;
 
 function compactWhitespace(text: string): string {
   return text.replace(/\s+/g, " ").trim();
@@ -38,11 +39,13 @@ export function useSpokenInterruptMonitor({
   speaking,
   getSpokenText,
   getSpeechDetectedAt,
+  onTranscriptCandidate,
   onInterruptIntent,
 }: UseSpokenInterruptMonitorOptions) {
   const engineRef = useRef<STTEngine | null>(null);
   const getSpokenTextRef = useRef(getSpokenText);
   const getSpeechDetectedAtRef = useRef(getSpeechDetectedAt);
+  const onTranscriptCandidateRef = useRef(onTranscriptCandidate);
   const onInterruptIntentRef = useRef(onInterruptIntent);
   const transcriptBufferRef = useRef<TranscriptBuffer | null>(null);
 
@@ -55,12 +58,17 @@ export function useSpokenInterruptMonitor({
   }, [getSpeechDetectedAt]);
 
   useEffect(() => {
+    onTranscriptCandidateRef.current = onTranscriptCandidate;
+  }, [onTranscriptCandidate]);
+
+  useEffect(() => {
     onInterruptIntentRef.current = onInterruptIntent;
   }, [onInterruptIntent]);
 
   useEffect(() => {
     if (!active || !speaking || !isSpeechRecognitionSupported()) {
       transcriptBufferRef.current = null;
+      onTranscriptCandidateRef.current?.("");
       engineRef.current?.stop();
       engineRef.current = null;
       return;
@@ -77,6 +85,7 @@ export function useSpokenInterruptMonitor({
 
     const stopEngine = () => {
       transcriptBufferRef.current = null;
+      onTranscriptCandidateRef.current?.("");
       if (engineRef.current === engine) {
         engineRef.current = null;
       }
@@ -90,6 +99,7 @@ export function useSpokenInterruptMonitor({
     engine.start({
       onStart: () => {
         transcriptBufferRef.current = null;
+        onTranscriptCandidateRef.current?.("");
       },
       onEnd: () => {
         if (isDisposed && engineRef.current === engine) {
@@ -110,8 +120,11 @@ export function useSpokenInterruptMonitor({
         const normalizedTranscript = normalizeInterruptTranscript(rawTranscript);
 
         if (!normalizedTranscript) {
+          onTranscriptCandidateRef.current?.("");
           return;
         }
+
+        onTranscriptCandidateRef.current?.(rawTranscript);
 
         const previous = transcriptBufferRef.current;
         const firstSeenAt =
@@ -134,8 +147,8 @@ export function useSpokenInterruptMonitor({
             stableMs,
           })
         ) {
+          stopEngine();
           onInterruptIntentRef.current(rawTranscript);
-          transcriptBufferRef.current = null;
         }
       },
     });

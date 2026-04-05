@@ -129,6 +129,7 @@ export function useVoiceMode() {
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const speechDetectedAtRef = useRef(0);
   const spokenVoiceTextRef = useRef("");
+  const interruptTranscriptRef = useRef("");
   const turnRef = useRef(0);
   const phase = useVoiceStore((s) => s.phase);
   const userTranscript = useVoiceStore((s) => s.userTranscript);
@@ -201,6 +202,7 @@ export function useVoiceMode() {
     void resumeAudio();
     setCleoTranscript("");
     spokenVoiceTextRef.current = "";
+    interruptTranscriptRef.current = "";
     speechDetectedAtRef.current = 0;
     useVoiceStore.getState().setUserTranscript("");
     setFinalTranscript("");
@@ -217,7 +219,7 @@ export function useVoiceMode() {
 
   const interruptCurrentTurn = useCallback(async (seedTranscript?: string) => {
     const state = useVoiceStore.getState();
-    if (!state.isVoiceMode) {
+    if (!state.isVoiceMode || state.phase !== "speaking") {
       return;
     }
 
@@ -226,9 +228,11 @@ export function useVoiceMode() {
     abortRef.current?.abort();
     ttsAbortRef.current?.abort();
     stopSTT();
-    stopAudio();
+    resetAudio();
+    void resumeAudio();
     cancelBrowserTTS();
     spokenVoiceTextRef.current = "";
+    interruptTranscriptRef.current = "";
     useVoiceStore.getState().setAudioLevel(0);
 
     const avatarInterrupt = useAvatarStore.getState().interruptFn;
@@ -243,13 +247,20 @@ export function useVoiceMode() {
     if (useVoiceStore.getState().isVoiceMode) {
       maybeResumeListening(seedTranscript);
     }
-  }, [clearTimers, maybeResumeListening, stopAudio, stopSTT]);
+  }, [clearTimers, maybeResumeListening, resetAudio, resumeAudio, stopSTT]);
 
   useBargeInMonitor({
     active: isVoiceMode,
     speaking: phase === "speaking",
     onSpeechDetected: () => {
       speechDetectedAtRef.current = performance.now();
+      const state = useVoiceStore.getState();
+      if (!state.isVoiceMode || state.phase !== "speaking") {
+        return;
+      }
+
+      const seedTranscript = interruptTranscriptRef.current.trim() || undefined;
+      void interruptCurrentTurn(seedTranscript);
     },
   });
 
@@ -258,7 +269,11 @@ export function useVoiceMode() {
     speaking: phase === "speaking",
     getSpokenText: getSpokenVoiceText,
     getSpeechDetectedAt,
+    onTranscriptCandidate: (transcript) => {
+      interruptTranscriptRef.current = transcript.trim();
+    },
     onInterruptIntent: (seedTranscript) => {
+      interruptTranscriptRef.current = seedTranscript.trim();
       void interruptCurrentTurn(seedTranscript);
     },
   });
@@ -329,6 +344,7 @@ export function useVoiceMode() {
     setThinking(true);
     setErrorType(null);
     setCleoTranscript("");
+    interruptTranscriptRef.current = "";
     useVoiceStore.getState().setUserTranscript("");
 
     const history = messages
@@ -466,6 +482,7 @@ export function useVoiceMode() {
 
       if (turnId === turnRef.current) {
         spokenVoiceTextRef.current = "";
+        interruptTranscriptRef.current = "";
         useVoiceStore.getState().setAudioLevel(0);
         maybeResumeListening();
       }
@@ -509,6 +526,7 @@ export function useVoiceMode() {
     ttsAbortRef.current?.abort();
     cancelBrowserTTS();
     spokenVoiceTextRef.current = "";
+    interruptTranscriptRef.current = "";
     stopVoiceMode();
   }, [clearTimers, stopAudio, stopSTT, stopVoiceMode]);
 

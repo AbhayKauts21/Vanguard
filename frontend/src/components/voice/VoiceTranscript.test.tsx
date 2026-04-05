@@ -28,7 +28,7 @@ describe("VoiceTranscript", () => {
       screen.getByText("compare that with the enterprise plan"),
     ).toBeInTheDocument();
     expect(screen.queryByText("This should stay hidden.")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /interrupt & listen/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /interrupt & listen/i })).not.toBeInTheDocument();
     expect(container.firstElementChild).toHaveClass("pointer-events-none");
   });
 });

@@ -37,7 +37,6 @@ interface ChatPanelProps {
     isSupported: boolean;
     phase: string;
     onActivate: () => void;
-    onInterrupt: () => void;
     onDeactivate: () => void;
     onSendVoiceMessage: () => void;
   };
@@ -140,7 +139,6 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
       {voice?.isVoiceMode && (
         <VoiceTranscript
           onDeactivate={voice.onDeactivate}
-          onInterrupt={voice.onInterrupt}
         />
       )}
     </div>

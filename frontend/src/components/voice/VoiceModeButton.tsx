@@ -7,8 +7,6 @@ interface VoiceModeButtonProps {
   onActivate: () => void;
   /** Called when the user clicks stop to send the voice message. */
   onSend: () => void;
-  /** Called when the user interrupts CLEO mid-reply. */
-  onInterrupt: () => void;
   /** Whether the button should be disabled (e.g. during text chat). */
   disabled?: boolean;
 }
@@ -20,12 +18,11 @@ interface VoiceModeButtonProps {
  * - Idle: shows mic icon, click to activate
  * - Listening: pulsing ring, shows stop icon, click to send
  * - Processing: spinning indicator, non-interactive
- * - Speaking: waveform animation, click to cancel/interrupt
+ * - Speaking: passive speaking indicator; interruption is voice-only
  */
 export function VoiceModeButton({
   onActivate,
   onSend,
-  onInterrupt,
   disabled = false,
 }: VoiceModeButtonProps) {
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
@@ -46,8 +43,6 @@ export function VoiceModeButton({
       onActivate();
     } else if (isListening) {
       onSend();
-    } else if (isSpeaking) {
-      onInterrupt();
     }
   }
 
@@ -67,19 +62,19 @@ export function VoiceModeButton({
     colorClasses = "text-amber-400 animate-spin";
     ariaLabel = "Processing voice input";
   } else if (isSpeaking) {
-    icon = "cancel";
-    colorClasses = "text-emerald-400 hover:text-emerald-300";
-    ariaLabel = "Interrupt CLEO and keep listening";
+    icon = "graphic_eq";
+    colorClasses = "text-emerald-400";
+    ariaLabel = "CLEO is speaking. Start talking to interrupt.";
   }
 
   return (
     <button
       type="button"
       onClick={handleClick}
-      disabled={disabled || isProcessing}
+      disabled={disabled || isProcessing || isSpeaking}
       aria-label={ariaLabel}
       className={`relative transition-all duration-500 ${colorClasses} ${
-        disabled || isProcessing
+        disabled || isProcessing || isSpeaking
           ? "opacity-30 cursor-not-allowed"
           : "hover:scale-110 active:scale-95 cursor-pointer"
       }`}

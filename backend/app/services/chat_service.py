@@ -23,12 +23,21 @@ from app.domain.schemas import (
 from app.repositories.chat_repository import chat_repository
 from app.services.rag_service import rag_service as default_rag_service
 from app.services.audit_service import audit_service
+from app.services.voice_conversation_service import (
+    voice_conversation_service as default_voice_conversation_service,
+)
 from app.domain.audit_log import AuditEventCode
 
 
 class ChatService:
-    def __init__(self, *, rag_service=default_rag_service) -> None:
+    def __init__(
+        self,
+        *,
+        rag_service=default_rag_service,
+        voice_conversation_service=default_voice_conversation_service,
+    ) -> None:
         self.rag_service = rag_service
+        self.voice_conversation_service = voice_conversation_service
 
     async def create_chat(
         self,
@@ -127,6 +136,14 @@ class ChatService:
             locale=locale,
             user_id=str(current_user.id),
         )
+        if payload.voice_mode:
+            response.voice_response = await self.voice_conversation_service.create_voice_response(
+                question=payload.message,
+                answer=response.answer,
+                history=history,
+                locale=locale,
+                mode_used=response.mode_used,
+            )
         assistant_message = await chat_repository.create_message(
             session,
             chat_id=chat.id,
@@ -146,6 +163,7 @@ class ChatService:
             chat=summary,
             user_message=self._to_chat_message(user_message),
             assistant_message=self._to_chat_message(assistant_message),
+            voice_response=response.voice_response,
         )
 
     async def stream_message(
@@ -222,6 +240,15 @@ class ChatService:
             max_confidence=float(final_event.get("max_confidence", 0.0) or 0.0),
             what_i_found=final_event.get("what_i_found"),
         )
+        if payload.voice_mode:
+            response.voice_response = await self.voice_conversation_service.create_voice_response(
+                question=payload.message,
+                answer=response.answer,
+                history=history,
+                locale=locale,
+                mode_used=response.mode_used,
+            )
+            final_event["voice_response"] = response.voice_response
 
         await chat_repository.create_message(
             session,

@@ -12,7 +12,7 @@ export interface ChatMessage {
   secondary_citations?: Citation[];
   all_citations?: Citation[];
   hidden_sources_count?: number;
-  modeUsed?: 'rag' | 'uncertain' | 'azure_fallback';
+  modeUsed?: 'rag' | 'uncertain' | 'azure_fallback' | 'shortcut';
   maxConfidence?: number;
   whatIFound?: { page_title: string; score: number }[];
   isStreaming?: boolean;

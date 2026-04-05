@@ -42,7 +42,7 @@ interface ChatState {
     secondary_citations: Citation[];
     all_citations: Citation[];
     hidden_sources_count: number;
-    mode_used: "rag" | "uncertain" | "azure_fallback";
+    mode_used: "rag" | "uncertain" | "azure_fallback" | "shortcut";
     max_confidence: number;
     what_i_found?: { page_title: string; score: number }[];
   }) => void;
@@ -132,7 +132,7 @@ export function mapPersistedMessageToChatMessage(message: {
   secondary_citations?: Citation[];
   all_citations?: Citation[];
   hidden_sources_count?: number;
-  mode_used?: "rag" | "uncertain" | "azure_fallback" | null;
+  mode_used?: "rag" | "uncertain" | "azure_fallback" | "shortcut" | null;
   max_confidence?: number | null;
   what_i_found?: { page_title: string; score: number }[] | null;
 }): ChatMessage {

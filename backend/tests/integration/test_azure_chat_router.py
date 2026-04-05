@@ -92,8 +92,17 @@ def test_direct_azure_route_does_not_break_existing_chat(monkeypatch):
             deployment="chat-prod",
         )
 
-    async def fake_answer_query(message, history=None):
-        return ChatResponse(answer="rag response", citations=[], conversation_id=None)
+    async def fake_answer_query(message, history=None, locale="en", user_id=None):
+        return ChatResponse(
+            answer="rag response",
+            primary_citations=[],
+            secondary_citations=[],
+            all_citations=[],
+            hidden_sources_count=0,
+            mode_used="rag",
+            max_confidence=0.0,
+            conversation_id=None,
+        )
 
     monkeypatch.setattr(main, "start_scheduler", lambda: None)
     monkeypatch.setattr(main, "stop_scheduler", lambda: None)

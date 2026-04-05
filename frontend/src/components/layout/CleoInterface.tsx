@@ -46,7 +46,7 @@ export default function CleoInterface() {
   const handleSend = env.enableStreaming ? sendStream : send;
 
   /* Voice mode orchestration. */
-  const { activate, deactivate, sendVoiceMessage } = useVoiceMode();
+  const { activate, interruptCurrentTurn, deactivate, sendVoiceMessage } = useVoiceMode();
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
   const voicePhase = useVoiceStore((s) => s.phase);
   const isSupported = useVoiceStore((s) => s.isSupported);
@@ -56,6 +56,7 @@ export default function CleoInterface() {
     isSupported,
     phase: voicePhase,
     onActivate: activate,
+    onInterrupt: interruptCurrentTurn,
     onDeactivate: deactivate,
     onSendVoiceMessage: sendVoiceMessage,
   };

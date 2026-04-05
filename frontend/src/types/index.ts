@@ -5,6 +5,7 @@ export interface ChatRequest {
   message: string;
   conversation_id?: string;
   conversation_history?: { role: string; content: string }[];
+  voice_mode?: boolean;
 }
 
 export interface ChatSummary {
@@ -38,10 +39,11 @@ export interface ChatResponse {
   secondary_citations: Citation[];
   all_citations: Citation[];
   hidden_sources_count: number;
-  mode_used: 'rag' | 'uncertain' | 'azure_fallback';
+  mode_used: 'rag' | 'uncertain' | 'azure_fallback' | 'shortcut';
   max_confidence: number;
   what_i_found?: { page_title: string; score: number; source_url?: string }[];
   conversation_id?: string;
+  voice_response?: string | null;
 }
 
 export interface ChatListResponse {
@@ -59,7 +61,7 @@ export interface PersistedChatMessage {
   secondary_citations: Citation[];
   all_citations: Citation[];
   hidden_sources_count: number;
-  mode_used?: "rag" | "uncertain" | "azure_fallback" | null;
+  mode_used?: "rag" | "uncertain" | "azure_fallback" | "shortcut" | null;
   max_confidence?: number | null;
   what_i_found?: { page_title: string; score: number; source_url?: string }[] | null;
 }
@@ -75,6 +77,7 @@ export interface ChatSendResponse {
   chat: ChatSummary;
   user_message: PersistedChatMessage;
   assistant_message: PersistedChatMessage;
+  voice_response?: string | null;
 }
 
 /* --- SSE stream events --- */
@@ -89,10 +92,11 @@ export interface SSEDoneEvent {
   secondary_citations: Citation[];
   all_citations: Citation[];
   hidden_sources_count: number;
-  mode_used: 'rag' | 'uncertain' | 'azure_fallback';
+  mode_used: 'rag' | 'uncertain' | 'azure_fallback' | 'shortcut';
   max_confidence: number;
   what_i_found?: { page_title: string; score: number; source_url?: string }[];
   chat_summary?: ChatSummary;
+  voice_response?: string | null;
 }
 
 export type SSEEvent = SSETokenEvent | SSEDoneEvent;

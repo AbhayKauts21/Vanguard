@@ -4,6 +4,11 @@ import { useRef, useCallback, useEffect } from "react";
 import { AudioQueue, type AudioQueueCallbacks } from "@/domains/voice/engine";
 import { useVoiceStore } from "@/domains/voice/model";
 
+interface UseAudioAnalyserOptions {
+  onChunkStart?: (index: number) => void;
+  onQueueDrained?: () => void;
+}
+
 /**
  * Hook that manages the AudioQueue for TTS playback and exposes
  * real-time audio level data for avatar energy core sync.
@@ -11,9 +16,14 @@ import { useVoiceStore } from "@/domains/voice/model";
  * The audioLevel (0-1) drives the energy core's noise intensity and scale
  * during the "speaking" phase, creating the heartbeat/breathing sync effect.
  */
-export function useAudioAnalyser() {
+export function useAudioAnalyser(options: UseAudioAnalyserOptions = {}) {
   const queueRef = useRef<AudioQueue | null>(null);
+  const optionsRef = useRef(options);
   const setAudioLevel = useVoiceStore((s) => s.setAudioLevel);
+
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
   /** Get or create the audio queue singleton for this hook instance. */
   const getQueue = useCallback((): AudioQueue => {
@@ -24,9 +34,10 @@ export function useAudioAnalyser() {
         },
         onQueueDrained: () => {
           setAudioLevel(0);
+          optionsRef.current.onQueueDrained?.();
         },
-        onChunkStart: () => {
-          // Could trigger per-sentence UI updates here
+        onChunkStart: (index) => {
+          optionsRef.current.onChunkStart?.(index);
         },
         onError: (error) => {
           console.error("[AudioQueue]", error);

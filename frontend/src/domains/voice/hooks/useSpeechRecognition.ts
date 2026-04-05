@@ -17,10 +17,60 @@ import type { STTResult } from "@/domains/voice/model/types";
  */
 export function useSpeechRecognition() {
   const engineRef = useRef<STTEngine | null>(null);
+  const seedTranscriptRef = useRef("");
   const setUserTranscript = useVoiceStore((s) => s.setUserTranscript);
   const setFinalTranscript = useVoiceStore((s) => s.setFinalTranscript);
   const setError = useVoiceStore((s) => s.setError);
   const setSupported = useVoiceStore((s) => s.setSupported);
+
+  const normalizeTranscript = useCallback((transcript: string): string => {
+    return transcript.replace(/\s+/g, " ").trim();
+  }, []);
+
+  const mergeSeedTranscript = useCallback(
+    (transcript: string): string => {
+      const seed = normalizeTranscript(seedTranscriptRef.current);
+      const incoming = normalizeTranscript(transcript);
+
+      if (!seed) {
+        return incoming;
+      }
+
+      if (!incoming) {
+        return seed;
+      }
+
+      const seedLower = seed.toLowerCase();
+      const incomingLower = incoming.toLowerCase();
+
+      if (incomingLower.startsWith(seedLower)) {
+        return incoming;
+      }
+
+      if (seedLower.startsWith(incomingLower)) {
+        return seed;
+      }
+
+      const seedWords = seed.split(" ");
+      const incomingWords = incoming.split(" ");
+      const maxOverlap = Math.min(seedWords.length, incomingWords.length);
+
+      for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+        const seedSuffix = seedWords
+          .slice(seedWords.length - overlap)
+          .join(" ")
+          .toLowerCase();
+        const incomingPrefix = incomingWords.slice(0, overlap).join(" ").toLowerCase();
+
+        if (seedSuffix === incomingPrefix) {
+          return [...seedWords, ...incomingWords.slice(overlap)].join(" ").trim();
+        }
+      }
+
+      return `${seed} ${incoming}`.trim();
+    },
+    [normalizeTranscript],
+  );
 
   // Check browser support on mount
   useEffect(() => {
@@ -28,10 +78,17 @@ export function useSpeechRecognition() {
     setSupported(supported);
   }, [setSupported]);
 
-  const start = useCallback(() => {
+  const start = useCallback((options?: { seedTranscript?: string }) => {
     if (!isSpeechRecognitionSupported()) {
       setError("Speech recognition is not supported in this browser.");
       return;
+    }
+
+    seedTranscriptRef.current = normalizeTranscript(options?.seedTranscript ?? "");
+
+    if (seedTranscriptRef.current) {
+      setUserTranscript(seedTranscriptRef.current);
+      setFinalTranscript(seedTranscriptRef.current);
     }
 
     // Create a fresh engine per session
@@ -49,10 +106,11 @@ export function useSpeechRecognition() {
         const state = useVoiceStore.getState();
         if (state.phase !== "listening") return;
 
-        setUserTranscript(result.transcript);
+        const mergedTranscript = mergeSeedTranscript(result.transcript);
+        setUserTranscript(mergedTranscript);
 
         if (result.isFinal) {
-          setFinalTranscript(result.transcript);
+          setFinalTranscript(mergedTranscript);
         }
       },
       onError: (error: string) => {
@@ -65,22 +123,34 @@ export function useSpeechRecognition() {
         setError(null);
       },
     });
-  }, [setUserTranscript, setFinalTranscript, setError]);
+  }, [
+    mergeSeedTranscript,
+    normalizeTranscript,
+    setError,
+    setFinalTranscript,
+    setUserTranscript,
+  ]);
 
   const stop = useCallback((): string => {
     const engine = engineRef.current;
-    if (!engine) return "";
+    if (!engine) {
+      const transcript = mergeSeedTranscript("");
+      seedTranscriptRef.current = "";
+      return transcript;
+    }
 
-    const transcript = engine.stop();
+    const transcript = mergeSeedTranscript(engine.stop());
     engineRef.current = null;
+    seedTranscriptRef.current = "";
     return transcript;
-  }, []);
+  }, [mergeSeedTranscript]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       engineRef.current?.stop();
       engineRef.current = null;
+      seedTranscriptRef.current = "";
     };
   }, []);
 

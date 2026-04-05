@@ -3,7 +3,7 @@ import type { Citation } from "@/types";
 export type EnergyCoreKnowledgeMode = "idle" | "grounded" | "uncertain" | "fallback";
 
 export interface EnergyCoreTelemetryInput {
-  modeUsed?: "rag" | "uncertain" | "azure_fallback";
+  modeUsed?: "rag" | "uncertain" | "azure_fallback" | "shortcut";
   maxConfidence?: number;
   isStreaming?: boolean;
   contentLength?: number;
@@ -102,7 +102,7 @@ function deriveMode({
     return "uncertain";
   }
 
-  if (modeUsed === "rag" || sourceCount > 0) {
+  if (modeUsed === "rag" || modeUsed === "shortcut" || sourceCount > 0) {
     return "grounded";
   }
 

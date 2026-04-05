@@ -21,7 +21,14 @@ function resolveVoice(locale: string): string {
 }
 
 export function useHeyGenAvatar(locale: string = "en") {
-  const { setConnectionStatus, setLoading, setState, setError, setSpeakFn } = useAvatarStore();
+  const {
+    setConnectionStatus,
+    setLoading,
+    setState,
+    setError,
+    setSpeakFn,
+    setInterruptFn,
+  } = useAvatarStore();
   const avatarRef = useRef<StreamingAvatar | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
@@ -110,6 +117,7 @@ export function useHeyGenAvatar(locale: string = "en") {
   // Cleanup on unmount + beforeunload for tab close (prevents WebRTC leak)
   useEffect(() => {
     setSpeakFn(speak);
+    setInterruptFn(interrupt);
 
     const handleBeforeUnload = () => {
       if (avatarRef.current) {
@@ -123,9 +131,10 @@ export function useHeyGenAvatar(locale: string = "en") {
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       setSpeakFn(null);
+      setInterruptFn(null);
       endSession();
     };
-  }, [endSession, setSpeakFn, speak]);
+  }, [endSession, interrupt, setInterruptFn, setSpeakFn, speak]);
 
   return { stream, initAvatar, endSession, speak, interrupt };
 }

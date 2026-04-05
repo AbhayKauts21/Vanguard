@@ -13,13 +13,22 @@ class FakeVectorStore:
     def __init__(self, results):
         self._results = results
         self.last_filter = None
+        self.query_count = 0
 
     async def query(self, *, vector, top_k, filter_dict=None):
+        self.query_count += 1
         self.last_filter = filter_dict
         return self._results
 
 
 class FakeLLMClient:
+    def __init__(self):
+        self.generate_calls = 0
+
+    async def generate(self, **kwargs):
+        self.generate_calls += 1
+        return "Use Forgot Password."
+
     async def generate_stream(self, **kwargs):
         yield "Use "
         yield "Forgot Password."
@@ -35,9 +44,39 @@ class FakeCitationRanker:
         }
 
 
-class FailAzureChatService:
+class FakeIntentService:
+    def __init__(self, label="docs"):
+        self.label = label
+        self.calls = 0
+
+    async def classify(self, question, *, history=None, locale="en"):
+        self.calls += 1
+        return self.label
+
+
+class FakeAzureChatService:
+    def __init__(self, *, complete_text="general answer", stream_chunks=None):
+        self.complete_text = complete_text
+        self.stream_chunks = stream_chunks or ["general ", "answer"]
+        self.complete_calls = 0
+        self.stream_calls = 0
+
+    async def complete_chat(self, *args, **kwargs):
+        self.complete_calls += 1
+        return self.complete_text
+
     async def stream_chat(self, *args, **kwargs):
-        raise AssertionError("Azure fallback should not be used for high-confidence docs mode")
+        self.stream_calls += 1
+        for chunk in self.stream_chunks:
+            yield chunk
+
+
+class FailAzureChatService:
+    async def complete_chat(self, *args, **kwargs):
+        raise AssertionError("Azure fallback should not be used for this path")
+
+    async def stream_chat(self, *args, **kwargs):
+        raise AssertionError("Azure fallback should not be used for this path")
 
 
 @pytest.mark.asyncio
@@ -60,6 +99,7 @@ async def test_streaming_rag_uses_configured_similarity_threshold_for_docs_mode(
         llm_client=FakeLLMClient(),
         citation_ranker=FakeCitationRanker(),
         azure_chat_service=FailAzureChatService(),
+        query_intent_service=FakeIntentService("docs"),
     )
     service.min_score = 0.45
 
@@ -75,6 +115,121 @@ async def test_streaming_rag_uses_configured_similarity_threshold_for_docs_mode(
 
 
 @pytest.mark.asyncio
+async def test_greeting_shortcut_bypasses_retrieval():
+    store = FakeVectorStore([])
+    intent_service = FakeIntentService("docs")
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=store,
+        llm_client=FakeLLMClient(),
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=FailAzureChatService(),
+        query_intent_service=intent_service,
+    )
+
+    response = await service.answer_query("hello")
+
+    assert response.mode_used == "shortcut"
+    assert "CLEO" in response.answer
+    assert store.query_count == 0
+    assert intent_service.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_general_queries_bypass_vector_search_and_use_azure_fallback_sync():
+    store = FakeVectorStore(
+        [
+            VectorSearchResult(
+                chunk_id="page_1_chunk_0",
+                score=0.48,
+                text="This should never be used.",
+                page_id=1,
+            )
+        ]
+    )
+    azure = FakeAzureChatService(complete_text="Paris is the capital of France.")
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=store,
+        llm_client=FakeLLMClient(),
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=azure,
+        query_intent_service=FakeIntentService("general"),
+    )
+
+    response = await service.answer_query("What is the capital of France?")
+
+    assert response.mode_used == "azure_fallback"
+    assert response.answer == "Paris is the capital of France."
+    assert response.max_confidence == 0.0
+    assert store.query_count == 0
+    assert azure.complete_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_sync_medium_confidence_returns_uncertain_instead_of_rag():
+    results = [
+        VectorSearchResult(
+            chunk_id="page_9001_chunk_0",
+            score=0.44,
+            text="Possibly related product content.",
+            page_id=9001,
+            page_title="Account Settings",
+            bookstack_url="https://demo.cleo.local/books/501/page/account-settings",
+            book_id=501,
+        )
+    ]
+    llm = FakeLLMClient()
+    azure = FailAzureChatService()
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=FakeVectorStore(results),
+        llm_client=llm,
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=azure,
+        query_intent_service=FakeIntentService("docs"),
+    )
+    service.min_score = 0.5
+
+    response = await service.answer_query("What is the refund policy?")
+
+    assert response.mode_used == "uncertain"
+    assert "not fully confident" in response.answer.lower()
+    assert response.max_confidence == pytest.approx(0.44)
+    assert llm.generate_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_sync_low_confidence_docs_query_uses_azure_fallback():
+    results = [
+        VectorSearchResult(
+            chunk_id="page_2_chunk_0",
+            score=0.18,
+            text="Barely related chunk.",
+            page_id=2,
+        )
+    ]
+    azure = FakeAzureChatService(
+        complete_text="I don't have enough source-backed documentation to answer that confidently."
+    )
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=FakeVectorStore(results),
+        llm_client=FakeLLMClient(),
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=azure,
+        query_intent_service=FakeIntentService("docs"),
+    )
+
+    response = await service.answer_query("Does CLEO support SSO?")
+
+    assert response.mode_used == "azure_fallback"
+    assert "source-backed" in response.answer
+    assert response.max_confidence == pytest.approx(0.18)
+    assert azure.complete_calls == 1
+
+
+@pytest.mark.asyncio
 async def test_rag_filters_user_uploads_to_current_user():
     store = FakeVectorStore([])
     service = RAGService(
@@ -82,11 +237,11 @@ async def test_rag_filters_user_uploads_to_current_user():
         vector_store=store,
         llm_client=FakeLLMClient(),
         citation_ranker=FakeCitationRanker(),
-        azure_chat_service=FailAzureChatService(),
+        azure_chat_service=FakeAzureChatService(),
+        query_intent_service=FakeIntentService("docs"),
     )
 
-    with pytest.raises(Exception):
-        await service.answer_query("hello", user_id="user-123")
+    await service.answer_query("How do I use my uploaded PDF?", user_id="user-123")
 
     assert store.last_filter == {
         "$or": [

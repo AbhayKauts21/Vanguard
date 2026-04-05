@@ -48,6 +48,8 @@ export interface TTSConfig {
 export interface TTSRequest {
   text: string;
   voice: string;
+  language?: string;
+  stream?: boolean;
   rate?: string;
   pitch?: string;
 }

@@ -33,6 +33,7 @@ describe("useEnergyCoreState", () => {
       currentState: "disconnected",
       error: null,
       speakFn: null,
+      interruptFn: null,
     });
   });
 

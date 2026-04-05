@@ -12,6 +12,7 @@ interface AvatarStore {
   currentState: AvatarVisualState;
   error: string | null;
   speakFn: ((text: string) => Promise<void>) | null;
+  interruptFn: (() => Promise<void>) | null;
 
   // Actions
   setConnectionStatus: (connected: boolean) => void;
@@ -19,6 +20,7 @@ interface AvatarStore {
   setState: (state: AvatarVisualState) => void;
   setError: (error: string | null) => void;
   setSpeakFn: (fn: ((text: string) => Promise<void>) | null) => void;
+  setInterruptFn: (fn: (() => Promise<void>) | null) => void;
   toggleMute: () => void;
   setMuted: (muted: boolean) => void;
 }
@@ -30,6 +32,7 @@ export const useAvatarStore = create<AvatarStore>((set) => ({
   currentState: "disconnected",
   error: null,
   speakFn: null,
+  interruptFn: null,
 
   setConnectionStatus: (connected) =>
     set({ isConnected: connected, currentState: connected ? "idle" : "disconnected" }),
@@ -38,6 +41,7 @@ export const useAvatarStore = create<AvatarStore>((set) => ({
   setError: (error) =>
     set({ error, currentState: error ? "error" : "disconnected" }),
   setSpeakFn: (fn) => set({ speakFn: fn }),
+  setInterruptFn: (fn) => set({ interruptFn: fn }),
   toggleMute: () => set((s) => ({ isMuted: !s.isMuted })),
   setMuted: (muted) => set({ isMuted: muted }),
 }));

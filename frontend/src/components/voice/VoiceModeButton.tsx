@@ -7,8 +7,8 @@ interface VoiceModeButtonProps {
   onActivate: () => void;
   /** Called when the user clicks stop to send the voice message. */
   onSend: () => void;
-  /** Called when the user cancels/deactivates voice mode. */
-  onDeactivate: () => void;
+  /** Called when the user interrupts CLEO mid-reply. */
+  onInterrupt: () => void;
   /** Whether the button should be disabled (e.g. during text chat). */
   disabled?: boolean;
 }
@@ -25,7 +25,7 @@ interface VoiceModeButtonProps {
 export function VoiceModeButton({
   onActivate,
   onSend,
-  onDeactivate,
+  onInterrupt,
   disabled = false,
 }: VoiceModeButtonProps) {
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
@@ -47,7 +47,7 @@ export function VoiceModeButton({
     } else if (isListening) {
       onSend();
     } else if (isSpeaking) {
-      onDeactivate();
+      onInterrupt();
     }
   }
 
@@ -69,7 +69,7 @@ export function VoiceModeButton({
   } else if (isSpeaking) {
     icon = "cancel";
     colorClasses = "text-emerald-400 hover:text-emerald-300";
-    ariaLabel = "Stop CLEO speaking";
+    ariaLabel = "Interrupt CLEO and keep listening";
   }
 
   return (

@@ -18,7 +18,13 @@ import remarkGfm from "remark-gfm";
  * - Error banner: red, dismissible
  * - Phase status pill: center-bottom with pulsing dot
  */
-export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void }) {
+export function VoiceTranscript({
+  onDeactivate,
+  onInterrupt,
+}: {
+  onDeactivate?: () => void;
+  onInterrupt?: () => void;
+}) {
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
   const phase = useVoiceStore((s) => s.phase);
   const userTranscript = useVoiceStore((s) => s.userTranscript);
@@ -193,6 +199,16 @@ export function VoiceTranscript({ onDeactivate }: { onDeactivate?: () => void })
 
           {/* Phase status pill + Stop Button — pinned to bottom */}
           <div className="relative z-10 flex justify-center items-center gap-3 pointer-events-auto shrink-0 py-4">
+            {phase === "speaking" && (
+              <button
+                type="button"
+                onClick={() => onInterrupt?.()}
+                className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-4 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-emerald-200 transition-all hover:border-emerald-300/40 hover:bg-emerald-500/20"
+              >
+                Interrupt & Listen
+              </button>
+            )}
+
             <motion.div
               key={phase}
               initial={{ scale: 0.9, opacity: 0 }}

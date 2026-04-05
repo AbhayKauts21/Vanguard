@@ -14,7 +14,7 @@ interface MessageBubbleProps {
   secondary_citations?: Citation[];
   all_citations?: Citation[];
   hidden_sources_count?: number;
-  modeUsed?: 'rag' | 'uncertain' | 'azure_fallback';
+  modeUsed?: 'rag' | 'uncertain' | 'azure_fallback' | 'shortcut';
   maxConfidence?: number;
   whatIFound?: { page_title: string; score: number; source_url?: string }[];
   isStreaming?: boolean;
@@ -111,7 +111,7 @@ export function MessageBubble({
         )}
 
         {/* Tier 1: High confidence — show citations */}
-        {modeUsed === "rag" && (
+        {(modeUsed === "rag" || modeUsed === "shortcut") && (
           <CitationList 
             primary={primary_citations}
             secondary={secondary_citations}

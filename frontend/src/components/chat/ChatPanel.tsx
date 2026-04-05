@@ -37,6 +37,7 @@ interface ChatPanelProps {
     isSupported: boolean;
     phase: string;
     onActivate: () => void;
+    onInterrupt: () => void;
     onDeactivate: () => void;
     onSendVoiceMessage: () => void;
   };
@@ -136,7 +137,12 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
       </div>
 
       {/* Voice transcript overlay — localized to chat panel now */}
-      {voice?.isVoiceMode && <VoiceTranscript onDeactivate={voice.onDeactivate} />}
+      {voice?.isVoiceMode && (
+        <VoiceTranscript
+          onDeactivate={voice.onDeactivate}
+          onInterrupt={voice.onInterrupt}
+        />
+      )}
     </div>
   );
 }

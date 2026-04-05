@@ -31,6 +31,8 @@ export async function synthesizeSpeech(
   const body: TTSRequest = {
     text,
     voice: options.voice ?? env.voice.ttsVoice,
+    language: options.language ?? env.voice.sttLanguage,
+    stream: options.stream ?? false,
     rate: options.rate ?? "+0%",
     pitch: options.pitch ?? "+0Hz",
   };
@@ -86,4 +88,12 @@ export function speakWithBrowserTTS(text: string): Promise<void> {
 
     window.speechSynthesis.speak(utterance);
   });
+}
+
+export function cancelBrowserTTS(): void {
+  if (typeof window === "undefined" || !window.speechSynthesis) {
+    return;
+  }
+
+  window.speechSynthesis.cancel();
 }

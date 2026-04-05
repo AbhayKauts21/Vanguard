@@ -256,6 +256,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     conversation_history: List[ConversationMessage] = Field(default_factory=list)
     max_history: int = Field(default=10, le=20)
+    voice_mode: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -269,6 +270,7 @@ class ChatResponse(BaseModel):
     max_confidence: float = 0.0
     what_i_found: Optional[List[Dict[str, Any]]] = None
     conversation_id: Optional[str] = None
+    voice_response: Optional[str] = None
 
 
 class ChatCreateRequest(BaseModel):
@@ -277,6 +279,7 @@ class ChatCreateRequest(BaseModel):
 
 class ChatMessageCreateRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
+    voice_mode: bool = False
 
 
 class ChatSummaryResponse(BaseModel):
@@ -319,6 +322,7 @@ class ChatSendResponse(BaseModel):
     chat: ChatSummaryResponse
     user_message: ChatMessageResponse
     assistant_message: ChatMessageResponse
+    voice_response: Optional[str] = None
 
 
 class AzureChatParams(BaseModel):

@@ -94,15 +94,65 @@ describe("useVoiceMode", () => {
     vi.useRealTimers();
   });
 
-  it("speaks only the short voice_response and keeps it out of visible transcript state", async () => {
+  it("starts playback from backend-prepared audio and keeps the short spoken text out of visible transcript state", async () => {
+    mocks.stopSTT.mockReturnValue("How do I reset my password?");
+    mocks.apiStream.mockResolvedValue({ ok: true } as Response);
+    mocks.consumeSSEStream.mockImplementation(
+      async (_response, onToken, onDone, _onError, onVoiceReady) => {
+        onVoiceReady?.({
+          type: "voice_ready",
+          voice_response: "Short spoken answer. Next step?",
+          voice_audio_base64: Buffer.from("audio").toString("base64"),
+          voice_audio_content_type: "audio/mpeg",
+        });
+        onToken("Full ");
+        onToken("grounded ");
+        onToken("answer.");
+        onDone({
+          type: "done",
+          primary_citations: [],
+          secondary_citations: [],
+          all_citations: [],
+          hidden_sources_count: 0,
+          mode_used: "rag",
+          max_confidence: 0.91,
+          voice_response: "Short spoken answer. Next step?",
+        });
+      },
+    );
+
+    const { result } = renderHook(() => useVoiceMode());
+
+    act(() => {
+      result.current.activate();
+    });
+
+    await act(async () => {
+      const pending = result.current.sendVoiceMessage();
+      await vi.advanceTimersByTimeAsync(800);
+      await pending;
+    });
+
+    expect(mocks.enqueueAudio).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueueAudio.mock.calls[0]?.[0]).toBeInstanceOf(Blob);
+    expect(mocks.synthesizeSpeech).not.toHaveBeenCalled();
+    expect(useVoiceStore.getState().cleoTranscript).toBe("");
+    expect(useVoiceStore.getState().phase).toBe("listening");
+  });
+
+  it("falls back to frontend TTS when prepared voice audio is unavailable", async () => {
     mocks.stopSTT.mockReturnValue("How do I reset my password?");
     mocks.synthesizeSpeech.mockResolvedValue(new Blob(["audio"]));
     mocks.apiStream.mockResolvedValue({ ok: true } as Response);
     mocks.consumeSSEStream.mockImplementation(
-      async (_response, onToken, onDone) => {
-        onToken("Full ");
-        onToken("grounded ");
-        onToken("answer.");
+      async (_response, onToken, onDone, _onError, onVoiceReady) => {
+        onVoiceReady?.({
+          type: "voice_ready",
+          voice_response: "Short spoken answer. Next step?",
+          voice_audio_base64: "",
+          voice_audio_content_type: "audio/mpeg",
+        });
+        onToken("Full grounded answer.");
         onDone({
           type: "done",
           primary_citations: [],
@@ -132,11 +182,7 @@ describe("useVoiceMode", () => {
       "Short spoken answer.",
       "Next step?",
     ]);
-    expect(mocks.synthesizeSpeech).not.toHaveBeenCalledWith(
-      expect.stringContaining("Full grounded answer."),
-    );
-    expect(useVoiceStore.getState().cleoTranscript).toBe("");
-    expect(useVoiceStore.getState().phase).toBe("listening");
+    expect(mocks.enqueueAudio).toHaveBeenCalledTimes(2);
   });
 
   it("interrupts the current turn and returns to listening without ending voice mode", async () => {

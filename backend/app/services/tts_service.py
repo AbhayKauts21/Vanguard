@@ -11,9 +11,21 @@ from loguru import logger
 from app.adapters.azure_speech_client import azure_speech_client
 from app.core.config import settings
 
+_AUDIO_CONTENT_TYPES = {
+    "audio-16khz-32kbitrate-mono-mp3": "audio/mpeg",
+    "audio-16khz-64kbitrate-mono-mp3": "audio/mpeg",
+    "audio-24khz-48kbitrate-mono-mp3": "audio/mpeg",
+    "audio-24khz-96kbitrate-mono-mp3": "audio/mpeg",
+    "audio-24khz-160kbitrate-mono-mp3": "audio/mpeg",
+    "audio-48khz-96kbitrate-mono-mp3": "audio/mpeg",
+}
+
 
 class TTSService:
     """Text-to-Speech service — converts text to audio via Azure Speech."""
+
+    def content_type(self) -> str:
+        return _AUDIO_CONTENT_TYPES.get(settings.AZURE_TTS_OUTPUT_FORMAT, "audio/mpeg")
 
     async def synthesize(
         self,

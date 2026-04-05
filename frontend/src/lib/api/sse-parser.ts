@@ -21,6 +21,7 @@ export async function consumeSSEStream(
   onToken: (content: string) => void,
   onDone: (event: SSEEvent & { type: "done" }) => void,
   onError: (error: Error) => void,
+  onVoiceReady?: (event: SSEEvent & { type: "voice_ready" }) => void,
 ): Promise<void> {
   if (!response.ok) {
     onError(new Error(`Stream failed: ${response.status} ${response.statusText}`));
@@ -53,6 +54,8 @@ export async function consumeSSEStream(
 
         if (event.type === "token") {
           onToken(event.content);
+        } else if (event.type === "voice_ready") {
+          onVoiceReady?.(event);
         } else if (event.type === "done") {
           onDone(event);
         }
@@ -63,6 +66,7 @@ export async function consumeSSEStream(
     if (buffer.trim()) {
       const event = parseSSELine(buffer);
       if (event?.type === "token") onToken(event.content);
+      if (event?.type === "voice_ready") onVoiceReady?.(event);
       if (event?.type === "done") onDone(event);
     }
   } catch (err) {

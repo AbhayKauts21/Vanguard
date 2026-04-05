@@ -115,33 +115,35 @@ async def test_streaming_rag_uses_configured_similarity_threshold_for_docs_mode(
 
 
 @pytest.mark.asyncio
-async def test_greeting_shortcut_bypasses_retrieval():
+async def test_greeting_queries_still_search_before_low_confidence_fallback():
     store = FakeVectorStore([])
-    intent_service = FakeIntentService("docs")
+    intent_service = FakeIntentService("smalltalk")
+    azure = FakeAzureChatService(complete_text="Hello there.")
     service = RAGService(
         embedding_client=FakeEmbeddingClient(),
         vector_store=store,
         llm_client=FakeLLMClient(),
         citation_ranker=FakeCitationRanker(),
-        azure_chat_service=FailAzureChatService(),
+        azure_chat_service=azure,
         query_intent_service=intent_service,
     )
 
     response = await service.answer_query("hello")
 
-    assert response.mode_used == "shortcut"
-    assert "CLEO" in response.answer
-    assert store.query_count == 0
-    assert intent_service.calls == 0
+    assert response.mode_used == "azure_fallback"
+    assert response.answer == "Hello there."
+    assert store.query_count == 1
+    assert intent_service.calls == 1
+    assert azure.complete_calls == 1
 
 
 @pytest.mark.asyncio
-async def test_general_queries_bypass_vector_search_and_use_azure_fallback_sync():
+async def test_general_queries_search_first_then_fallback_sync():
     store = FakeVectorStore(
         [
             VectorSearchResult(
                 chunk_id="page_1_chunk_0",
-                score=0.48,
+                score=0.18,
                 text="This should never be used.",
                 page_id=1,
             )
@@ -161,8 +163,38 @@ async def test_general_queries_bypass_vector_search_and_use_azure_fallback_sync(
 
     assert response.mode_used == "azure_fallback"
     assert response.answer == "Paris is the capital of France."
-    assert response.max_confidence == 0.0
-    assert store.query_count == 0
+    assert response.max_confidence == pytest.approx(0.18)
+    assert store.query_count == 1
+    assert azure.complete_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_sync_medium_confidence_smalltalk_uses_azure_fallback():
+    results = [
+        VectorSearchResult(
+            chunk_id="page_1_chunk_0",
+            score=0.26,
+            text="Loosely related content.",
+            page_id=1,
+            page_title="User Guide",
+        )
+    ]
+    azure = FakeAzureChatService(complete_text="Hello there.")
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=FakeVectorStore(results),
+        llm_client=FakeLLMClient(),
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=azure,
+        query_intent_service=FakeIntentService("smalltalk"),
+    )
+    service.min_score = 0.35
+
+    response = await service.answer_query("hello")
+
+    assert response.mode_used == "azure_fallback"
+    assert response.answer == "Hello there."
+    assert response.max_confidence == pytest.approx(0.26)
     assert azure.complete_calls == 1
 
 
@@ -197,6 +229,38 @@ async def test_sync_medium_confidence_returns_uncertain_instead_of_rag():
     assert "not fully confident" in response.answer.lower()
     assert response.max_confidence == pytest.approx(0.44)
     assert llm.generate_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_stream_medium_confidence_general_uses_azure_fallback():
+    results = [
+        VectorSearchResult(
+            chunk_id="page_3_chunk_0",
+            score=0.27,
+            text="Weakly related content.",
+            page_id=3,
+        )
+    ]
+    azure = FakeAzureChatService(stream_chunks=["Hello ", "there."])
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=FakeVectorStore(results),
+        llm_client=FakeLLMClient(),
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=azure,
+        query_intent_service=FakeIntentService("general"),
+    )
+    service.min_score = 0.35
+
+    events = []
+    async for event in service.answer_query_stream("hello"):
+        events.append(event)
+
+    assert events[0] == {"type": "token", "content": "Hello "}
+    assert events[1] == {"type": "token", "content": "there."}
+    assert events[-1]["mode_used"] == "azure_fallback"
+    assert events[-1]["max_confidence"] == pytest.approx(0.27)
+    assert azure.stream_calls == 1
 
 
 @pytest.mark.asyncio

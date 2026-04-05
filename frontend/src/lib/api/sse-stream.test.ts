@@ -25,11 +25,13 @@ describe("consumeSSEStream", () => {
   let onToken: (content: string) => void;
   let onDone: (event: SSEEvent & { type: "done" }) => void;
   let onError: (error: Error) => void;
+  let onVoiceReady: (event: SSEEvent & { type: "voice_ready" }) => void;
 
   beforeEach(() => {
     onToken = vi.fn();
     onDone = vi.fn();
     onError = vi.fn();
+    onVoiceReady = vi.fn();
   });
 
   it("parses token events from stream", async () => {
@@ -73,5 +75,24 @@ describe("consumeSSEStream", () => {
 
     await consumeSSEStream(response, onToken, onDone, onError);
     expect(onToken).toHaveBeenCalledWith("hi");
+  });
+
+  it("surfaces voice_ready events before done", async () => {
+    const response = mockStreamResponse([
+      'data: {"type":"voice_ready","voice_response":"Short answer.","voice_audio_base64":"YXVkaW8=","voice_audio_content_type":"audio/mpeg"}\n\n',
+      'data: {"type":"token","content":"Full answer."}\n\n',
+      'data: {"type":"done","primary_citations":[],"secondary_citations":[],"all_citations":[],"hidden_sources_count":0,"mode_used":"rag","max_confidence":0.91,"voice_response":"Short answer."}\n\n',
+    ]);
+
+    await consumeSSEStream(response, onToken, onDone, onError, onVoiceReady);
+
+    expect(onVoiceReady).toHaveBeenCalledWith({
+      type: "voice_ready",
+      voice_response: "Short answer.",
+      voice_audio_base64: "YXVkaW8=",
+      voice_audio_content_type: "audio/mpeg",
+    });
+    expect(onToken).toHaveBeenCalledWith("Full answer.");
+    expect(onDone).toHaveBeenCalledTimes(1);
   });
 });

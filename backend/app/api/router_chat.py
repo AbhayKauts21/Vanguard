@@ -17,6 +17,7 @@ from app.domain.schemas import ChatRequest, ChatResponse
 from app.core.exceptions import NoContextFoundError
 from app.core.prompts import NO_CONTEXT_RESPONSE
 from app.services.rag_service import rag_service
+from app.services.chat_service import chat_service
 from app.services.voice_conversation_service import voice_conversation_service
 
 limiter = Limiter(key_func=get_remote_address)
@@ -71,6 +72,18 @@ async def chat_stream(request: Request, body: ChatRequest):
         buffered_tokens: list[str] = []
         final_event: dict | None = None
         try:
+            if body.voice_mode:
+                prepared = await chat_service.prepare_voice_turn(
+                    question=body.message,
+                    history=list(history or []),
+                    locale=locale,
+                    user_id=None,
+                )
+                yield f"data: {json.dumps(chat_service.build_voice_ready_event(prepared))}\n\n"
+                yield f"data: {json.dumps({'type': 'token', 'content': prepared.response.answer})}\n\n"
+                yield f"data: {json.dumps(chat_service.build_stream_done_event(prepared.response))}\n\n"
+                return
+
             async for chunk in rag_service.answer_query_stream(
                 body.message,
                 history=history,
@@ -95,15 +108,6 @@ async def chat_stream(request: Request, body: ChatRequest):
 
         if final_event is None:
             return
-
-        if body.voice_mode:
-            final_event["voice_response"] = await voice_conversation_service.create_voice_response(
-                question=body.message,
-                answer="".join(buffered_tokens).strip(),
-                history=history,
-                locale=locale,
-                mode_used=str(final_event.get("mode_used", "rag")),
-            )
 
         yield f"data: {json.dumps(final_event)}\n\n"
 

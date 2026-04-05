@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.api.router_chat import router as chat_router
 from app.core.exceptions import CleoError, cleo_exception_handler
 from app.domain.schemas import ChatResponse
+from app.services.chat_service import PreparedVoiceTurn
 
 
 def build_app():
@@ -48,30 +49,26 @@ def test_chat_route_includes_voice_response_when_voice_mode_enabled(monkeypatch)
     assert payload["voice_response"] == "Short spoken answer."
 
 
-def test_chat_stream_appends_voice_response_to_done_event(monkeypatch):
-    async def fake_answer_query_stream(message, history=None, locale="en", user_id=None):
-        yield {"type": "token", "content": "Full "}
-        yield {"type": "token", "content": "answer."}
-        yield {
-            "type": "done",
-            "primary_citations": [],
-            "secondary_citations": [],
-            "all_citations": [],
-            "hidden_sources_count": 0,
-            "mode_used": "rag",
-            "max_confidence": 0.91,
-        }
-
-    async def fake_voice_response(**kwargs):
-        return "Short spoken answer."
+def test_chat_stream_emits_voice_ready_before_text_for_voice_mode(monkeypatch):
+    async def fake_prepare_voice_turn(*, question, history, locale="en", user_id=None):
+        return PreparedVoiceTurn(
+            response=ChatResponse(
+                answer="Full answer.",
+                primary_citations=[],
+                secondary_citations=[],
+                all_citations=[],
+                hidden_sources_count=0,
+                mode_used="rag",
+                max_confidence=0.91,
+                voice_response="Short spoken answer.",
+            ),
+            voice_audio_bytes=b"audio",
+            voice_audio_content_type="audio/mpeg",
+        )
 
     monkeypatch.setattr(
-        "app.api.router_chat.rag_service.answer_query_stream",
-        fake_answer_query_stream,
-    )
-    monkeypatch.setattr(
-        "app.api.router_chat.voice_conversation_service.create_voice_response",
-        fake_voice_response,
+        "app.api.router_chat.chat_service.prepare_voice_turn",
+        fake_prepare_voice_turn,
     )
 
     client = TestClient(build_app())
@@ -87,6 +84,11 @@ def test_chat_stream_appends_voice_response_to_done_event(monkeypatch):
         if line.startswith("data: "):
             events.append(json.loads(line[6:]))
 
-    assert events[0] == {"type": "token", "content": "Full "}
-    assert events[1] == {"type": "token", "content": "answer."}
+    assert events[0] == {
+        "type": "voice_ready",
+        "voice_response": "Short spoken answer.",
+        "voice_audio_base64": "YXVkaW8=",
+        "voice_audio_content_type": "audio/mpeg",
+    }
+    assert events[1] == {"type": "token", "content": "Full answer."}
     assert events[-1]["voice_response"] == "Short spoken answer."

@@ -302,6 +302,59 @@ async def test_stream_endpoint_persists_assistant_message_and_returns_chat_summa
 
 
 @pytest.mark.asyncio
+async def test_voice_stream_endpoint_emits_voice_ready_and_persists_full_answer(chat_test_context, monkeypatch):
+    client: httpx.AsyncClient = chat_test_context["client"]
+
+    class FakeVoiceConversationService:
+        async def create_voice_response(self, **kwargs):
+            return "Short spoken answer."
+
+    class FakeTTSService:
+        def content_type(self) -> str:
+            return "audio/mpeg"
+
+        async def synthesize(self, **kwargs):
+            return b"audio"
+
+    previous_voice_service = chat_service.voice_conversation_service
+    previous_tts_service = chat_service.tts_service
+    monkeypatch.setattr(chat_service, "voice_conversation_service", FakeVoiceConversationService())
+    monkeypatch.setattr(chat_service, "tts_service", FakeTTSService())
+
+    alice = await register_user(client, "alice5@example.com")
+    create_response = await client.post(
+        "/api/v1/chats/",
+        headers=auth_headers(alice["access_token"]),
+    )
+    chat_id = create_response.json()["id"]
+
+    stream_response = await client.post(
+        f"/api/v1/chats/{chat_id}/messages/stream",
+        headers=auth_headers(alice["access_token"]),
+        json={"message": "Stream this answer in voice mode", "voice_mode": True},
+    )
+
+    monkeypatch.setattr(chat_service, "voice_conversation_service", previous_voice_service)
+    monkeypatch.setattr(chat_service, "tts_service", previous_tts_service)
+
+    assert stream_response.status_code == 200
+    events = parse_sse_events(stream_response.text)
+    assert [event["type"] for event in events] == ["voice_ready", "token", "done"]
+    assert events[0]["voice_response"] == "Short spoken answer."
+    assert events[1]["content"] == "Answer for: Stream this answer in voice mode"
+    assert events[-1]["chat_summary"]["id"] == chat_id
+
+    messages_response = await client.get(
+        f"/api/v1/chats/{chat_id}/messages",
+        headers=auth_headers(alice["access_token"]),
+    )
+    assert messages_response.status_code == 200
+    items = messages_response.json()["items"]
+    assert len(items) == 2
+    assert items[-1]["content"] == "Answer for: Stream this answer in voice mode"
+
+
+@pytest.mark.asyncio
 async def test_guest_chat_endpoint_remains_available(chat_test_context):
     client: httpx.AsyncClient = chat_test_context["client"]
 

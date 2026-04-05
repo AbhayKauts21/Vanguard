@@ -41,6 +41,10 @@ vi.mock("./useBargeInMonitor", () => ({
   useBargeInMonitor: () => undefined,
 }));
 
+vi.mock("./useSpokenInterruptMonitor", () => ({
+  useSpokenInterruptMonitor: () => undefined,
+}));
+
 vi.mock("@/domains/voice/engine", () => ({
   synthesizeSpeech: mocks.synthesizeSpeech,
   speakWithBrowserTTS: mocks.speakWithBrowserTTS,
@@ -90,7 +94,7 @@ describe("useVoiceMode", () => {
     vi.useRealTimers();
   });
 
-  it("speaks only the short voice_response and not the raw streamed answer", async () => {
+  it("speaks only the short voice_response and keeps it out of visible transcript state", async () => {
     mocks.stopSTT.mockReturnValue("How do I reset my password?");
     mocks.synthesizeSpeech.mockResolvedValue(new Blob(["audio"]));
     mocks.apiStream.mockResolvedValue({ ok: true } as Response);
@@ -131,9 +135,7 @@ describe("useVoiceMode", () => {
     expect(mocks.synthesizeSpeech).not.toHaveBeenCalledWith(
       expect.stringContaining("Full grounded answer."),
     );
-    expect(useVoiceStore.getState().cleoTranscript).toBe(
-      "Short spoken answer. Next step?",
-    );
+    expect(useVoiceStore.getState().cleoTranscript).toBe("");
     expect(useVoiceStore.getState().phase).toBe("listening");
   });
 
@@ -153,6 +155,27 @@ describe("useVoiceMode", () => {
     expect(mocks.cancelBrowserTTS).toHaveBeenCalled();
     expect(mocks.startSTT).toHaveBeenCalled();
     expect(useVoiceStore.getState().isVoiceMode).toBe(true);
+    expect(useVoiceStore.getState().phase).toBe("listening");
+  });
+
+  it("preserves a spoken interrupt phrase as the start of the next turn", async () => {
+    const { result } = renderHook(() => useVoiceMode());
+
+    act(() => {
+      useVoiceStore.getState().startVoiceMode();
+      useVoiceStore.getState().setPhase("speaking");
+    });
+
+    await act(async () => {
+      await result.current.interruptCurrentTurn("okay can you compare that");
+    });
+
+    expect(mocks.startSTT).toHaveBeenCalledWith({
+      seedTranscript: "okay can you compare that",
+    });
+    expect(useVoiceStore.getState().userTranscript).toBe(
+      "okay can you compare that",
+    );
     expect(useVoiceStore.getState().phase).toBe("listening");
   });
 });

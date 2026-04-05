@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 interface UseBargeInMonitorOptions {
   active: boolean;
   speaking: boolean;
-  onBargeIn: () => void;
+  onSpeechDetected: () => void;
   threshold?: number;
   holdMs?: number;
   cooldownMs?: number;
@@ -29,13 +29,13 @@ function computeRms(data: Uint8Array): number {
 export function useBargeInMonitor({
   active,
   speaking,
-  onBargeIn,
+  onSpeechDetected,
   threshold = DEFAULT_THRESHOLD,
   holdMs = DEFAULT_HOLD_MS,
   cooldownMs = DEFAULT_COOLDOWN_MS,
 }: UseBargeInMonitorOptions) {
   const speakingRef = useRef(speaking);
-  const onBargeInRef = useRef(onBargeIn);
+  const onSpeechDetectedRef = useRef(onSpeechDetected);
   const holdStartRef = useRef<number | null>(null);
   const lastTriggerRef = useRef<number>(0);
 
@@ -47,11 +47,16 @@ export function useBargeInMonitor({
   }, [speaking]);
 
   useEffect(() => {
-    onBargeInRef.current = onBargeIn;
-  }, [onBargeIn]);
+    onSpeechDetectedRef.current = onSpeechDetected;
+  }, [onSpeechDetected]);
 
   useEffect(() => {
-    if (!active || typeof window === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    if (
+      !active ||
+      !speaking ||
+      typeof window === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
       return;
     }
 
@@ -145,7 +150,7 @@ export function useBargeInMonitor({
           if (exceededHold && cooledDown) {
             lastTriggerRef.current = now;
             holdStartRef.current = null;
-            onBargeInRef.current();
+            onSpeechDetectedRef.current();
           }
         } else {
           holdStartRef.current = null;
@@ -162,5 +167,5 @@ export function useBargeInMonitor({
     return () => {
       void stop();
     };
-  }, [active, cooldownMs, holdMs, threshold]);
+  }, [active, cooldownMs, holdMs, speaking, threshold]);
 }

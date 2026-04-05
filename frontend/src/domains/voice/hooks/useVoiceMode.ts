@@ -10,6 +10,7 @@ import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
 import { useSpeechRecognition } from "./useSpeechRecognition";
 import { useAudioAnalyser } from "./useAudioAnalyser";
 import { useBargeInMonitor } from "./useBargeInMonitor";
+import { useSpokenInterruptMonitor } from "./useSpokenInterruptMonitor";
 import {
   cancelBrowserTTS,
   synthesizeSpeech,
@@ -86,6 +87,7 @@ export function useVoiceMode() {
   const setError = useVoiceStore((s) => s.setError);
   const setCleoTranscript = useVoiceStore((s) => s.setCleoTranscript);
   const setFinalTranscript = useVoiceStore((s) => s.setFinalTranscript);
+  const setUserTranscript = useVoiceStore((s) => s.setUserTranscript);
 
   const addUserMessage = useChatStore((s) => s.addUserMessage);
   const setThinking = useChatStore((s) => s.setThinking);
@@ -101,6 +103,8 @@ export function useVoiceMode() {
   const ttsAbortRef = useRef<AbortController | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const speechDetectedAtRef = useRef(0);
+  const spokenVoiceTextRef = useRef("");
   const turnRef = useRef(0);
   const phase = useVoiceStore((s) => s.phase);
   const userTranscript = useVoiceStore((s) => s.userTranscript);
@@ -116,6 +120,9 @@ export function useVoiceMode() {
       settleTimerRef.current = null;
     }
   }, []);
+
+  const getSpokenVoiceText = useCallback(() => spokenVoiceTextRef.current, []);
+  const getSpeechDetectedAt = useCallback(() => speechDetectedAtRef.current, []);
 
   const waitForPlaybackToSettle = useCallback(
     async (turnId: number) =>
@@ -142,16 +149,25 @@ export function useVoiceMode() {
     [isPlaying],
   );
 
-  const maybeResumeListening = useCallback(() => {
+  const maybeResumeListening = useCallback((seedTranscript?: string) => {
     const state = useVoiceStore.getState();
     if (!state.isVoiceMode) {
       setPhase("idle");
       return;
     }
 
+    const nextTranscript = seedTranscript?.trim() ?? "";
+    if (nextTranscript) {
+      setUserTranscript(nextTranscript);
+      setFinalTranscript(nextTranscript);
+    } else {
+      setUserTranscript("");
+      setFinalTranscript("");
+    }
+
     setPhase("listening");
-    startSTT();
-  }, [setPhase, startSTT]);
+    startSTT({ seedTranscript });
+  }, [setFinalTranscript, setPhase, setUserTranscript, startSTT]);
 
   const activate = useCallback(() => {
     turnRef.current += 1;
@@ -160,6 +176,8 @@ export function useVoiceMode() {
     resetAudio();
     void resumeAudio();
     setCleoTranscript("");
+    spokenVoiceTextRef.current = "";
+    speechDetectedAtRef.current = 0;
     useVoiceStore.getState().setUserTranscript("");
     setFinalTranscript("");
     startSTT();
@@ -173,7 +191,7 @@ export function useVoiceMode() {
     startVoiceMode,
   ]);
 
-  const interruptCurrentTurn = useCallback(async () => {
+  const interruptCurrentTurn = useCallback(async (seedTranscript?: string) => {
     const state = useVoiceStore.getState();
     if (!state.isVoiceMode) {
       return;
@@ -186,6 +204,7 @@ export function useVoiceMode() {
     stopSTT();
     stopAudio();
     cancelBrowserTTS();
+    spokenVoiceTextRef.current = "";
     useVoiceStore.getState().setAudioLevel(0);
 
     const avatarInterrupt = useAvatarStore.getState().interruptFn;
@@ -198,15 +217,25 @@ export function useVoiceMode() {
     }
 
     if (useVoiceStore.getState().isVoiceMode) {
-      maybeResumeListening();
+      maybeResumeListening(seedTranscript);
     }
   }, [clearTimers, maybeResumeListening, stopAudio, stopSTT]);
 
   useBargeInMonitor({
     active: isVoiceMode,
     speaking: phase === "speaking",
-    onBargeIn: () => {
-      void interruptCurrentTurn();
+    onSpeechDetected: () => {
+      speechDetectedAtRef.current = performance.now();
+    },
+  });
+
+  useSpokenInterruptMonitor({
+    active: isVoiceMode,
+    speaking: phase === "speaking",
+    getSpokenText: getSpokenVoiceText,
+    getSpeechDetectedAt,
+    onInterruptIntent: (seedTranscript) => {
+      void interruptCurrentTurn(seedTranscript);
     },
   });
 
@@ -385,12 +414,13 @@ export function useVoiceMode() {
         );
 
       if (voiceText) {
-        setCleoTranscript(voiceText);
+        spokenVoiceTextRef.current = voiceText;
         await speakVoiceResponse(voiceText, turnId);
         await waitForPlaybackToSettle(turnId);
       }
 
       if (turnId === turnRef.current) {
+        spokenVoiceTextRef.current = "";
         useVoiceStore.getState().setAudioLevel(0);
         maybeResumeListening();
       }
@@ -433,6 +463,7 @@ export function useVoiceMode() {
     abortRef.current?.abort();
     ttsAbortRef.current?.abort();
     cancelBrowserTTS();
+    spokenVoiceTextRef.current = "";
     stopVoiceMode();
   }, [clearTimers, stopAudio, stopSTT, stopVoiceMode]);
 

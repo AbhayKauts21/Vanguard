@@ -1,5 +1,7 @@
 <p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=52&duration=3000&pause=1000&color=8B5CF6&center=true&vCenter=true&multiline=true&width=700&height=120&lines=%F0%9F%A7%A0+C+L+E+O;%F0%9F%93%96+Contextual+Learning+%26+Enterprise+Oracle" alt="CLEO (Contextual Learning & Enterprise Oracle)" />
+  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=64&duration=2000&pause=500&color=8B5CF6&center=true&vCenter=true&width=500&height=100&lines=%F0%9F%A7%A0+C+L+E+O" alt="CLEO" />
+  <br />
+  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=600&size=24&duration=3000&pause=1000&color=8B5CF6&center=true&vCenter=true&width=800&height=50&lines=Contextual+Learning+%26+Enterprise+Oracle" alt="Contextual Learning & Enterprise Oracle" />
 </p>
 
 <p align="center">

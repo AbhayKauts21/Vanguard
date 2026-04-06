@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=52&duration=3000&pause=1000&color=8B5CF6&center=true&vCenter=true&multiline=true&width=700&height=120&lines=%F0%9F%A7%A0+C+L+E+O;Contextual+Learning+%26+Enterprise+Oracle" alt="CLEO" />
+  <img src="https://readme-typing-svg.demolab.com?font=Orbitron&weight=900&size=52&duration=3000&pause=1000&color=8B5CF6&center=true&vCenter=true&multiline=true&width=700&height=120&lines=%F0%9F%A7%A0+C+L+E+O;%F0%9F%93%96+Contextual+Learning+%26+Enterprise+Oracle" alt="CLEO (Contextual Learning & Enterprise Oracle)" />
 </p>
 
 <p align="center">
@@ -30,7 +30,7 @@
 
 > **Static documentation kills productivity.** Users waste time digging through dense wikis instead of getting instant answers.
 
-CLEO is an **AI-powered enterprise assistant** that turns your knowledge base into an interactive, conversational experience. It uses a **Retrieval-Augmented Generation (RAG)** pipeline to pull accurate, cited answers from your BookStack wiki and user-uploaded documents — delivered via text or a full **voice-to-voice** pipeline.
+CLEO (**C**ontextual **L**earning & **E**nterprise **O**racle) is an **AI-powered enterprise assistant** that turns your knowledge base into an interactive, conversational experience. It uses a **Retrieval-Augmented Generation (RAG)** pipeline to pull accurate, cited answers from your BookStack wiki and user-uploaded documents — delivered via text or a full **voice-to-voice** pipeline.
 
 ### ✨ Key Capabilities
 

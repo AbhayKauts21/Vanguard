@@ -129,12 +129,12 @@ async def test_greeting_queries_still_search_before_low_confidence_fallback():
     )
 
     response = await service.answer_query("hello")
+    
+    assert response.mode_used == "shortcut"
+    assert "Hello. I'm CLEO" in response.answer
+    assert store.query_count == 0  # Shortcut should bypass search
+    assert intent_service.calls == 0  # Shortcut should bypass intent classification
 
-    assert response.mode_used == "azure_fallback"
-    assert response.answer == "Hello there."
-    assert store.query_count == 1
-    assert intent_service.calls == 1
-    assert azure.complete_calls == 1
 
 
 @pytest.mark.asyncio
@@ -191,11 +191,11 @@ async def test_sync_medium_confidence_smalltalk_uses_azure_fallback():
     service.min_score = 0.35
 
     response = await service.answer_query("hello")
+    
+    assert response.mode_used == "shortcut"
+    assert "Hello. I'm CLEO" in response.answer
+    assert response.max_confidence == 1.0
 
-    assert response.mode_used == "azure_fallback"
-    assert response.answer == "Hello there."
-    assert response.max_confidence == pytest.approx(0.26)
-    assert azure.complete_calls == 1
 
 
 @pytest.mark.asyncio
@@ -255,12 +255,11 @@ async def test_stream_medium_confidence_general_uses_azure_fallback():
     events = []
     async for event in service.answer_query_stream("hello"):
         events.append(event)
+    
+    assert events[0]["content"].startswith("Hello.")
+    assert events[-1]["mode_used"] == "shortcut"
+    assert events[-1]["max_confidence"] == 1.0
 
-    assert events[0] == {"type": "token", "content": "Hello "}
-    assert events[1] == {"type": "token", "content": "there."}
-    assert events[-1]["mode_used"] == "azure_fallback"
-    assert events[-1]["max_confidence"] == pytest.approx(0.27)
-    assert azure.stream_calls == 1
 
 
 @pytest.mark.asyncio
@@ -313,3 +312,23 @@ async def test_rag_filters_user_uploads_to_current_user():
             {"user_id": {"$eq": "user-123"}},
         ]
     }
+
+
+@pytest.mark.asyncio
+async def test_onboarding_questions_instantly_return_shortcuts():
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=FakeVectorStore([]),
+        llm_client=FakeLLMClient(),
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=FailAzureChatService(),
+        query_intent_service=FakeIntentService("docs"),
+    )
+
+    questions = ["What is CLEO?", "What can CLEO do?", "How to use CLEO?"]
+    for q in questions:
+        response = await service.answer_query(q)
+        assert response.mode_used == "shortcut"
+        assert response.max_confidence == 1.0
+        assert len(response.answer) > 20
+

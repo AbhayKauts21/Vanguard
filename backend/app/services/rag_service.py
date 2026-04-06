@@ -101,6 +101,11 @@ class RAGService:
         rlog = logger.bind(request_id="sync")
         t_start = time.perf_counter()
 
+        shortcut = self._shortcut_response(question, locale)
+        if shortcut:
+            rlog.info("rag.shortcut", question=question, locale=locale)
+            return self._shortcut_chat_response(shortcut)
+
         results, max_confidence = await self._search_results(
             question,
             user_id=user_id,
@@ -128,6 +133,13 @@ class RAGService:
         """Streaming RAG pipeline with intent-aware routing."""
         rlog = logger.bind(request_id="stream")
         t_start = time.perf_counter()
+
+        shortcut = self._shortcut_response(question, locale)
+        if shortcut:
+            rlog.info("rag.shortcut", question=question, locale=locale)
+            async for event in self._stream_shortcut(shortcut):
+                yield event
+            return
 
         results, max_confidence = await self._search_results(
             question,

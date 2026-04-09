@@ -72,6 +72,9 @@ async def chat_stream(request: Request, body: ChatRequest):
         buffered_tokens: list[str] = []
         final_event: dict | None = None
         try:
+            if await request.is_disconnected():
+                return
+
             if body.voice_mode:
                 prepared = await chat_service.prepare_voice_turn(
                     question=body.message,
@@ -79,6 +82,8 @@ async def chat_stream(request: Request, body: ChatRequest):
                     locale=locale,
                     user_id=None,
                 )
+                if await request.is_disconnected():
+                    return
                 yield f"data: {json.dumps(chat_service.build_voice_ready_event(prepared))}\n\n"
                 yield f"data: {json.dumps({'type': 'token', 'content': prepared.response.answer})}\n\n"
                 yield f"data: {json.dumps(chat_service.build_stream_done_event(prepared.response))}\n\n"
@@ -89,6 +94,8 @@ async def chat_stream(request: Request, body: ChatRequest):
                 history=history,
                 locale=locale,
             ):
+                if await request.is_disconnected():
+                    return
                 if chunk.get("type") == "token":
                     buffered_tokens.append(str(chunk.get("content", "")))
                     yield f"data: {json.dumps(chunk)}\n\n"
@@ -107,6 +114,9 @@ async def chat_stream(request: Request, body: ChatRequest):
             final_event = {'type': 'done', 'primary_citations': [], 'secondary_citations': [], 'all_citations': [], 'hidden_sources_count': 0, 'mode_used': 'rag', 'max_confidence': 0.0}
 
         if final_event is None:
+            return
+
+        if await request.is_disconnected():
             return
 
         yield f"data: {json.dumps(final_event)}\n\n"

@@ -7,3 +7,7 @@ export type {
   TTSRequest,
   STTEngineCallbacks,
 } from "./types";
+export {
+  INTERRUPTIBLE_VOICE_PHASES,
+  isInterruptibleVoicePhase,
+} from "./types";

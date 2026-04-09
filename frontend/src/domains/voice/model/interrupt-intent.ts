@@ -1,17 +1,17 @@
-const EXPLICIT_TAKEOVER_CUES = [
-  "stop",
-  "wait",
+export const INTERRUPT_KEYWORD_PHRASES = [
+  "stop talking",
   "hold on",
-  "actually",
-  "no",
-  "let me",
-  "can you",
-  "what about",
-  "okay so",
-  "ok so",
-  "one sec",
-  "one second",
-];
+  "okay cleo",
+  "ok cleo",
+  "cleo stop",
+  "please stop",
+  "stop",
+  "pause",
+  "wait",
+  "enough",
+  "cancel",
+  "quiet",
+] as const;
 
 const FILLER_ACKNOWLEDGEMENTS = new Set([
   "okay",
@@ -25,32 +25,15 @@ const FILLER_ACKNOWLEDGEMENTS = new Set([
   "right",
 ]);
 
-const DIRECT_ADDRESS_PREFIXES = ["cleo", "hey cleo", "hey", "listen"];
-
-const CONTINUATION_MARKERS = [
-  "can",
-  "could",
-  "would",
-  "should",
-  "please",
-  "what",
-  "how",
-  "why",
-  "when",
-  "where",
-  "which",
-  "compare",
-  "tell",
-  "show",
-  "explain",
-  "help",
-  "instead",
-  "actually",
+const LEADING_DISCARD_WORDS = new Set([
+  "and",
+  "a",
+  "an",
   "but",
-  "sorry",
-];
-
-const LEADING_SOFTENERS = new Set([
+  "there",
+  "then",
+  "just",
+  "please",
   "okay",
   "ok",
   "well",
@@ -58,6 +41,34 @@ const LEADING_SOFTENERS = new Set([
   "um",
   "uh",
   "hey",
+  "one",
+  "sec",
+  "second",
+  "seconds",
+  "minute",
+  "moment",
+]);
+
+const CONTINUATION_STARTERS = new Set([
+  "about",
+  "can",
+  "could",
+  "compare",
+  "describe",
+  "explain",
+  "give",
+  "help",
+  "how",
+  "list",
+  "show",
+  "summarize",
+  "tell",
+  "what",
+  "when",
+  "where",
+  "which",
+  "why",
+  "would",
 ]);
 
 const MIN_SINGLE_WORD_STABLE_MS = 120;
@@ -82,32 +93,46 @@ function splitWords(text: string): string[] {
   return normalizeInterruptTranscript(text).split(" ").filter(Boolean);
 }
 
-function startsWithPhrase(text: string, phrases: readonly string[]): boolean {
-  return phrases.some((phrase) => text === phrase || text.startsWith(`${phrase} `));
+function findInterruptKeywordPrefix(text: string): string | null {
+  const normalized = normalizeInterruptTranscript(text);
+  const sortedKeywords = [...INTERRUPT_KEYWORD_PHRASES].sort(
+    (left, right) => right.length - left.length,
+  );
+
+  return (
+    sortedKeywords.find(
+      (phrase) => normalized === phrase || normalized.startsWith(`${phrase} `),
+    ) ?? null
+  );
 }
 
-function hasContinuationShape(text: string, wordCount: number): boolean {
-  if (text.includes("can you") || text.includes("could you")) {
-    return true;
+export function extractInterruptContinuation(transcript: string): string {
+  const normalized = normalizeInterruptTranscript(transcript);
+  const matchedPhrase = findInterruptKeywordPrefix(normalized);
+
+  if (!matchedPhrase) {
+    return "";
   }
 
-  const words = text.split(" ").filter(Boolean);
-  const effectiveWords =
-    words.length > 1 && LEADING_SOFTENERS.has(words[0] ?? "")
-      ? words.slice(1)
-      : words;
-  const effectiveText = effectiveWords.join(" ");
-
-  if (startsWithPhrase(text, DIRECT_ADDRESS_PREFIXES) && wordCount >= 2) {
-    return true;
+  const remainder = normalized.slice(matchedPhrase.length).trim();
+  if (!remainder) {
+    return "";
   }
 
-  if (effectiveWords.length < 2) {
-    return false;
+  const words = remainder.split(" ").filter(Boolean);
+  while (words.length > 0 && LEADING_DISCARD_WORDS.has(words[0] ?? "")) {
+    words.shift();
   }
 
-  const [firstWord = ""] = effectiveWords;
-  return CONTINUATION_MARKERS.includes(firstWord);
+  if (words.length === 0) {
+    return "";
+  }
+
+  if (words.length === 1 && !CONTINUATION_STARTERS.has(words[0] ?? "")) {
+    return "";
+  }
+
+  return words.join(" ").trim();
 }
 
 export function transcriptLooksLikeEcho(
@@ -148,32 +173,22 @@ export function isInterruptIntent({
   }
 
   const words = normalized.split(" ").filter(Boolean);
-  const wordCount = words.length;
-  const hasExplicitCue = startsWithPhrase(normalized, EXPLICIT_TAKEOVER_CUES);
+  const matchedKeyword = findInterruptKeywordPrefix(normalized);
 
   if (FILLER_ACKNOWLEDGEMENTS.has(normalized)) {
     return false;
   }
 
-  if (!hasExplicitCue && transcriptLooksLikeEcho(normalized, spokenText)) {
+  if (!matchedKeyword && transcriptLooksLikeEcho(normalized, spokenText)) {
     return false;
   }
 
-  if (wordCount === 1) {
-    return hasExplicitCue && (isFinal || stableMs >= MIN_SINGLE_WORD_STABLE_MS);
-  }
-
-  if (hasExplicitCue) {
-    return isFinal || stableMs >= MIN_MULTI_WORD_STABLE_MS;
-  }
-
-  if (startsWithPhrase(normalized, DIRECT_ADDRESS_PREFIXES) && wordCount >= 2) {
-    return isFinal || stableMs >= MIN_MULTI_WORD_STABLE_MS;
-  }
-
-  if (!hasContinuationShape(normalized, wordCount)) {
+  if (!matchedKeyword) {
     return false;
   }
 
-  return isFinal || stableMs >= MIN_MULTI_WORD_STABLE_MS;
+  const minStableMs =
+    words.length === 1 ? MIN_SINGLE_WORD_STABLE_MS : MIN_MULTI_WORD_STABLE_MS;
+
+  return isFinal || stableMs >= minStableMs;
 }

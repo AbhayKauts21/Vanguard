@@ -18,7 +18,7 @@ interface VoiceModeButtonProps {
  * - Idle: shows mic icon, click to activate
  * - Listening: pulsing ring, shows stop icon, click to send
  * - Processing: spinning indicator, non-interactive
- * - Speaking: passive speaking indicator; interruption is voice-only
+ * - Speaking: passive speaking indicator; interruption is handled via keywords or HUD button
  */
 export function VoiceModeButton({
   onActivate,
@@ -64,7 +64,7 @@ export function VoiceModeButton({
   } else if (isSpeaking) {
     icon = "graphic_eq";
     colorClasses = "text-emerald-400";
-    ariaLabel = "CLEO is speaking. Start talking to interrupt.";
+    ariaLabel = "CLEO is speaking. Say stop or use the Interrupt button.";
   }
 
   return (

@@ -1,6 +1,9 @@
 "use client";
 
-import { useVoiceStore } from "@/domains/voice/model";
+import {
+  isInterruptibleVoicePhase,
+  useVoiceStore,
+} from "@/domains/voice/model";
 import { AnimatePresence, motion } from "framer-motion";
 
 /**
@@ -8,8 +11,10 @@ import { AnimatePresence, motion } from "framer-motion";
  * while voice mode is active.
  */
 export function VoiceTranscript({
+  onInterrupt,
   onDeactivate,
 }: {
+  onInterrupt?: () => void;
   onDeactivate?: () => void;
 }) {
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
@@ -50,6 +55,8 @@ export function VoiceTranscript({
 
   const currentPhase = phaseConfig[phase];
   const visibleTranscript = userTranscript || finalTranscript;
+  const showInterruptButton =
+    typeof onInterrupt === "function" && isInterruptibleVoicePhase(phase);
 
   return (
     <AnimatePresence>
@@ -98,6 +105,15 @@ export function VoiceTranscript({
               </div>
 
               <div className="flex items-center gap-2">
+                {showInterruptButton ? (
+                  <button
+                    type="button"
+                    onClick={onInterrupt}
+                    className="rounded-full border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-red-100 transition-colors hover:border-red-300/40 hover:bg-red-500/16"
+                  >
+                    Interrupt
+                  </button>
+                ) : null}
                 {onDeactivate ? (
                   <button
                     type="button"
@@ -125,7 +141,9 @@ export function VoiceTranscript({
               ) : (
                 <p className="text-[13px] leading-relaxed text-white/45">
                   {phase === "speaking"
-                    ? "CLEO is speaking in the background. Start talking to cut in."
+                    ? 'CLEO is speaking in the background. Say "stop", "pause", or tap Interrupt.'
+                    : phase === "processing"
+                      ? 'CLEO is preparing a response. Say "stop" or tap Interrupt to cancel.'
                     : "Voice mode is active. Start speaking when you're ready."}
                 </p>
               )}

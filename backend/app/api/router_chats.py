@@ -117,6 +117,9 @@ async def stream_message(
     async def event_stream():
         locale = request.headers.get("Accept-Language", "en")[:2]  # Simple 'en' or 'es' extraction
         try:
+            if await request.is_disconnected():
+                return
+
             async for event in chat_service.stream_message(
                 session,
                 current_user=current_user,
@@ -124,6 +127,8 @@ async def stream_message(
                 payload=body,
                 locale=locale,
             ):
+                if await request.is_disconnected():
+                    return
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as exc:
             rlog.exception("chat.stream.failed", chat_id=str(chat_id), error=str(exc))

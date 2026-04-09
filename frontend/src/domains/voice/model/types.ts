@@ -14,6 +14,17 @@ export type VoicePhase =
   | "processing"
   | "speaking";
 
+export const INTERRUPTIBLE_VOICE_PHASES = [
+  "processing",
+  "speaking",
+] as const satisfies readonly VoicePhase[];
+
+export function isInterruptibleVoicePhase(phase: VoicePhase): boolean {
+  return INTERRUPTIBLE_VOICE_PHASES.includes(
+    phase as (typeof INTERRUPTIBLE_VOICE_PHASES)[number],
+  );
+}
+
 /** A single STT recognition result (interim or final). */
 export interface STTResult {
   /** The transcribed text. */

@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useVoiceStore } from "@/domains/voice/model";
+import {
+  isInterruptibleVoicePhase,
+  useVoiceStore,
+} from "@/domains/voice/model";
 import { useChatStore } from "@/domains/chat/model";
 import { useAuthStore } from "@/domains/auth/model";
 import { createPersistedChat } from "@/domains/chat/api";
@@ -23,6 +26,14 @@ import { stripMarkdown } from "@/lib/utils/markdown";
 
 const POST_PLAYBACK_SETTLE_MS = 800;
 const VOICE_FALLBACK_WORD_LIMIT = 75;
+const EMPTY_ASSISTANT_METADATA = {
+  primary_citations: [],
+  secondary_citations: [],
+  all_citations: [],
+  hidden_sources_count: 0,
+  mode_used: "rag" as const,
+  max_confidence: 0,
+};
 
 function normalizeVoiceText(text: string): string {
   return stripMarkdown(text).replace(/\s+/g, " ").trim();
@@ -191,8 +202,22 @@ export function useVoiceMode() {
     }
 
     setPhase("listening");
-    startSTT({ seedTranscript });
+    if (nextTranscript) {
+      startSTT({ seedTranscript: nextTranscript });
+      return;
+    }
+
+    startSTT();
   }, [setFinalTranscript, setPhase, setUserTranscript, startSTT]);
+
+  const finalizeInterruptedAssistantMessage = useCallback(() => {
+    const chatState = useChatStore.getState();
+    if (chatState.streamingMessageId) {
+      finishAssistantMessage(EMPTY_ASSISTANT_METADATA);
+    }
+
+    setThinking(false);
+  }, [finishAssistantMessage, setThinking]);
 
   const activate = useCallback(() => {
     turnRef.current += 1;
@@ -219,14 +244,16 @@ export function useVoiceMode() {
 
   const interruptCurrentTurn = useCallback(async (seedTranscript?: string) => {
     const state = useVoiceStore.getState();
-    if (!state.isVoiceMode || state.phase !== "speaking") {
+    if (!state.isVoiceMode || !isInterruptibleVoicePhase(state.phase)) {
       return;
     }
 
     turnRef.current += 1;
     clearTimers();
     abortRef.current?.abort();
+    abortRef.current = null;
     ttsAbortRef.current?.abort();
+    ttsAbortRef.current = null;
     stopSTT();
     resetAudio();
     void resumeAudio();
@@ -234,6 +261,7 @@ export function useVoiceMode() {
     spokenVoiceTextRef.current = "";
     interruptTranscriptRef.current = "";
     useVoiceStore.getState().setAudioLevel(0);
+    finalizeInterruptedAssistantMessage();
 
     const avatarInterrupt = useAvatarStore.getState().interruptFn;
     if (avatarInterrupt) {
@@ -247,26 +275,29 @@ export function useVoiceMode() {
     if (useVoiceStore.getState().isVoiceMode) {
       maybeResumeListening(seedTranscript);
     }
-  }, [clearTimers, maybeResumeListening, resetAudio, resumeAudio, stopSTT]);
+  }, [
+    clearTimers,
+    finalizeInterruptedAssistantMessage,
+    maybeResumeListening,
+    resetAudio,
+    resumeAudio,
+    stopSTT,
+  ]);
+
+  const interruptListeningActive =
+    isVoiceMode && isInterruptibleVoicePhase(phase);
 
   useBargeInMonitor({
-    active: isVoiceMode,
-    speaking: phase === "speaking",
+    active: interruptListeningActive,
+    speaking: interruptListeningActive,
     onSpeechDetected: () => {
       speechDetectedAtRef.current = performance.now();
-      const state = useVoiceStore.getState();
-      if (!state.isVoiceMode || state.phase !== "speaking") {
-        return;
-      }
-
-      const seedTranscript = interruptTranscriptRef.current.trim() || undefined;
-      void interruptCurrentTurn(seedTranscript);
     },
   });
 
   useSpokenInterruptMonitor({
-    active: isVoiceMode,
-    speaking: phase === "speaking",
+    active: interruptListeningActive,
+    speaking: interruptListeningActive,
     getSpokenText: getSpokenVoiceText,
     getSpeechDetectedAt,
     onTranscriptCandidate: (transcript) => {
@@ -523,12 +554,21 @@ export function useVoiceMode() {
     stopSTT();
     stopAudio();
     abortRef.current?.abort();
+    abortRef.current = null;
     ttsAbortRef.current?.abort();
+    ttsAbortRef.current = null;
     cancelBrowserTTS();
     spokenVoiceTextRef.current = "";
     interruptTranscriptRef.current = "";
+    finalizeInterruptedAssistantMessage();
     stopVoiceMode();
-  }, [clearTimers, stopAudio, stopSTT, stopVoiceMode]);
+  }, [
+    clearTimers,
+    finalizeInterruptedAssistantMessage,
+    stopAudio,
+    stopSTT,
+    stopVoiceMode,
+  ]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {

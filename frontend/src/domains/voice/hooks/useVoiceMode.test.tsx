@@ -18,6 +18,12 @@ const mocks = vi.hoisted(() => ({
   cancelBrowserTTS: vi.fn(),
   apiStream: vi.fn(),
   consumeSSEStream: vi.fn(),
+  audioAnalyserOptions: null as
+    | {
+        onChunkStart?: (index: number) => void;
+        onQueueDrained?: () => void;
+      }
+    | null,
   bargeInOptions: null as
     | {
         active: boolean;
@@ -41,13 +47,19 @@ vi.mock("./useSpeechRecognition", () => ({
 }));
 
 vi.mock("./useAudioAnalyser", () => ({
-  useAudioAnalyser: () => ({
-    enqueueAudio: mocks.enqueueAudio,
-    stopAudio: mocks.stopAudio,
-    resetAudio: mocks.resetAudio,
-    resumeAudio: mocks.resumeAudio,
-    isPlaying: mocks.isPlaying,
-  }),
+  useAudioAnalyser: (options: {
+    onChunkStart?: (index: number) => void;
+    onQueueDrained?: () => void;
+  }) => {
+    mocks.audioAnalyserOptions = options;
+    return {
+      enqueueAudio: mocks.enqueueAudio,
+      stopAudio: mocks.stopAudio,
+      resetAudio: mocks.resetAudio,
+      resumeAudio: mocks.resumeAudio,
+      isPlaying: mocks.isPlaying,
+    };
+  },
 }));
 
 vi.mock("./useBargeInMonitor", () => ({
@@ -92,6 +104,7 @@ describe("useVoiceMode", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mocks.audioAnalyserOptions = null;
     mocks.bargeInOptions = null;
     mocks.spokenInterruptOptions = null;
 
@@ -219,6 +232,7 @@ describe("useVoiceMode", () => {
     act(() => {
       useVoiceStore.getState().startVoiceMode();
       useVoiceStore.getState().setPhase("speaking");
+      useVoiceStore.getState().setAudioLevel(0.64);
     });
 
     await act(async () => {
@@ -231,6 +245,7 @@ describe("useVoiceMode", () => {
     expect(mocks.startSTT).toHaveBeenCalled();
     expect(useVoiceStore.getState().isVoiceMode).toBe(true);
     expect(useVoiceStore.getState().phase).toBe("listening");
+    expect(useVoiceStore.getState().audioLevel).toBe(0);
   });
 
   it("preserves a spoken interrupt phrase as the start of the next turn", async () => {
@@ -242,20 +257,104 @@ describe("useVoiceMode", () => {
     });
 
     await act(async () => {
-      await result.current.interruptCurrentTurn("okay can you compare that");
+      await result.current.interruptCurrentTurn("can you compare that");
     });
 
     expect(mocks.startSTT).toHaveBeenCalledWith({
-      seedTranscript: "okay can you compare that",
+      seedTranscript: "can you compare that",
     });
     expect(useVoiceStore.getState().userTranscript).toBe(
-      "okay can you compare that",
+      "can you compare that",
     );
     expect(useVoiceStore.getState().phase).toBe("listening");
   });
 
-  it("auto-interrupts on sustained user speech and re-arms for the next spoken reply", async () => {
+  it("interrupts from processing, preserving any partial assistant message", async () => {
     const { result, rerender } = renderHook(() => useVoiceMode());
+
+    act(() => {
+      useVoiceStore.getState().startVoiceMode();
+      useVoiceStore.getState().setPhase("processing");
+      useChatStore.setState({
+        messages: [
+          {
+            id: "assistant-1",
+            role: "assistant",
+            content: "Partial answer",
+            isStreaming: true,
+          },
+        ],
+        guestMessages: [
+          {
+            id: "assistant-1",
+            role: "assistant",
+            content: "Partial answer",
+            isStreaming: true,
+          },
+        ],
+        streamingMessageId: "assistant-1",
+        isThinking: true,
+      });
+    });
+    rerender();
+
+    await act(async () => {
+      await result.current.interruptCurrentTurn();
+    });
+
+    expect(mocks.resetAudio).toHaveBeenCalledTimes(1);
+    expect(mocks.startSTT).toHaveBeenCalled();
+    expect(useChatStore.getState().streamingMessageId).toBeNull();
+    expect(useChatStore.getState().messages[0]).toMatchObject({
+      content: "Partial answer",
+      isStreaming: false,
+    });
+    expect(useVoiceStore.getState().phase).toBe("listening");
+    expect(useChatStore.getState().isThinking).toBe(false);
+  });
+
+  it("does nothing when interrupt is requested while idle or listening", async () => {
+    const { result } = renderHook(() => useVoiceMode());
+
+    await act(async () => {
+      await result.current.interruptCurrentTurn();
+    });
+
+    act(() => {
+      useVoiceStore.getState().startVoiceMode();
+      useVoiceStore.getState().setPhase("listening");
+    });
+
+    await act(async () => {
+      await result.current.interruptCurrentTurn();
+    });
+
+    expect(mocks.resetAudio).not.toHaveBeenCalled();
+    expect(mocks.cancelBrowserTTS).not.toHaveBeenCalled();
+    expect(mocks.startSTT).not.toHaveBeenCalled();
+  });
+
+  it("treats repeated interrupts as idempotent", async () => {
+    const { result } = renderHook(() => useVoiceMode());
+
+    act(() => {
+      useVoiceStore.getState().startVoiceMode();
+      useVoiceStore.getState().setPhase("speaking");
+    });
+
+    await act(async () => {
+      await result.current.interruptCurrentTurn();
+      await result.current.interruptCurrentTurn();
+    });
+
+    expect(mocks.resetAudio).toHaveBeenCalledTimes(1);
+    expect(mocks.cancelBrowserTTS).toHaveBeenCalledTimes(1);
+    expect(mocks.startSTT).toHaveBeenCalledTimes(1);
+    expect(useVoiceStore.getState().phase).toBe("listening");
+  });
+
+  it("waits for a spoken interrupt keyword instead of cutting off on speech energy alone", () => {
+    const { rerender } = renderHook(() => useVoiceMode());
 
     act(() => {
       useVoiceStore.getState().startVoiceMode();
@@ -264,29 +363,113 @@ describe("useVoiceMode", () => {
     rerender();
 
     act(() => {
-      mocks.spokenInterruptOptions?.onTranscriptCandidate?.("stop there");
       mocks.bargeInOptions?.onSpeechDetected();
+    });
+
+    expect(mocks.resetAudio).not.toHaveBeenCalled();
+    expect(useVoiceStore.getState().phase).toBe("speaking");
+
+    act(() => {
+      mocks.spokenInterruptOptions?.onInterruptIntent("compare pricing");
     });
 
     expect(mocks.resetAudio).toHaveBeenCalledTimes(1);
     expect(mocks.startSTT).toHaveBeenLastCalledWith({
-      seedTranscript: "stop there",
+      seedTranscript: "compare pricing",
     });
-    expect(useVoiceStore.getState().phase).toBe("listening");
+  });
+
+  it("does not seed the next turn when the interrupt was only a pure keyword", () => {
+    const { rerender } = renderHook(() => useVoiceMode());
 
     act(() => {
+      useVoiceStore.getState().startVoiceMode();
       useVoiceStore.getState().setPhase("speaking");
     });
     rerender();
 
     act(() => {
-      mocks.spokenInterruptOptions?.onTranscriptCandidate?.("wait compare");
-      mocks.bargeInOptions?.onSpeechDetected();
+      mocks.spokenInterruptOptions?.onInterruptIntent("");
     });
 
-    expect(mocks.resetAudio).toHaveBeenCalledTimes(2);
-    expect(mocks.startSTT).toHaveBeenLastCalledWith({
-      seedTranscript: "wait compare",
+    expect(useVoiceStore.getState().phase).toBe("listening");
+    expect(useVoiceStore.getState().userTranscript).toBe("");
+    expect(useVoiceStore.getState().finalTranscript).toBe("");
+    expect(mocks.startSTT).toHaveBeenLastCalledWith();
+  });
+
+  it("enters speaking from the audio queue chunk-start callback and stays interruptible", async () => {
+    const { result, rerender } = renderHook(() => useVoiceMode());
+
+    act(() => {
+      useVoiceStore.getState().startVoiceMode();
+      useVoiceStore.getState().setPhase("processing");
     });
+    rerender();
+
+    act(() => {
+      mocks.audioAnalyserOptions?.onChunkStart?.(0);
+    });
+    rerender();
+
+    expect(useVoiceStore.getState().phase).toBe("speaking");
+    expect(mocks.spokenInterruptOptions).not.toBeNull();
+
+    await act(async () => {
+      await result.current.interruptCurrentTurn();
+    });
+
+    expect(useVoiceStore.getState().phase).toBe("listening");
+  });
+
+  it("enters speaking before browser TTS fallback playback begins", async () => {
+    mocks.stopSTT.mockReturnValue("How do I reset my password?");
+    mocks.synthesizeSpeech.mockResolvedValue(new Blob([]));
+    mocks.apiStream.mockResolvedValue({ ok: true } as Response);
+    mocks.consumeSSEStream.mockImplementation(
+      async (_response, onToken, onDone, _onError, onVoiceReady) => {
+        onVoiceReady?.({
+          type: "voice_ready",
+          voice_response: "Short spoken answer.",
+          voice_audio_base64: "",
+          voice_audio_content_type: "audio/mpeg",
+        });
+        onToken("Full grounded answer.");
+        onDone({
+          type: "done",
+          primary_citations: [],
+          secondary_citations: [],
+          all_citations: [],
+          hidden_sources_count: 0,
+          mode_used: "rag",
+          max_confidence: 0.91,
+          voice_response: "Short spoken answer.",
+        });
+      },
+    );
+
+    mocks.speakWithBrowserTTS.mockImplementation(
+      async (text: string) => {
+        expect(text).toBe("Short spoken answer.");
+        expect(useVoiceStore.getState().phase).toBe("speaking");
+      },
+    );
+
+    const { result } = renderHook(() => useVoiceMode());
+
+    act(() => {
+      result.current.activate();
+    });
+
+    await act(async () => {
+      const pending = result.current.sendVoiceMessage();
+      await vi.advanceTimersByTimeAsync(800);
+      await pending;
+    });
+
+    expect(mocks.speakWithBrowserTTS).toHaveBeenCalledWith(
+      "Short spoken answer.",
+    );
+    expect(useVoiceStore.getState().phase).toBe("listening");
   });
 });

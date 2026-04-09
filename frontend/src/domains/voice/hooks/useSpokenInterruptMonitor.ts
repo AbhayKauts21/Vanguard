@@ -2,7 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { STTEngine, isSpeechRecognitionSupported } from "@/domains/voice/engine";
-import { isInterruptIntent, normalizeInterruptTranscript } from "@/domains/voice/model/interrupt-intent";
+import {
+  extractInterruptContinuation,
+  isInterruptIntent,
+  normalizeInterruptTranscript,
+} from "@/domains/voice/model/interrupt-intent";
 import { env } from "@/lib/env";
 
 interface TranscriptBuffer {
@@ -148,7 +152,7 @@ export function useSpokenInterruptMonitor({
           })
         ) {
           stopEngine();
-          onInterruptIntentRef.current(rawTranscript);
+          onInterruptIntentRef.current(extractInterruptContinuation(rawTranscript));
         }
       },
     });

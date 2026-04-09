@@ -22,16 +22,18 @@ class FakeVectorStore:
 
 
 class FakeLLMClient:
-    def __init__(self):
+    def __init__(self, *, generate_text="Use Forgot Password.", stream_chunks=None):
         self.generate_calls = 0
+        self.generate_text = generate_text
+        self.stream_chunks = stream_chunks or ["Use ", "Forgot Password."]
 
     async def generate(self, **kwargs):
         self.generate_calls += 1
-        return "Use Forgot Password."
+        return self.generate_text
 
     async def generate_stream(self, **kwargs):
-        yield "Use "
-        yield "Forgot Password."
+        for chunk in self.stream_chunks:
+            yield chunk
 
 
 class FakeCitationRanker:
@@ -232,6 +234,94 @@ async def test_sync_medium_confidence_returns_uncertain_instead_of_rag():
 
 
 @pytest.mark.asyncio
+async def test_sync_high_confidence_docs_deflection_drops_citations():
+    results = [
+        VectorSearchResult(
+            chunk_id="page_9002_chunk_0",
+            score=0.76,
+            text="Checking meta assignment details.",
+            page_id=9002,
+            page_title="Meta Assignment",
+            bookstack_url="https://demo.cleo.local/books/501/page/meta-assignment",
+            book_id=501,
+        )
+    ]
+    llm = FakeLLMClient(
+        generate_text=(
+            "I don't have documentation on that topic. "
+            "Please contact our support team."
+        )
+    )
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=FakeVectorStore(results),
+        llm_client=llm,
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=FailAzureChatService(),
+        query_intent_service=FakeIntentService("docs"),
+    )
+    service.min_score = 0.5
+
+    response = await service.answer_query("can you tell me about checking meta assignment")
+
+    assert response.answer.startswith("I don't have documentation on that topic.")
+    assert response.mode_used == "uncertain"
+    assert response.primary_citations == []
+    assert response.secondary_citations == []
+    assert response.all_citations == []
+    assert response.max_confidence == pytest.approx(0.76)
+    assert response.what_i_found is None
+
+
+@pytest.mark.asyncio
+async def test_stream_high_confidence_docs_deflection_drops_citations():
+    results = [
+        VectorSearchResult(
+            chunk_id="page_9002_chunk_0",
+            score=0.76,
+            text="Checking meta assignment details.",
+            page_id=9002,
+            page_title="Meta Assignment",
+            bookstack_url="https://demo.cleo.local/books/501/page/meta-assignment",
+            book_id=501,
+        )
+    ]
+    llm = FakeLLMClient(
+        stream_chunks=[
+            "I don't have documentation on that topic. ",
+            "Please contact our support team.",
+        ]
+    )
+    service = RAGService(
+        embedding_client=FakeEmbeddingClient(),
+        vector_store=FakeVectorStore(results),
+        llm_client=llm,
+        citation_ranker=FakeCitationRanker(),
+        azure_chat_service=FailAzureChatService(),
+        query_intent_service=FakeIntentService("docs"),
+    )
+    service.min_score = 0.5
+
+    events = []
+    async for event in service.answer_query_stream("can you tell me about checking meta assignment"):
+        events.append(event)
+
+    assert events[0] == {
+        "type": "token",
+        "content": "I don't have documentation on that topic. ",
+    }
+    assert events[1] == {
+        "type": "token",
+        "content": "Please contact our support team.",
+    }
+    assert events[-1]["mode_used"] == "uncertain"
+    assert events[-1]["primary_citations"] == []
+    assert events[-1]["secondary_citations"] == []
+    assert events[-1]["all_citations"] == []
+    assert events[-1]["max_confidence"] == pytest.approx(0.76)
+
+
+@pytest.mark.asyncio
 async def test_stream_medium_confidence_general_uses_azure_fallback():
     results = [
         VectorSearchResult(
@@ -331,4 +421,3 @@ async def test_onboarding_questions_instantly_return_shortcuts():
         assert response.mode_used == "shortcut"
         assert response.max_confidence == 1.0
         assert len(response.answer) > 20
-

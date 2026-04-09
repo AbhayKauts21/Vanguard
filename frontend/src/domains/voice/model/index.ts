@@ -9,5 +9,7 @@ export type {
 } from "./types";
 export {
   INTERRUPTIBLE_VOICE_PHASES,
+  SPEAKING_VOICE_PHASES,
   isInterruptibleVoicePhase,
+  isSpeakingVoicePhase,
 } from "./types";

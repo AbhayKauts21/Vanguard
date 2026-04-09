@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { v4 as uuidv4 } from "uuid";
 
 import type { ChatMessage } from "@/components/chat";
+import { ApiError } from "@/lib/api";
 import type { ChatSummary, Citation } from "@/types";
 
 export const CHAT_STORAGE_KEY = "cleo-chat-session";
@@ -413,7 +414,21 @@ export const useChatStore = create<ChatState>()(
 
       deleteConversation: async (chatId) => {
         const { deletePersistedChat } = await import("../api/chat-api");
-        await deletePersistedChat(chatId);
+        try {
+          await deletePersistedChat(chatId);
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 404)) {
+            set({
+              errorType:
+                error instanceof ApiError && error.status === 429
+                  ? "rate-limit"
+                  : error instanceof ApiError && error.status >= 500
+                    ? "server"
+                    : "network",
+            });
+            return;
+          }
+        }
 
         set((state) => {
           const nextSummaries = state.chatSummaries.filter((s) => s.id !== chatId);

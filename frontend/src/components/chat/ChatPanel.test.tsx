@@ -59,7 +59,7 @@ describe("ChatPanel voice interrupt integration", () => {
     });
   });
 
-  it("passes onInterrupt through to the HUD and keeps it visible across processing to speaking", () => {
+  it("passes onInterrupt through to the HUD and only shows it once speaking starts", () => {
     const onInterrupt = vi.fn();
 
     useVoiceStore.setState({
@@ -69,6 +69,7 @@ describe("ChatPanel voice interrupt integration", () => {
       finalTranscript: "",
       cleoTranscript: "",
       audioLevel: 0,
+      isSpeakingPlayback: false,
       error: null,
       isSupported: true,
     });
@@ -90,10 +91,13 @@ describe("ChatPanel voice interrupt integration", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Interrupt" }),
+    ).not.toBeInTheDocument();
 
     act(() => {
       useVoiceStore.getState().setPhase("speaking");
+      useVoiceStore.getState().setSpeakingPlayback(true);
     });
 
     expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();

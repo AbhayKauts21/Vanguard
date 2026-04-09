@@ -19,9 +19,19 @@ export const INTERRUPTIBLE_VOICE_PHASES = [
   "speaking",
 ] as const satisfies readonly VoicePhase[];
 
+export const SPEAKING_VOICE_PHASES = [
+  "speaking",
+] as const satisfies readonly VoicePhase[];
+
 export function isInterruptibleVoicePhase(phase: VoicePhase): boolean {
   return INTERRUPTIBLE_VOICE_PHASES.includes(
     phase as (typeof INTERRUPTIBLE_VOICE_PHASES)[number],
+  );
+}
+
+export function isSpeakingVoicePhase(phase: VoicePhase): boolean {
+  return SPEAKING_VOICE_PHASES.includes(
+    phase as (typeof SPEAKING_VOICE_PHASES)[number],
   );
 }
 

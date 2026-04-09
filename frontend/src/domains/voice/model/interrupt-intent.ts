@@ -187,6 +187,13 @@ export function isInterruptIntent({
     return false;
   }
 
+  if (
+    extractInterruptContinuation(normalized) === "" &&
+    transcriptLooksLikeEcho(normalized, spokenText)
+  ) {
+    return false;
+  }
+
   const minStableMs =
     words.length === 1 ? MIN_SINGLE_WORD_STABLE_MS : MIN_MULTI_WORD_STABLE_MS;
 

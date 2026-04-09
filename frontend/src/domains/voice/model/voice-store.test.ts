@@ -37,6 +37,10 @@ describe("useVoiceStore", () => {
       expect(useVoiceStore.getState().audioLevel).toBe(0);
     });
 
+    it("should not report active playback by default", () => {
+      expect(useVoiceStore.getState().isSpeakingPlayback).toBe(false);
+    });
+
     it("should have no error", () => {
       expect(useVoiceStore.getState().error).toBeNull();
     });
@@ -70,11 +74,13 @@ describe("useVoiceStore", () => {
     it("should clear audio level and error on start", () => {
       const store = useVoiceStore.getState();
       store.setAudioLevel(0.7);
+      store.setSpeakingPlayback(true);
       store.setError("previous error");
       store.startVoiceMode();
 
       const state = useVoiceStore.getState();
       expect(state.audioLevel).toBe(0);
+      expect(state.isSpeakingPlayback).toBe(false);
       expect(state.error).toBeNull();
     });
   });
@@ -87,6 +93,7 @@ describe("useVoiceStore", () => {
       store.setUserTranscript("hello");
       store.setCleoTranscript("hi there");
       store.setAudioLevel(0.5);
+      store.setSpeakingPlayback(true);
 
       store.stopVoiceMode();
 
@@ -96,6 +103,7 @@ describe("useVoiceStore", () => {
       expect(state.userTranscript).toBe("");
       expect(state.cleoTranscript).toBe("");
       expect(state.audioLevel).toBe(0);
+      expect(state.isSpeakingPlayback).toBe(false);
     });
   });
 
@@ -167,6 +175,15 @@ describe("useVoiceStore", () => {
       store.setAudioLevel(0);
       expect(useVoiceStore.getState().audioLevel).toBe(0);
     });
+
+    it("should track speaking playback separately from audio level", () => {
+      const store = useVoiceStore.getState();
+      store.setSpeakingPlayback(true);
+      expect(useVoiceStore.getState().isSpeakingPlayback).toBe(true);
+
+      store.setSpeakingPlayback(false);
+      expect(useVoiceStore.getState().isSpeakingPlayback).toBe(false);
+    });
   });
 
   describe("error handling", () => {
@@ -198,6 +215,7 @@ describe("useVoiceStore", () => {
       store.setUserTranscript("test");
       store.setCleoTranscript("response");
       store.setAudioLevel(0.8);
+      store.setSpeakingPlayback(true);
       store.setError("something broke");
 
       store.reset();
@@ -208,6 +226,7 @@ describe("useVoiceStore", () => {
       expect(state.userTranscript).toBe("");
       expect(state.cleoTranscript).toBe("");
       expect(state.audioLevel).toBe(0);
+      expect(state.isSpeakingPlayback).toBe(false);
       expect(state.error).toBeNull();
     });
   });

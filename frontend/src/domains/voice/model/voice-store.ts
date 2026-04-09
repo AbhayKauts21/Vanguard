@@ -16,6 +16,8 @@ interface VoiceState {
   cleoTranscript: string;
   /** Normalized audio output level 0-1 for energy core sync. */
   audioLevel: number;
+  /** True only while audio is actively being played back to the user. */
+  isSpeakingPlayback: boolean;
   /** Error message if something goes wrong. */
   error: string | null;
   /** Whether the browser supports speech recognition. */
@@ -39,6 +41,8 @@ interface VoiceState {
   appendCleoTranscript: (text: string) => void;
   /** Set the real-time audio level for avatar reactivity (0-1). */
   setAudioLevel: (level: number) => void;
+  /** Set whether the assistant is actively playing spoken audio. */
+  setSpeakingPlayback: (speaking: boolean) => void;
   /** Set an error and optionally stop voice mode. */
   setError: (error: string | null) => void;
   /** Set browser support flag. */
@@ -54,6 +58,7 @@ const INITIAL_STATE = {
   finalTranscript: "",
   cleoTranscript: "",
   audioLevel: 0,
+  isSpeakingPlayback: false,
   error: null,
   isSupported: true,
 };
@@ -78,6 +83,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       finalTranscript: "",
       cleoTranscript: "",
       audioLevel: 0,
+      isSpeakingPlayback: false,
       error: null,
     }),
 
@@ -99,6 +105,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
     })),
 
   setAudioLevel: (level) => set({ audioLevel: level }),
+
+  setSpeakingPlayback: (speaking) => set({ isSpeakingPlayback: speaking }),
 
   setError: (error) =>
     set((s) => ({

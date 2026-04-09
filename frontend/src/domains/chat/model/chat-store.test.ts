@@ -1,6 +1,15 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api";
 import { useChatStore } from "@/domains/chat/model/chat-store";
+
+const mocks = vi.hoisted(() => ({
+  deletePersistedChat: vi.fn(),
+}));
+
+vi.mock("@/domains/chat/api/chat-api", () => ({
+  deletePersistedChat: mocks.deletePersistedChat,
+}));
 
 function resetChatStore() {
   useChatStore.setState({
@@ -25,6 +34,7 @@ function resetChatStore() {
 
 describe("useChatStore", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     sessionStorage.clear();
     resetChatStore();
   });
@@ -154,5 +164,82 @@ describe("useChatStore", () => {
     expect(state.messagePageInfo).toEqual({});
     expect(state.messages).toEqual([{ id: "guest-1", role: "user", content: "Guest draft" }]);
     expect(state.conversationId).toBe("guest-session");
+  });
+
+  it("treats deleting an already-missing persisted chat as a local cleanup", async () => {
+    mocks.deletePersistedChat.mockRejectedValue(
+      new ApiError(404, {
+        type: "https://httpstatuses.com/404",
+        title: "Not Found",
+        status: 404,
+        detail: "Chat not found.",
+      }),
+    );
+
+    useChatStore.setState({
+      mode: "user",
+      chatSummaries: [
+        {
+          id: "chat-1",
+          title: "Saved chat",
+          created_at: "2026-03-27T10:00:00Z",
+          updated_at: "2026-03-27T11:00:00Z",
+          message_count: 2,
+          last_message_preview: "Persisted",
+        },
+      ],
+      activeChatId: "chat-1",
+      messages: [{ id: "assistant-1", role: "assistant", content: "Persisted" }],
+      messageCache: {
+        "chat-1": [{ id: "assistant-1", role: "assistant", content: "Persisted" }],
+      },
+      messagePageInfo: {
+        "chat-1": { hasMore: false, nextBefore: null },
+      },
+      conversationId: "chat-1",
+    });
+
+    await useChatStore.getState().deleteConversation("chat-1");
+
+    const state = useChatStore.getState();
+    expect(state.activeChatId).toBeNull();
+    expect(state.chatSummaries).toEqual([]);
+    expect(state.messages).toEqual([]);
+    expect(state.errorType).toBeNull();
+  });
+
+  it("sets an error state instead of throwing when deleting a persisted chat fails", async () => {
+    mocks.deletePersistedChat.mockRejectedValue(
+      new ApiError(500, {
+        type: "https://httpstatuses.com/500",
+        title: "Server Error",
+        status: 500,
+        detail: "Something went wrong.",
+      }),
+    );
+
+    useChatStore.setState({
+      mode: "user",
+      chatSummaries: [
+        {
+          id: "chat-1",
+          title: "Saved chat",
+          created_at: "2026-03-27T10:00:00Z",
+          updated_at: "2026-03-27T11:00:00Z",
+          message_count: 2,
+          last_message_preview: "Persisted",
+        },
+      ],
+      activeChatId: "chat-1",
+    });
+
+    await expect(
+      useChatStore.getState().deleteConversation("chat-1"),
+    ).resolves.toBeUndefined();
+
+    const state = useChatStore.getState();
+    expect(state.errorType).toBe("server");
+    expect(state.chatSummaries).toHaveLength(1);
+    expect(state.activeChatId).toBe("chat-1");
   });
 });

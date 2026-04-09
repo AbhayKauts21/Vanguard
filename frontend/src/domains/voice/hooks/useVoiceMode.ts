@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   isInterruptibleVoicePhase,
   useVoiceStore,
@@ -111,9 +111,13 @@ export function useVoiceMode() {
     useAudioAnalyser({
       onChunkStart: () => {
         const state = useVoiceStore.getState();
+        state.setSpeakingPlayback(true);
         if (state.isVoiceMode && state.phase !== "speaking") {
           setPhase("speaking");
         }
+      },
+      onQueueDrained: () => {
+        useVoiceStore.getState().setSpeakingPlayback(false);
       },
     });
 
@@ -123,6 +127,7 @@ export function useVoiceMode() {
   const setCleoTranscript = useVoiceStore((s) => s.setCleoTranscript);
   const setFinalTranscript = useVoiceStore((s) => s.setFinalTranscript);
   const setUserTranscript = useVoiceStore((s) => s.setUserTranscript);
+  const setSpeakingPlayback = useVoiceStore((s) => s.setSpeakingPlayback);
 
   const addUserMessage = useChatStore((s) => s.addUserMessage);
   const setThinking = useChatStore((s) => s.setThinking);
@@ -138,13 +143,15 @@ export function useVoiceMode() {
   const ttsAbortRef = useRef<AbortController | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const speechDetectedAtRef = useRef(0);
   const spokenVoiceTextRef = useRef("");
   const interruptTranscriptRef = useRef("");
   const turnRef = useRef(0);
+  const [interruptListeningArmedAt, setInterruptListeningArmedAt] =
+    useState<number | null>(null);
   const phase = useVoiceStore((s) => s.phase);
   const userTranscript = useVoiceStore((s) => s.userTranscript);
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
+  const isSpeakingPlayback = useVoiceStore((s) => s.isSpeakingPlayback);
 
   const clearTimers = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -158,7 +165,6 @@ export function useVoiceMode() {
   }, []);
 
   const getSpokenVoiceText = useCallback(() => spokenVoiceTextRef.current, []);
-  const getSpeechDetectedAt = useCallback(() => speechDetectedAtRef.current, []);
 
   const waitForPlaybackToSettle = useCallback(
     async (turnId: number) =>
@@ -222,13 +228,14 @@ export function useVoiceMode() {
   const activate = useCallback(() => {
     turnRef.current += 1;
     clearTimers();
+    setInterruptListeningArmedAt(null);
     startVoiceMode();
+    setSpeakingPlayback(false);
     resetAudio();
     void resumeAudio();
     setCleoTranscript("");
     spokenVoiceTextRef.current = "";
     interruptTranscriptRef.current = "";
-    speechDetectedAtRef.current = 0;
     useVoiceStore.getState().setUserTranscript("");
     setFinalTranscript("");
     startSTT();
@@ -238,6 +245,7 @@ export function useVoiceMode() {
     resumeAudio,
     setCleoTranscript,
     setFinalTranscript,
+    setSpeakingPlayback,
     startSTT,
     startVoiceMode,
   ]);
@@ -250,6 +258,8 @@ export function useVoiceMode() {
 
     turnRef.current += 1;
     clearTimers();
+    setInterruptListeningArmedAt(null);
+    setSpeakingPlayback(false);
     abortRef.current?.abort();
     abortRef.current = null;
     ttsAbortRef.current?.abort();
@@ -281,25 +291,29 @@ export function useVoiceMode() {
     maybeResumeListening,
     resetAudio,
     resumeAudio,
+    setSpeakingPlayback,
     stopSTT,
   ]);
 
   const interruptListeningActive =
-    isVoiceMode && isInterruptibleVoicePhase(phase);
+    isVoiceMode && phase === "speaking" && isSpeakingPlayback;
+  const spokenInterruptListeningActive =
+    interruptListeningActive && interruptListeningArmedAt !== null;
 
   useBargeInMonitor({
     active: interruptListeningActive,
     speaking: interruptListeningActive,
     onSpeechDetected: () => {
-      speechDetectedAtRef.current = performance.now();
+      const detectedAt = performance.now();
+      setInterruptListeningArmedAt(detectedAt);
     },
   });
 
   useSpokenInterruptMonitor({
-    active: interruptListeningActive,
+    active: spokenInterruptListeningActive,
     speaking: interruptListeningActive,
+    armedAt: interruptListeningArmedAt,
     getSpokenText: getSpokenVoiceText,
-    getSpeechDetectedAt,
     onTranscriptCandidate: (transcript) => {
       interruptTranscriptRef.current = transcript.trim();
     },
@@ -333,7 +347,14 @@ export function useVoiceMode() {
               process.env.NEXT_PUBLIC_ENABLE_TTS_FALLBACK !== "false";
             if (isFallbackEnabled) {
               setPhase("speaking");
-              await speakWithBrowserTTS(sentence);
+              setSpeakingPlayback(true);
+              try {
+                await speakWithBrowserTTS(sentence);
+              } finally {
+                if (turnId === turnRef.current) {
+                  setSpeakingPlayback(false);
+                }
+              }
             }
           } else {
             enqueueAudio(audioBlob);
@@ -346,12 +367,14 @@ export function useVoiceMode() {
         }
       }
     },
-    [enqueueAudio, setPhase],
+    [enqueueAudio, setPhase, setSpeakingPlayback],
   );
 
   const sendVoiceMessage = useCallback(async () => {
     const turnId = ++turnRef.current;
     clearTimers();
+    setInterruptListeningArmedAt(null);
+    setSpeakingPlayback(false);
 
     const transcript = stopSTT();
     const finalTranscript = transcript || useVoiceStore.getState().userTranscript;
@@ -471,6 +494,7 @@ export function useVoiceMode() {
             setErrorType("network");
           }
 
+          setSpeakingPlayback(false);
           setPhase("idle");
         },
         (event: SSEVoiceReadyEvent) => {
@@ -514,6 +538,8 @@ export function useVoiceMode() {
       if (turnId === turnRef.current) {
         spokenVoiceTextRef.current = "";
         interruptTranscriptRef.current = "";
+        setInterruptListeningArmedAt(null);
+        setSpeakingPlayback(false);
         useVoiceStore.getState().setAudioLevel(0);
         maybeResumeListening();
       }
@@ -524,6 +550,7 @@ export function useVoiceMode() {
 
       setThinking(false);
       setError("Failed to send voice message. Please try again.");
+      setSpeakingPlayback(false);
       setPhase("idle");
     }
   }, [
@@ -539,6 +566,7 @@ export function useVoiceMode() {
     setErrorType,
     setFinalTranscript,
     setPhase,
+    setSpeakingPlayback,
     setThinking,
     speakVoiceResponse,
     startAssistantMessage,
@@ -551,6 +579,8 @@ export function useVoiceMode() {
   const deactivate = useCallback(() => {
     turnRef.current += 1;
     clearTimers();
+    setInterruptListeningArmedAt(null);
+    setSpeakingPlayback(false);
     stopSTT();
     stopAudio();
     abortRef.current?.abort();
@@ -565,10 +595,23 @@ export function useVoiceMode() {
   }, [
     clearTimers,
     finalizeInterruptedAssistantMessage,
+    setSpeakingPlayback,
     stopAudio,
     stopSTT,
     stopVoiceMode,
   ]);
+
+  useEffect(() => {
+    if (phase !== "speaking" && interruptListeningArmedAt !== null) {
+      setInterruptListeningArmedAt(null);
+    }
+  }, [interruptListeningArmedAt, phase]);
+
+  useEffect(() => {
+    if (!isVoiceMode) {
+      setSpeakingPlayback(false);
+    }
+  }, [isVoiceMode, setSpeakingPlayback]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {

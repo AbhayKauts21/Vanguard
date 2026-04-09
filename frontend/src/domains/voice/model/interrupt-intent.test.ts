@@ -111,6 +111,17 @@ describe("interrupt intent heuristics", () => {
     ).toBe(true);
   });
 
+  it("rejects pure interrupt keywords when they are clearly echoed from the assistant audio", () => {
+    expect(
+      isInterruptIntent({
+        transcript: "stop",
+        spokenText: "Please stop there for a second.",
+        isFinal: true,
+        stableMs: 200,
+      }),
+    ).toBe(false);
+  });
+
   it("rejects unstable one-word fragments", () => {
     expect(
       isInterruptIntent({

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  isInterruptibleVoicePhase,
+  isSpeakingVoicePhase,
   useVoiceStore,
 } from "@/domains/voice/model";
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,6 +19,7 @@ export function VoiceTranscript({
 }) {
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
   const phase = useVoiceStore((s) => s.phase);
+  const isSpeakingPlayback = useVoiceStore((s) => s.isSpeakingPlayback);
   const userTranscript = useVoiceStore((s) => s.userTranscript);
   const finalTranscript = useVoiceStore((s) => s.finalTranscript);
   const error = useVoiceStore((s) => s.error);
@@ -56,7 +57,9 @@ export function VoiceTranscript({
   const currentPhase = phaseConfig[phase];
   const visibleTranscript = userTranscript || finalTranscript;
   const showInterruptButton =
-    typeof onInterrupt === "function" && isInterruptibleVoicePhase(phase);
+    typeof onInterrupt === "function" &&
+    isSpeakingVoicePhase(phase) &&
+    isSpeakingPlayback;
 
   return (
     <AnimatePresence>
@@ -143,8 +146,8 @@ export function VoiceTranscript({
                   {phase === "speaking"
                     ? 'CLEO is speaking in the background. Say "stop", "pause", or tap Interrupt.'
                     : phase === "processing"
-                      ? 'CLEO is preparing a response. Say "stop" or tap Interrupt to cancel.'
-                    : "Voice mode is active. Start speaking when you're ready."}
+                      ? "CLEO is preparing a response."
+                      : "Voice mode is active. Start speaking when you're ready."}
                 </p>
               )}
             </div>

@@ -18,8 +18,8 @@ interface TranscriptBuffer {
 interface UseSpokenInterruptMonitorOptions {
   active: boolean;
   speaking: boolean;
+  armedAt: number | null;
   getSpokenText: () => string;
-  getSpeechDetectedAt: () => number;
   onTranscriptCandidate?: (transcript: string) => void;
   onInterruptIntent: (seedTranscript: string) => void;
 }
@@ -41,14 +41,13 @@ function isSameUtterance(current: string, previous: string): boolean {
 export function useSpokenInterruptMonitor({
   active,
   speaking,
+  armedAt,
   getSpokenText,
-  getSpeechDetectedAt,
   onTranscriptCandidate,
   onInterruptIntent,
 }: UseSpokenInterruptMonitorOptions) {
   const engineRef = useRef<STTEngine | null>(null);
   const getSpokenTextRef = useRef(getSpokenText);
-  const getSpeechDetectedAtRef = useRef(getSpeechDetectedAt);
   const onTranscriptCandidateRef = useRef(onTranscriptCandidate);
   const onInterruptIntentRef = useRef(onInterruptIntent);
   const transcriptBufferRef = useRef<TranscriptBuffer | null>(null);
@@ -56,10 +55,6 @@ export function useSpokenInterruptMonitor({
   useEffect(() => {
     getSpokenTextRef.current = getSpokenText;
   }, [getSpokenText]);
-
-  useEffect(() => {
-    getSpeechDetectedAtRef.current = getSpeechDetectedAt;
-  }, [getSpeechDetectedAt]);
 
   useEffect(() => {
     onTranscriptCandidateRef.current = onTranscriptCandidate;
@@ -70,7 +65,7 @@ export function useSpokenInterruptMonitor({
   }, [onInterruptIntent]);
 
   useEffect(() => {
-    if (!active || !speaking || !isSpeechRecognitionSupported()) {
+    if (!active || !speaking || armedAt === null || !isSpeechRecognitionSupported()) {
       transcriptBufferRef.current = null;
       onTranscriptCandidateRef.current?.("");
       engineRef.current?.stop();
@@ -100,6 +95,10 @@ export function useSpokenInterruptMonitor({
       }
     };
 
+    const windowTimer = window.setTimeout(() => {
+      stopEngine();
+    }, SPEECH_GATE_WINDOW_MS);
+
     engine.start({
       onStart: () => {
         transcriptBufferRef.current = null;
@@ -116,7 +115,8 @@ export function useSpokenInterruptMonitor({
       },
       onResult: (result) => {
         const now = performance.now();
-        if (now - getSpeechDetectedAtRef.current() > SPEECH_GATE_WINDOW_MS) {
+        if (now - armedAt > SPEECH_GATE_WINDOW_MS) {
+          stopEngine();
           return;
         }
 
@@ -159,7 +159,8 @@ export function useSpokenInterruptMonitor({
 
     return () => {
       isDisposed = true;
+      window.clearTimeout(windowTimer);
       stopEngine();
     };
-  }, [active, speaking]);
+  }, [active, armedAt, speaking]);
 }

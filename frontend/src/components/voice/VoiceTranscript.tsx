@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  isInterruptibleVoicePhase,
-  useVoiceStore,
-} from "@/domains/voice/model";
+import { useVoiceStore } from "@/domains/voice/model";
 import { AnimatePresence, motion } from "framer-motion";
 
 /**
@@ -11,11 +8,11 @@ import { AnimatePresence, motion } from "framer-motion";
  * while voice mode is active.
  */
 export function VoiceTranscript({
-  onInterrupt,
   onDeactivate,
+  onInterrupt,
 }: {
-  onInterrupt?: () => void;
   onDeactivate?: () => void;
+  onInterrupt?: () => void;
 }) {
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
   const phase = useVoiceStore((s) => s.phase);
@@ -27,6 +24,12 @@ export function VoiceTranscript({
   if (!isVoiceMode) return null;
 
   const phaseConfig = {
+    session_open: {
+      label: "Session Open",
+      dotColor: "bg-sky-400",
+      ringColor: "border-sky-400/30",
+      textColor: "text-sky-200",
+    },
     listening: {
       label: "Listening",
       dotColor: "bg-purple-400",
@@ -51,12 +54,17 @@ export function VoiceTranscript({
       ringColor: "border-blue-400/30",
       textColor: "text-blue-200",
     },
+    session_closing: {
+      label: "Closing",
+      dotColor: "bg-slate-400",
+      ringColor: "border-slate-400/30",
+      textColor: "text-slate-200",
+    },
   };
 
   const currentPhase = phaseConfig[phase];
   const visibleTranscript = userTranscript || finalTranscript;
-  const showInterruptButton =
-    typeof onInterrupt === "function" && isInterruptibleVoicePhase(phase);
+  const showInterrupt = phase === "speaking" && !!onInterrupt;
 
   return (
     <AnimatePresence>
@@ -105,11 +113,11 @@ export function VoiceTranscript({
               </div>
 
               <div className="flex items-center gap-2">
-                {showInterruptButton ? (
+                {showInterrupt ? (
                   <button
                     type="button"
                     onClick={onInterrupt}
-                    className="rounded-full border border-red-400/25 bg-red-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-red-100 transition-colors hover:border-red-300/40 hover:bg-red-500/16"
+                    className="rounded-full border border-emerald-400/25 bg-emerald-400/12 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100 transition-colors hover:border-emerald-300/40 hover:bg-emerald-400/20"
                   >
                     Interrupt
                   </button>
@@ -141,10 +149,16 @@ export function VoiceTranscript({
               ) : (
                 <p className="text-[13px] leading-relaxed text-white/45">
                   {phase === "speaking"
-                    ? 'CLEO is speaking in the background. Say "stop", "pause", or tap Interrupt.'
+                    ? "CLEO is speaking. Interrupt to jump to the next question."
                     : phase === "processing"
-                      ? 'CLEO is preparing a response. Say "stop" or tap Interrupt to cancel.'
-                    : "Voice mode is active. Start speaking when you're ready."}
+                      ? "CLEO is preparing your voice reply."
+                      : phase === "session_open"
+                        ? "Voice session is open. Tap the mic to ask the next question."
+                        : phase === "session_closing"
+                          ? "Closing voice session..."
+                          : phase === "idle"
+                        ? "Voice mode is ready. Tap the mic to start another request."
+                        : "Voice mode is active. Start speaking when you're ready."}
                 </p>
               )}
             </div>

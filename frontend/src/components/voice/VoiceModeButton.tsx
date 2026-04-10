@@ -15,10 +15,11 @@ interface VoiceModeButtonProps {
  * Voice mode mic button — integrated into the Composer.
  *
  * States:
- * - Idle: shows mic icon, click to activate
+ * - Idle / Session Open: shows mic icon, click to listen
  * - Listening: pulsing ring, shows stop icon, click to send
  * - Processing: spinning indicator, non-interactive
- * - Speaking: passive speaking indicator; interruption is handled via keywords or HUD button
+ * - Speaking: passive speaking indicator while the voice reply plays
+ * - Session closing: passive disabled state during cleanup
  */
 export function VoiceModeButton({
   onActivate,
@@ -34,12 +35,14 @@ export function VoiceModeButton({
   const isListening = isVoiceMode && phase === "listening";
   const isProcessing = isVoiceMode && phase === "processing";
   const isSpeaking = isVoiceMode && phase === "speaking";
-  const isIdle = !isVoiceMode || phase === "idle";
+  const isSessionOpen = isVoiceMode && phase === "session_open";
+  const isSessionClosing = isVoiceMode && phase === "session_closing";
+  const isIdle = !isVoiceMode || phase === "idle" || isSessionOpen;
 
   function handleClick() {
     if (disabled) return;
 
-    if (isIdle && !isVoiceMode) {
+    if (isIdle) {
       onActivate();
     } else if (isListening) {
       onSend();
@@ -64,17 +67,23 @@ export function VoiceModeButton({
   } else if (isSpeaking) {
     icon = "graphic_eq";
     colorClasses = "text-emerald-400";
-    ariaLabel = "CLEO is speaking. Say stop or use the Interrupt button.";
+    ariaLabel = "CLEO is speaking";
+  } else if (isSessionOpen) {
+    ariaLabel = "Start listening in voice session";
+  } else if (isSessionClosing) {
+    icon = "hourglass_disabled";
+    colorClasses = "text-slate-400";
+    ariaLabel = "Voice session is closing";
   }
 
   return (
     <button
       type="button"
       onClick={handleClick}
-      disabled={disabled || isProcessing || isSpeaking}
+      disabled={disabled || isProcessing || isSpeaking || isSessionClosing}
       aria-label={ariaLabel}
       className={`relative transition-all duration-500 ${colorClasses} ${
-        disabled || isProcessing || isSpeaking
+        disabled || isProcessing || isSpeaking || isSessionClosing
           ? "opacity-30 cursor-not-allowed"
           : "hover:scale-110 active:scale-95 cursor-pointer"
       }`}

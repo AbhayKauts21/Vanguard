@@ -151,12 +151,11 @@ class ChatService:
             user_id=str(current_user.id),
         )
         if payload.voice_mode:
-            response.voice_response = await self.voice_conversation_service.create_voice_response(
+            await self.build_voice_response(
                 question=payload.message,
-                answer=response.answer,
                 history=history,
                 locale=locale,
-                mode_used=response.mode_used,
+                response=response,
             )
         assistant_message = await chat_repository.create_message(
             session,
@@ -291,12 +290,11 @@ class ChatService:
             what_i_found=final_event.get("what_i_found"),
         )
         if payload.voice_mode:
-            response.voice_response = await self.voice_conversation_service.create_voice_response(
+            await self.build_voice_response(
                 question=payload.message,
-                answer=response.answer,
                 history=history,
                 locale=locale,
-                mode_used=response.mode_used,
+                response=response,
             )
             final_event["voice_response"] = response.voice_response
 
@@ -333,14 +331,12 @@ class ChatService:
             locale=locale,
             user_id=user_id,
         )
-        voice_text = await self.voice_conversation_service.create_voice_response(
+        voice_text = await self.build_voice_response(
             question=question,
-            answer=base_response.answer,
             history=history,
             locale=locale,
-            mode_used=base_response.mode_used,
+            response=base_response,
         )
-        base_response.voice_response = voice_text
 
         audio_bytes = b""
         audio_content_type = self.tts_service.content_type()
@@ -350,11 +346,18 @@ class ChatService:
                     text=voice_text,
                     language=locale,
                 )
+                logger.info(
+                    "chat_service.voice_audio_prepared",
+                    locale=locale,
+                    voice_length=len(voice_text),
+                    audio_bytes=len(audio_bytes),
+                )
             except Exception as exc:
                 logger.warning(
                     "chat_service.voice_audio_prep_failed",
                     error=str(exc),
                     locale=locale,
+                    voice_length=len(voice_text),
                 )
 
         return PreparedVoiceTurn(
@@ -362,6 +365,31 @@ class ChatService:
             voice_audio_bytes=audio_bytes,
             voice_audio_content_type=audio_content_type,
         )
+
+    async def build_voice_response(
+        self,
+        *,
+        question: str,
+        history: list[ConversationMessage],
+        locale: str,
+        response: ChatResponse,
+    ) -> str:
+        voice_text = await self.voice_conversation_service.create_voice_response(
+            question=question,
+            answer=response.answer,
+            history=history,
+            locale=locale,
+            mode_used=response.mode_used,
+        )
+        response.voice_response = voice_text
+        logger.info(
+            "chat_service.voice_response_ready",
+            locale=locale,
+            mode_used=response.mode_used,
+            answer_length=len(response.answer),
+            voice_length=len(voice_text),
+        )
+        return voice_text
 
     def build_voice_ready_event(self, prepared: PreparedVoiceTurn) -> dict[str, str]:
         return {

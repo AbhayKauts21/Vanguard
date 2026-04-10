@@ -139,8 +139,8 @@ export function ChatPanel({ messages, isThinking, onSend, disabled, history, voi
       {/* Voice transcript overlay — localized to chat panel now */}
       {voice?.isVoiceMode && (
         <VoiceTranscript
-          onInterrupt={voice.onInterrupt}
           onDeactivate={voice.onDeactivate}
+          onInterrupt={voice.onInterrupt}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatPanel } from "./ChatPanel";
 import { useChatStore } from "@/domains/chat/model";
@@ -36,19 +36,19 @@ vi.mock("./SuggestedPromptRail", () => ({
   SuggestedPromptRail: () => <div data-testid="suggested-prompt-rail" />,
 }));
 
-describe("ChatPanel voice interrupt integration", () => {
+describe("ChatPanel voice integration", () => {
   beforeEach(() => {
     useVoiceStore.getState().reset();
     useChatStore.setState({
       mode: "guest",
       messages: [],
       guestMessages: [],
-      chatSummaries: [],
       activeChatId: null,
       messageCache: {},
+      chatSummaries: [],
       messagePageInfo: {},
-      isThinking: false,
       streamingMessageId: null,
+      isThinking: false,
       errorType: null,
       conversationId: "guest-conversation",
       guestConversationId: "guest-conversation",
@@ -59,12 +59,13 @@ describe("ChatPanel voice interrupt integration", () => {
     });
   });
 
-  it("passes onInterrupt through to the HUD and keeps it visible across processing to speaking", () => {
+  it("renders the voice HUD with manual interrupt only during speaking", () => {
+    const onDeactivate = vi.fn();
     const onInterrupt = vi.fn();
 
     useVoiceStore.setState({
       isVoiceMode: true,
-      phase: "processing",
+      phase: "speaking",
       userTranscript: "",
       finalTranscript: "",
       cleoTranscript: "",
@@ -81,25 +82,23 @@ describe("ChatPanel voice interrupt integration", () => {
         voice={{
           isVoiceMode: true,
           isSupported: true,
-          phase: "processing",
+          phase: "speaking",
           onActivate: vi.fn(),
-          onDeactivate: vi.fn(),
+          onDeactivate,
           onInterrupt,
           onSendVoiceMessage: vi.fn(),
         }}
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();
-
-    act(() => {
-      useVoiceStore.getState().setPhase("speaking");
-    });
-
-    expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();
-
+    expect(
+      screen.getByText("CLEO is speaking. Interrupt to jump to the next question."),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Interrupt" }));
-
     expect(onInterrupt).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "End Session" }));
+
+    expect(onDeactivate).toHaveBeenCalledTimes(1);
   });
 });

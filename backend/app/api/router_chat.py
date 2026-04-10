@@ -18,7 +18,6 @@ from app.core.exceptions import NoContextFoundError
 from app.core.prompts import NO_CONTEXT_RESPONSE
 from app.services.rag_service import rag_service
 from app.services.chat_service import chat_service
-from app.services.voice_conversation_service import voice_conversation_service
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -47,12 +46,11 @@ async def chat(request: Request, body: ChatRequest):
     )
     response.conversation_id = body.conversation_id
     if body.voice_mode:
-        response.voice_response = await voice_conversation_service.create_voice_response(
+        await chat_service.build_voice_response(
             question=body.message,
-            answer=response.answer,
-            history=history,
+            history=list(history or []),
             locale=locale,
-            mode_used=response.mode_used,
+            response=response,
         )
 
     rlog.info("request.completed", endpoint="/chat", status=200, duration_ms=round((time.perf_counter() - t0) * 1000, 1))

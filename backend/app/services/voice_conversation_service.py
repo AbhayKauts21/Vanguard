@@ -1,4 +1,4 @@
-"""Voice conversation rewrite service for short spoken avatar replies."""
+"""Voice conversation service for stable spoken summaries."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from app.adapters.azure_openai_client import azure_openai_client
 from app.domain.schemas import AzureChatMessage, ConversationMessage
 
 VOICE_WORD_LIMIT = 75
+VOICE_SENTENCE_LIMIT = 3
 VOICE_MAX_COMPLETION_TOKENS = 180
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
 
@@ -29,15 +30,27 @@ def strip_markdown_for_voice(text: str) -> str:
     return cleaned.strip()
 
 
-def clamp_voice_text(text: str, max_words: int = VOICE_WORD_LIMIT) -> str:
+def _ensure_terminal_punctuation(text: str) -> str:
+    cleaned = text.strip()
+    if not cleaned:
+        return ""
+
+    if cleaned[-1] in ".!?":
+        return cleaned
+
+    return f"{cleaned}."
+
+
+def clamp_voice_text(
+    text: str,
+    *,
+    max_words: int = VOICE_WORD_LIMIT,
+    max_sentences: int = VOICE_SENTENCE_LIMIT,
+) -> str:
     """Keep the spoken reply short and sentence-friendly for voice mode."""
     plain_text = strip_markdown_for_voice(text)
     if not plain_text:
         return ""
-
-    words = plain_text.split()
-    if len(words) <= max_words:
-        return plain_text
 
     selected_sentences: list[str] = []
     current_count = 0
@@ -45,9 +58,11 @@ def clamp_voice_text(text: str, max_words: int = VOICE_WORD_LIMIT) -> str:
         sentence_words = sentence.split()
         if not sentence_words:
             continue
+        if len(selected_sentences) >= max_sentences:
+            break
         if selected_sentences and current_count + len(sentence_words) > max_words:
             break
-        selected_sentences.append(sentence)
+        selected_sentences.append(_ensure_terminal_punctuation(sentence))
         current_count += len(sentence_words)
         if current_count >= max_words:
             break
@@ -57,10 +72,9 @@ def clamp_voice_text(text: str, max_words: int = VOICE_WORD_LIMIT) -> str:
         if len(candidate.split()) <= max_words:
             return candidate
 
+    words = plain_text.split()
     truncated = " ".join(words[:max_words]).strip()
-    if truncated and truncated[-1] not in ".!?":
-        truncated = f"{truncated}."
-    return truncated
+    return _ensure_terminal_punctuation(truncated)
 
 
 def _split_sentences(text: str) -> Iterable[str]:
@@ -82,7 +96,7 @@ def _history_snippet(history: Sequence[ConversationMessage] | None) -> str:
 
 
 class VoiceConversationService:
-    """Builds short spoken-turn responses from a full grounded answer."""
+    """Builds short spoken summaries from the final assistant answer."""
 
     def __init__(self, *, llm_client=azure_openai_client) -> None:
         self._llm_client = llm_client
@@ -111,20 +125,45 @@ class VoiceConversationService:
         try:
             response = await self._llm_client.create_chat_completion(
                 messages,
-                temperature=0.4,
+                temperature=0.2,
                 max_tokens=VOICE_MAX_COMPLETION_TOKENS,
             )
             candidate = response.choices[0].message.content if response.choices else ""
             rewritten = clamp_voice_text(candidate or "")
-            return rewritten or fallback
+            if rewritten:
+                logger.info(
+                    "voice_conversation.summary_completed",
+                    locale=locale,
+                    mode_used=mode_used,
+                    answer_length=len(answer),
+                    summary_length=len(rewritten),
+                    used_fallback=False,
+                )
+                return rewritten
+
+            logger.warning(
+                "voice_conversation.empty_summary",
+                locale=locale,
+                mode_used=mode_used,
+                answer_length=len(answer),
+            )
         except Exception as exc:
             logger.warning(
-                "voice_conversation.rewrite_failed",
+                "voice_conversation.summary_failed",
                 error=str(exc),
                 locale=locale,
                 mode_used=mode_used,
             )
-            return fallback
+
+        logger.info(
+            "voice_conversation.summary_completed",
+            locale=locale,
+            mode_used=mode_used,
+            answer_length=len(answer),
+            summary_length=len(fallback),
+            used_fallback=True,
+        )
+        return fallback
 
     def _build_messages(
         self,
@@ -137,13 +176,14 @@ class VoiceConversationService:
     ) -> list[AzureChatMessage]:
         locale_hint = "Spanish" if locale.lower().startswith("es") else "English"
         system_prompt = (
-            "You rewrite a grounded assistant answer into a short spoken reply for voice mode.\n"
+            "You summarize a final assistant answer into a short spoken voice reply.\n"
             "Rules:\n"
             "- Use the same language as the user's locale and source answer.\n"
-            "- Never add facts, steps, policies, or claims that are not already present in the source answer.\n"
+            "- Never add facts, steps, policies, claims, or recommendations that are not already present in the source answer.\n"
             "- Preserve uncertainty, missing-documentation language, and fallback tone when present.\n"
             "- Use plain conversational prose only. No markdown, bullets, headings, citations, or source lists.\n"
-            f"- Keep the reply to {VOICE_WORD_LIMIT} words or fewer.\n"
+            f"- Keep the reply to {VOICE_SENTENCE_LIMIT} sentences and {VOICE_WORD_LIMIT} words or fewer.\n"
+            "- Start with a short recap of the answer.\n"
             "- End with at most one brief relevant follow-up question or next step only when it naturally fits.\n"
             "- Return only the spoken reply."
         )

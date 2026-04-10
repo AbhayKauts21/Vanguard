@@ -1,10 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import {
-  isInterruptibleVoicePhase,
-  useVoiceStore,
-} from "@/domains/voice/model";
+import { useVoiceStore } from "@/domains/voice/model";
 import { useChatStore } from "@/domains/chat/model";
 import { useAuthStore } from "@/domains/auth/model";
 import { createPersistedChat } from "@/domains/chat/api";
@@ -12,20 +9,16 @@ import { useAvatarStore } from "@/domains/avatar/model/avatar-store";
 import { useTelemetryStore } from "@/domains/system/model/telemetry-store";
 import { useSpeechRecognition } from "./useSpeechRecognition";
 import { useAudioAnalyser } from "./useAudioAnalyser";
-import { useBargeInMonitor } from "./useBargeInMonitor";
-import { useSpokenInterruptMonitor } from "./useSpokenInterruptMonitor";
 import {
   cancelBrowserTTS,
-  synthesizeSpeech,
   speakWithBrowserTTS,
+  synthesizeSpeech,
 } from "@/domains/voice/engine";
 import { api, consumeSSEStream } from "@/lib/api";
 import { CHATS_ENDPOINT, CHAT_STREAM_ENDPOINT } from "@/lib/constants";
 import type { ChatRequest, SSEDoneEvent, SSEVoiceReadyEvent } from "@/types";
-import { stripMarkdown } from "@/lib/utils/markdown";
 
 const POST_PLAYBACK_SETTLE_MS = 800;
-const VOICE_FALLBACK_WORD_LIMIT = 75;
 const EMPTY_ASSISTANT_METADATA = {
   primary_citations: [],
   secondary_citations: [],
@@ -36,36 +29,7 @@ const EMPTY_ASSISTANT_METADATA = {
 };
 
 function normalizeVoiceText(text: string): string {
-  return stripMarkdown(text).replace(/\s+/g, " ").trim();
-}
-
-function clampVoiceFallback(text: string): string {
-  const normalized = normalizeVoiceText(text);
-  if (!normalized) {
-    return "";
-  }
-
-  const words = normalized.split(" ");
-  if (words.length <= VOICE_FALLBACK_WORD_LIMIT) {
-    return normalized;
-  }
-
-  const truncated = words.slice(0, VOICE_FALLBACK_WORD_LIMIT).join(" ").trim();
-  return truncated && !/[.!?]$/.test(truncated) ? `${truncated}.` : truncated;
-}
-
-function splitVoiceResponse(text: string): string[] {
-  const normalized = normalizeVoiceText(text);
-  if (!normalized) {
-    return [];
-  }
-
-  const sentences = normalized
-    .match(/[^.!?]+[.!?]?/g)
-    ?.map((chunk) => chunk.trim())
-    .filter(Boolean);
-
-  return sentences && sentences.length > 0 ? sentences : [normalized];
+  return text.replace(/\s+/g, " ").trim();
 }
 
 function decodePreparedVoiceAudio(
@@ -91,38 +55,52 @@ function decodePreparedVoiceAudio(
   }
 }
 
+function logVoiceLifecycle(event: string, details: Record<string, unknown> = {}) {
+  console.info("[VoiceMode]", event, details);
+}
+
 /**
- * useVoiceMode — master orchestrator for the voice-to-voice pipeline.
+ * Voice session controller for the persistent multi-turn session flow.
  *
- * Lifecycle:
- *   1. User clicks mic → startVoiceMode() → STT starts listening
- *   2. User speaks → interim transcripts shown in real-time
- *   3. User clicks stop (or silence timeout) → sendVoiceMessage()
- *      → final transcript → send to chat stream endpoint with voice_mode=true
- *   4. SSE tokens stream back → text chat updates normally
- *   5. voice_ready returns prepared audio + short spoken text → playback starts
- *   6. done finalizes chat metadata while the full answer is already visible
- *   7. Playback drains → STT reopens for the next turn
+ * Session lifecycle:
+ *   idle -> session_open -> listening -> processing -> speaking -> session_open
+ *                           \___________________________________________/
+ *                                repeated turns within one session
+ *
+ * Session closure is always explicit via `deactivate()`.
  */
 export function useVoiceMode() {
   const { start: startSTT, stop: stopSTT } = useSpeechRecognition();
   const setPhase = useVoiceStore((s) => s.setPhase);
-  const { enqueueAudio, stopAudio, resetAudio, resumeAudio, isPlaying } =
-    useAudioAnalyser({
-      onChunkStart: () => {
-        const state = useVoiceStore.getState();
-        if (state.isVoiceMode && state.phase !== "speaking") {
-          setPhase("speaking");
-        }
-      },
-    });
-
-  const startVoiceMode = useVoiceStore((s) => s.startVoiceMode);
-  const stopVoiceMode = useVoiceStore((s) => s.stopVoiceMode);
   const setError = useVoiceStore((s) => s.setError);
   const setCleoTranscript = useVoiceStore((s) => s.setCleoTranscript);
   const setFinalTranscript = useVoiceStore((s) => s.setFinalTranscript);
   const setUserTranscript = useVoiceStore((s) => s.setUserTranscript);
+  const openSession = useVoiceStore((s) => s.openSession);
+  const advanceTurn = useVoiceStore((s) => s.advanceTurn);
+  const invalidateSession = useVoiceStore((s) => s.invalidateSession);
+  const incrementStaleEventCount = useVoiceStore((s) => s.incrementStaleEventCount);
+  const stopVoiceMode = useVoiceStore((s) => s.stopVoiceMode);
+
+  const { enqueueAudio, stopAudio, resetAudio, resumeAudio, isPlaying } =
+    useAudioAnalyser({
+      onChunkStart: () => {
+        const state = useVoiceStore.getState();
+        if (!state.isVoiceMode || state.phase === "session_closing") {
+          return;
+        }
+
+        if (state.phase !== "speaking") {
+          setPhase("speaking");
+          const { sessionId, turnId } = useVoiceStore.getState();
+          logVoiceLifecycle("speaking_started", {
+            sessionId,
+            turnId,
+            transport: "prepared_audio",
+          });
+        }
+      },
+    });
 
   const addUserMessage = useChatStore((s) => s.addUserMessage);
   const setThinking = useChatStore((s) => s.setThinking);
@@ -138,10 +116,6 @@ export function useVoiceMode() {
   const ttsAbortRef = useRef<AbortController | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const speechDetectedAtRef = useRef(0);
-  const spokenVoiceTextRef = useRef("");
-  const interruptTranscriptRef = useRef("");
-  const turnRef = useRef(0);
   const phase = useVoiceStore((s) => s.phase);
   const userTranscript = useVoiceStore((s) => s.userTranscript);
   const isVoiceMode = useVoiceStore((s) => s.isVoiceMode);
@@ -157,14 +131,34 @@ export function useVoiceMode() {
     }
   }, []);
 
-  const getSpokenVoiceText = useCallback(() => spokenVoiceTextRef.current, []);
-  const getSpeechDetectedAt = useCallback(() => speechDetectedAtRef.current, []);
+  const isActiveSession = useCallback((sessionId: number) => {
+    const state = useVoiceStore.getState();
+    return state.isVoiceMode && state.sessionId === sessionId;
+  }, []);
+
+  const isActiveTurn = useCallback(
+    (sessionId: number, turnId: number) =>
+      isActiveSession(sessionId) && useVoiceStore.getState().turnId === turnId,
+    [isActiveSession],
+  );
+
+  const logStaleEvent = useCallback(
+    (event: string, details: Record<string, unknown> = {}) => {
+      const ignoredCount = incrementStaleEventCount();
+      logVoiceLifecycle("stale_event_ignored", {
+        event,
+        ignoredCount,
+        ...details,
+      });
+    },
+    [incrementStaleEventCount],
+  );
 
   const waitForPlaybackToSettle = useCallback(
-    async (turnId: number) =>
+    async (sessionId: number, turnId: number) =>
       new Promise<void>((resolve) => {
         const poll = () => {
-          if (turnId !== turnRef.current) {
+          if (!isActiveTurn(sessionId, turnId)) {
             resolve();
             return;
           }
@@ -182,35 +176,10 @@ export function useVoiceMode() {
 
         poll();
       }),
-    [isPlaying],
+    [isActiveTurn, isPlaying],
   );
 
-  const maybeResumeListening = useCallback((seedTranscript?: string) => {
-    const state = useVoiceStore.getState();
-    if (!state.isVoiceMode) {
-      setPhase("idle");
-      return;
-    }
-
-    const nextTranscript = seedTranscript?.trim() ?? "";
-    if (nextTranscript) {
-      setUserTranscript(nextTranscript);
-      setFinalTranscript(nextTranscript);
-    } else {
-      setUserTranscript("");
-      setFinalTranscript("");
-    }
-
-    setPhase("listening");
-    if (nextTranscript) {
-      startSTT({ seedTranscript: nextTranscript });
-      return;
-    }
-
-    startSTT();
-  }, [setFinalTranscript, setPhase, setUserTranscript, startSTT]);
-
-  const finalizeInterruptedAssistantMessage = useCallback(() => {
+  const finalizePendingAssistantMessage = useCallback(() => {
     const chatState = useChatStore.getState();
     if (chatState.streamingMessageId) {
       finishAssistantMessage(EMPTY_ASSISTANT_METADATA);
@@ -219,163 +188,261 @@ export function useVoiceMode() {
     setThinking(false);
   }, [finishAssistantMessage, setThinking]);
 
-  const activate = useCallback(() => {
-    turnRef.current += 1;
-    clearTimers();
-    startVoiceMode();
-    resetAudio();
-    void resumeAudio();
-    setCleoTranscript("");
-    spokenVoiceTextRef.current = "";
-    interruptTranscriptRef.current = "";
-    speechDetectedAtRef.current = 0;
-    useVoiceStore.getState().setUserTranscript("");
+  const clearDisplayedTranscripts = useCallback(() => {
+    setUserTranscript("");
     setFinalTranscript("");
-    startSTT();
-  }, [
-    clearTimers,
-    resetAudio,
-    resumeAudio,
-    setCleoTranscript,
-    setFinalTranscript,
-    startSTT,
-    startVoiceMode,
-  ]);
+    setCleoTranscript("");
+  }, [setCleoTranscript, setFinalTranscript, setUserTranscript]);
 
-  const interruptCurrentTurn = useCallback(async (seedTranscript?: string) => {
-    const state = useVoiceStore.getState();
-    if (!state.isVoiceMode || !isInterruptibleVoicePhase(state.phase)) {
-      return;
-    }
-
-    turnRef.current += 1;
-    clearTimers();
-    abortRef.current?.abort();
-    abortRef.current = null;
-    ttsAbortRef.current?.abort();
-    ttsAbortRef.current = null;
-    stopSTT();
-    resetAudio();
-    void resumeAudio();
-    cancelBrowserTTS();
-    spokenVoiceTextRef.current = "";
-    interruptTranscriptRef.current = "";
-    useVoiceStore.getState().setAudioLevel(0);
-    finalizeInterruptedAssistantMessage();
-
-    const avatarInterrupt = useAvatarStore.getState().interruptFn;
-    if (avatarInterrupt) {
-      try {
-        await avatarInterrupt();
-      } catch (error) {
-        console.error("[VoiceMode] Avatar interrupt failed:", error);
-      }
-    }
-
-    if (useVoiceStore.getState().isVoiceMode) {
-      maybeResumeListening(seedTranscript);
-    }
-  }, [
-    clearTimers,
-    finalizeInterruptedAssistantMessage,
-    maybeResumeListening,
-    resetAudio,
-    resumeAudio,
-    stopSTT,
-  ]);
-
-  const interruptListeningActive =
-    isVoiceMode && isInterruptibleVoicePhase(phase);
-
-  useBargeInMonitor({
-    active: interruptListeningActive,
-    speaking: interruptListeningActive,
-    onSpeechDetected: () => {
-      speechDetectedAtRef.current = performance.now();
+  const clearPlayback = useCallback(
+    (reason: "interrupt" | "session_end" | "playback_error" | "prepare") => {
+      clearTimers();
+      abortRef.current?.abort();
+      abortRef.current = null;
+      ttsAbortRef.current?.abort();
+      ttsAbortRef.current = null;
+      stopAudio();
+      cancelBrowserTTS();
+      useVoiceStore.getState().setAudioLevel(0);
+      setCleoTranscript("");
+      const { sessionId, turnId } = useVoiceStore.getState();
+      logVoiceLifecycle("playback_stopped", {
+        reason,
+        sessionId,
+        turnId,
+      });
     },
-  });
+    [clearTimers, setCleoTranscript, stopAudio],
+  );
 
-  useSpokenInterruptMonitor({
-    active: interruptListeningActive,
-    speaking: interruptListeningActive,
-    getSpokenText: getSpokenVoiceText,
-    getSpeechDetectedAt,
-    onTranscriptCandidate: (transcript) => {
-      interruptTranscriptRef.current = transcript.trim();
-    },
-    onInterruptIntent: (seedTranscript) => {
-      interruptTranscriptRef.current = seedTranscript.trim();
-      void interruptCurrentTurn(seedTranscript);
-    },
-  });
-
-  const speakVoiceResponse = useCallback(
-    async (voiceText: string, turnId: number) => {
-      const sentences = splitVoiceResponse(voiceText);
-      if (sentences.length === 0) {
+  const transitionToSessionOpen = useCallback(
+    (
+      sessionId: number,
+      reason: "session_opened" | "speaking_completed" | "empty_turn" | "retry_ready",
+    ) => {
+      if (!isActiveSession(sessionId)) {
+        logStaleEvent("transition_session_open", { sessionId, reason });
         return;
       }
 
-      for (const sentence of sentences) {
-        const signal = ttsAbortRef.current?.signal;
-        if (!sentence || signal?.aborted || turnId !== turnRef.current) {
-          return;
+      clearTimers();
+      stopSTT();
+      clearDisplayedTranscripts();
+      setError(null);
+      setPhase("session_open");
+      useVoiceStore.getState().setAudioLevel(0);
+
+      logVoiceLifecycle(reason, {
+        sessionId,
+        turnId: useVoiceStore.getState().turnId,
+      });
+    },
+    [
+      clearDisplayedTranscripts,
+      clearTimers,
+      isActiveSession,
+      logStaleEvent,
+      setError,
+      setPhase,
+      stopSTT,
+    ],
+  );
+
+  const startListening = useCallback(
+    (
+      sessionId: number,
+      reason:
+        | "session_started"
+        | "manual_interrupt"
+        | "continue_session"
+        | "speaking_completed",
+    ) => {
+      if (!isActiveSession(sessionId)) {
+        logStaleEvent("start_listening", { sessionId, reason });
+        return;
+      }
+
+      clearTimers();
+      resetAudio();
+      void resumeAudio();
+      clearDisplayedTranscripts();
+      setError(null);
+      setPhase("listening");
+      startSTT();
+
+      const avatarStore = useAvatarStore.getState();
+      if (avatarStore.isConnected) {
+        avatarStore.setState("listening");
+      }
+
+      logVoiceLifecycle("listening_started", {
+        sessionId,
+        turnId: useVoiceStore.getState().turnId,
+        reason,
+      });
+    },
+    [
+      clearDisplayedTranscripts,
+      clearTimers,
+      isActiveSession,
+      logStaleEvent,
+      resetAudio,
+      resumeAudio,
+      setError,
+      setPhase,
+      startSTT,
+    ],
+  );
+
+  const setSessionError = useCallback(
+    (sessionId: number, message: string) => {
+      if (!isActiveSession(sessionId)) {
+        logStaleEvent("session_error", { sessionId });
+        return;
+      }
+
+      clearTimers();
+      stopSTT();
+      stopAudio();
+      cancelBrowserTTS();
+      useVoiceStore.getState().setAudioLevel(0);
+      clearDisplayedTranscripts();
+      setThinking(false);
+      setError(message);
+
+      logVoiceLifecycle("playback_error", {
+        sessionId,
+        turnId: useVoiceStore.getState().turnId,
+      });
+    },
+    [
+      clearDisplayedTranscripts,
+      clearTimers,
+      isActiveSession,
+      logStaleEvent,
+      setError,
+      setThinking,
+      stopAudio,
+      stopSTT,
+    ],
+  );
+
+  const activate = useCallback(() => {
+    const state = useVoiceStore.getState();
+    if (!state.isSupported || state.phase === "session_closing") {
+      return;
+    }
+
+    if (!state.isVoiceMode) {
+      const { sessionId } = openSession();
+
+      clearPlayback("prepare");
+      resetAudio();
+      void resumeAudio();
+      setPhase("session_open");
+
+      logVoiceLifecycle("session_opened", {
+        sessionId,
+      });
+
+      startListening(sessionId, "session_started");
+      return;
+    }
+
+    if (state.phase === "session_open" || state.phase === "idle") {
+      startListening(state.sessionId, "continue_session");
+    }
+  }, [clearPlayback, openSession, resetAudio, resumeAudio, setPhase, startListening]);
+
+  const speakVoiceResponse = useCallback(
+    async (
+      voiceText: string,
+      sessionId: number,
+      turnId: number,
+    ): Promise<boolean> => {
+      const normalizedVoiceText = normalizeVoiceText(voiceText);
+      const signal = ttsAbortRef.current?.signal;
+
+      if (!normalizedVoiceText || signal?.aborted || !isActiveTurn(sessionId, turnId)) {
+        return false;
+      }
+
+      const speakWithBrowserFallback = async () => {
+        if (!isActiveTurn(sessionId, turnId) || signal?.aborted) {
+          return false;
         }
 
-        try {
-          const audioBlob = await synthesizeSpeech(sentence, {}, signal);
-          if (signal?.aborted || turnId !== turnRef.current) {
-            return;
-          }
+        setPhase("speaking");
+        logVoiceLifecycle("speaking_started", {
+          sessionId,
+          turnId,
+          transport: "browser_tts",
+        });
+        await speakWithBrowserTTS(normalizedVoiceText);
+        return true;
+      };
 
-          if (audioBlob.size === 0) {
-            const isFallbackEnabled =
-              process.env.NEXT_PUBLIC_ENABLE_TTS_FALLBACK !== "false";
-            if (isFallbackEnabled) {
-              setPhase("speaking");
-              await speakWithBrowserTTS(sentence);
-            }
-          } else {
-            enqueueAudio(audioBlob);
-          }
-        } catch (error) {
-          if ((error as Error).name === "AbortError") {
-            return;
-          }
-          console.error("[VoiceMode] TTS synthesis failed:", error);
+      try {
+        const audioBlob = await synthesizeSpeech(normalizedVoiceText, {}, signal);
+        if (!isActiveTurn(sessionId, turnId) || signal?.aborted) {
+          return false;
         }
+
+        if (audioBlob.size > 0) {
+          enqueueAudio(audioBlob);
+          return true;
+        }
+
+        return speakWithBrowserFallback();
+      } catch (error) {
+        if ((error as Error).name === "AbortError") {
+          return false;
+        }
+
+        console.error(
+          "[VoiceMode] Backend TTS failed, falling back to browser speech:",
+          error,
+        );
+        return speakWithBrowserFallback();
       }
     },
-    [enqueueAudio, setPhase],
+    [enqueueAudio, isActiveTurn, setPhase],
   );
 
   const sendVoiceMessage = useCallback(async () => {
-    const turnId = ++turnRef.current;
+    const state = useVoiceStore.getState();
+    if (!state.isVoiceMode || state.phase !== "listening") {
+      return;
+    }
+
+    const { sessionId } = useVoiceStore.getState();
+    const turnId = advanceTurn();
     clearTimers();
 
     const transcript = stopSTT();
     const finalTranscript = transcript || useVoiceStore.getState().userTranscript;
 
     if (!finalTranscript.trim()) {
-      stopVoiceMode();
+      transitionToSessionOpen(sessionId, "empty_turn");
       return;
     }
 
     setPhase("processing");
     setFinalTranscript(finalTranscript);
+    setError(null);
+    logVoiceLifecycle("processing_started", { sessionId, turnId });
 
     const avatarStore = useAvatarStore.getState();
     if (avatarStore.isConnected) {
       avatarStore.setState("listening");
     }
 
-    const state = useChatStore.getState();
-    const { messages, conversationId } = state;
+    const chatState = useChatStore.getState();
+    const { messages, conversationId } = chatState;
     addUserMessage(finalTranscript);
     setThinking(true);
     setErrorType(null);
     setCleoTranscript("");
-    interruptTranscriptRef.current = "";
     useVoiceStore.getState().setUserTranscript("");
 
     const history = messages
@@ -392,7 +459,7 @@ export function useVoiceMode() {
 
     const sendTimestamp = performance.now();
     let firstTokenRecorded = false;
-    let chatId = state.activeChatId;
+    let chatId = chatState.activeChatId;
     let streamPath = CHAT_STREAM_ENDPOINT;
     let body: ChatRequest | { message: string; voice_mode: boolean } = {
       message: finalTranscript,
@@ -405,6 +472,10 @@ export function useVoiceMode() {
       if (isAuthenticated) {
         if (!chatId) {
           const summary = await createPersistedChat();
+          if (!isActiveTurn(sessionId, turnId)) {
+            logStaleEvent("create_chat_summary", { sessionId, turnId });
+            return;
+          }
           upsertChatSummary(summary);
           setActiveChat(summary.id, []);
           chatId = summary.id;
@@ -415,6 +486,10 @@ export function useVoiceMode() {
       }
 
       const response = await api.stream(streamPath, body, controller.signal);
+      if (!isActiveTurn(sessionId, turnId)) {
+        logStaleEvent("stream_opened", { sessionId, turnId });
+        return;
+      }
 
       startAssistantMessage();
 
@@ -426,6 +501,11 @@ export function useVoiceMode() {
       await consumeSSEStream(
         response,
         (token: string) => {
+          if (!isActiveTurn(sessionId, turnId)) {
+            logStaleEvent("token", { sessionId, turnId });
+            return;
+          }
+
           if (!firstTokenRecorded) {
             firstTokenRecorded = true;
             const ttft = performance.now() - sendTimestamp;
@@ -435,6 +515,11 @@ export function useVoiceMode() {
           appendToken(token);
         },
         (event: SSEDoneEvent) => {
+          if (!isActiveTurn(sessionId, turnId)) {
+            logStaleEvent("done", { sessionId, turnId });
+            return;
+          }
+
           doneEvent = event;
 
           finishAssistantMessage({
@@ -452,16 +537,13 @@ export function useVoiceMode() {
           }
         },
         (error: Error) => {
-          streamError = error;
+          if (!isActiveTurn(sessionId, turnId)) {
+            logStaleEvent("stream_error", { sessionId, turnId });
+            return;
+          }
 
-          finishAssistantMessage({
-            primary_citations: [],
-            secondary_citations: [],
-            all_citations: [],
-            hidden_sources_count: 0,
-            mode_used: "rag",
-            max_confidence: 0,
-          });
+          streamError = error;
+          finalizePendingAssistantMessage();
 
           if (error.message.includes("429")) {
             setErrorType("rate-limit");
@@ -470,10 +552,13 @@ export function useVoiceMode() {
           } else {
             setErrorType("network");
           }
-
-          setPhase("idle");
         },
         (event: SSEVoiceReadyEvent) => {
+          if (!isActiveTurn(sessionId, turnId)) {
+            logStaleEvent("voice_ready", { sessionId, turnId });
+            return;
+          }
+
           const voiceText = normalizeVoiceText(event.voice_response);
           const audioBlob = decodePreparedVoiceAudio(
             event.voice_audio_base64,
@@ -481,7 +566,6 @@ export function useVoiceMode() {
           );
 
           preparedVoiceText = voiceText;
-          spokenVoiceTextRef.current = voiceText;
 
           if (audioBlob && audioBlob.size > 0) {
             preparedVoiceQueued = true;
@@ -490,82 +574,152 @@ export function useVoiceMode() {
         },
       );
 
-      if (streamError || turnId !== turnRef.current || !doneEvent) {
+      if (!isActiveTurn(sessionId, turnId)) {
+        logStaleEvent("post_stream", { sessionId, turnId });
+        return;
+      }
+
+      if (streamError) {
+        setSessionError(sessionId, "Voice request failed. Please try again.");
+        return;
+      }
+
+      if (!doneEvent) {
+        transitionToSessionOpen(sessionId, "retry_ready");
         return;
       }
 
       const finalDoneEvent = doneEvent as SSEDoneEvent;
       const voiceText =
-        preparedVoiceText ||
-        normalizeVoiceText(finalDoneEvent.voice_response ?? "") ||
-        clampVoiceFallback(
-          useChatStore.getState().messages.slice(-1)[0]?.content ?? "",
+        preparedVoiceText || normalizeVoiceText(finalDoneEvent.voice_response ?? "");
+
+      if (!voiceText) {
+        setSessionError(
+          sessionId,
+          "Voice playback unavailable. The written answer is still visible.",
         );
-
-      if (!preparedVoiceQueued && voiceText) {
-        spokenVoiceTextRef.current = voiceText;
-        await speakVoiceResponse(voiceText, turnId);
+        return;
       }
 
-      if (preparedVoiceQueued || voiceText) {
-        await waitForPlaybackToSettle(turnId);
+      let playbackStarted = preparedVoiceQueued;
+      if (!preparedVoiceQueued) {
+        playbackStarted = await speakVoiceResponse(voiceText, sessionId, turnId);
       }
 
-      if (turnId === turnRef.current) {
-        spokenVoiceTextRef.current = "";
-        interruptTranscriptRef.current = "";
-        useVoiceStore.getState().setAudioLevel(0);
-        maybeResumeListening();
+      if (!isActiveTurn(sessionId, turnId)) {
+        logStaleEvent("post_playback_start", { sessionId, turnId });
+        return;
+      }
+
+      if (!playbackStarted) {
+        setSessionError(
+          sessionId,
+          "Voice playback unavailable. The written answer is still visible.",
+        );
+        return;
+      }
+
+      await waitForPlaybackToSettle(sessionId, turnId);
+
+      if (isActiveTurn(sessionId, turnId)) {
+        logVoiceLifecycle("speaking_completed", { sessionId, turnId });
+        startListening(sessionId, "speaking_completed");
       }
     } catch (error) {
       if ((error as Error).name === "AbortError") {
         return;
       }
 
-      setThinking(false);
-      setError("Failed to send voice message. Please try again.");
-      setPhase("idle");
+      if (isActiveSession(sessionId)) {
+        finalizePendingAssistantMessage();
+        setSessionError(sessionId, "Failed to send voice message. Please try again.");
+      }
     }
   }, [
     addUserMessage,
     appendToken,
     clearTimers,
+    enqueueAudio,
+    finalizePendingAssistantMessage,
     finishAssistantMessage,
+    isActiveSession,
+    isActiveTurn,
     isAuthenticated,
-    maybeResumeListening,
+    logStaleEvent,
     setActiveChat,
     setCleoTranscript,
     setError,
     setErrorType,
     setFinalTranscript,
     setPhase,
+    setSessionError,
     setThinking,
     speakVoiceResponse,
     startAssistantMessage,
     stopSTT,
-    stopVoiceMode,
+    startListening,
+    transitionToSessionOpen,
     upsertChatSummary,
     waitForPlaybackToSettle,
   ]);
 
+  const interruptCurrentTurn = useCallback(() => {
+    const state = useVoiceStore.getState();
+    if (!state.isVoiceMode || state.phase !== "speaking") {
+      return;
+    }
+
+    const { sessionId, turnId: interruptedTurnId } = useVoiceStore.getState();
+    const nextTurnId = advanceTurn();
+
+    logVoiceLifecycle("interrupt_triggered", {
+      sessionId,
+      interruptedTurnId,
+      nextTurnId,
+    });
+
+    clearPlayback("interrupt");
+    finalizePendingAssistantMessage();
+    if (!isActiveSession(sessionId)) {
+      logStaleEvent("interrupt_after_cleanup", { sessionId });
+      return;
+    }
+
+    startListening(sessionId, "manual_interrupt");
+  }, [
+    clearPlayback,
+    finalizePendingAssistantMessage,
+    isActiveSession,
+    logStaleEvent,
+    startListening,
+  ]);
+
   const deactivate = useCallback(() => {
-    turnRef.current += 1;
-    clearTimers();
+    const state = useVoiceStore.getState();
+    if (!state.isVoiceMode) {
+      return;
+    }
+
+    const { previousSessionId, nextSessionId } = invalidateSession();
+    setPhase("session_closing");
+
+    logVoiceLifecycle("session_ended", {
+      sessionId: previousSessionId,
+      nextSessionId,
+    });
+
+    finalizePendingAssistantMessage();
+    clearPlayback("session_end");
     stopSTT();
-    stopAudio();
-    abortRef.current?.abort();
-    abortRef.current = null;
-    ttsAbortRef.current?.abort();
-    ttsAbortRef.current = null;
-    cancelBrowserTTS();
-    spokenVoiceTextRef.current = "";
-    interruptTranscriptRef.current = "";
-    finalizeInterruptedAssistantMessage();
+    clearDisplayedTranscripts();
+    setError(null);
     stopVoiceMode();
   }, [
-    clearTimers,
-    finalizeInterruptedAssistantMessage,
-    stopAudio,
+    clearDisplayedTranscripts,
+    clearPlayback,
+    finalizePendingAssistantMessage,
+    setError,
+    setPhase,
     stopSTT,
     stopVoiceMode,
   ]);
@@ -615,12 +769,12 @@ export function useVoiceMode() {
         clearTimeout(silenceTimerRef.current);
       }
     };
-  }, [isVoiceMode, phase, userTranscript, sendVoiceMessage]);
+  }, [isVoiceMode, phase, sendVoiceMessage, userTranscript]);
 
   return {
     activate,
-    interruptCurrentTurn,
     sendVoiceMessage,
+    interruptCurrentTurn,
     deactivate,
   };
 }

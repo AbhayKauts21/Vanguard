@@ -10,9 +10,11 @@ const mocks = vi.hoisted(() => ({
   chatPanelProps: null as
     | {
         voice?: {
-          onInterrupt?: () => void;
           phase: string;
           isVoiceMode: boolean;
+          onDeactivate?: () => void;
+          onInterrupt?: () => void;
+          onSendVoiceMessage?: () => void;
         };
       }
     | null,
@@ -50,9 +52,11 @@ vi.mock("@/components/chat", () => ({
   ChatPanel: (props: unknown) => {
     mocks.chatPanelProps = props as {
       voice?: {
-        onInterrupt?: () => void;
         phase: string;
         isVoiceMode: boolean;
+        onDeactivate?: () => void;
+        onInterrupt?: () => void;
+        onSendVoiceMessage?: () => void;
       };
     };
     return <div data-testid="chat-panel" />;
@@ -144,7 +148,7 @@ describe("CleoInterface voice wiring", () => {
     });
   });
 
-  it("provides a callable interrupt handler to the chat panel during voice sessions", async () => {
+  it("passes the persistent session voice controls to the chat panel", async () => {
     render(<CleoInterface />);
 
     await waitFor(() => {
@@ -152,10 +156,8 @@ describe("CleoInterface voice wiring", () => {
     });
 
     expect(mocks.chatPanelProps?.voice?.phase).toBe("speaking");
+    expect(typeof mocks.chatPanelProps?.voice?.onDeactivate).toBe("function");
     expect(typeof mocks.chatPanelProps?.voice?.onInterrupt).toBe("function");
-
-    mocks.chatPanelProps?.voice?.onInterrupt?.();
-
-    expect(mocks.interruptCurrentTurn).toHaveBeenCalledTimes(1);
+    expect(typeof mocks.chatPanelProps?.voice?.onSendVoiceMessage).toBe("function");
   });
 });

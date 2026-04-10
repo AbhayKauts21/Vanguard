@@ -2,28 +2,19 @@
  * Voice domain types — phase lifecycle, configuration, and STT result shapes.
  *
  * Voice mode lifecycle:
- *   idle → listening → processing → speaking → idle
- *                ↑                              │
- *                └──────── (new turn) ──────────┘
+ *   idle → session_open → listening → processing → speaking → session_open
+ *      \_______________________________________________________________/
+ *                                end session
  */
 
 /** Active phase of the voice-to-voice pipeline. */
 export type VoicePhase =
   | "idle"
+  | "session_open"
   | "listening"
   | "processing"
-  | "speaking";
-
-export const INTERRUPTIBLE_VOICE_PHASES = [
-  "processing",
-  "speaking",
-] as const satisfies readonly VoicePhase[];
-
-export function isInterruptibleVoicePhase(phase: VoicePhase): boolean {
-  return INTERRUPTIBLE_VOICE_PHASES.includes(
-    phase as (typeof INTERRUPTIBLE_VOICE_PHASES)[number],
-  );
-}
+  | "speaking"
+  | "session_closing";
 
 /** A single STT recognition result (interim or final). */
 export interface STTResult {

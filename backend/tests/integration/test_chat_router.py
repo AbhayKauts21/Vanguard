@@ -28,13 +28,14 @@ def test_chat_route_includes_voice_response_when_voice_mode_enabled(monkeypatch)
             max_confidence=0.93,
         )
 
-    async def fake_voice_response(**kwargs):
-        return "Short spoken answer."
+    async def fake_build_voice_response(*, question, history, locale, response):
+        response.voice_response = "Short spoken answer."
+        return response.voice_response
 
     monkeypatch.setattr("app.api.router_chat.rag_service.answer_query", fake_answer_query)
     monkeypatch.setattr(
-        "app.api.router_chat.voice_conversation_service.create_voice_response",
-        fake_voice_response,
+        "app.api.router_chat.chat_service.build_voice_response",
+        fake_build_voice_response,
     )
 
     client = TestClient(build_app())

@@ -68,11 +68,6 @@ export class AudioQueue {
       this.currentSource = null;
     }
 
-    if (this.audioContext && this.audioContext.state !== "closed") {
-      try { this.audioContext.close(); } catch { /* ignore */ }
-      this.audioContext = null;
-    }
-
     this.callbacks.onAudioLevel(0);
   }
 
@@ -84,6 +79,21 @@ export class AudioQueue {
 
   async resume(): Promise<void> {
     await this.ensureAudioContext();
+  }
+
+  async dispose(): Promise<void> {
+    this.stop();
+
+    if (this.audioContext && this.audioContext.state !== "closed") {
+      try {
+        await this.audioContext.close();
+      } catch {
+        /* ignore */
+      }
+    }
+
+    this.audioContext = null;
+    this.analyser = null;
   }
 
   get active(): boolean {

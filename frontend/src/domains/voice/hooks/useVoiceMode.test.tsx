@@ -406,6 +406,74 @@ describe("useVoiceMode", () => {
     expect(useVoiceStore.getState().phase).toBe("listening");
   });
 
+  it("does not reopen the mic before delayed prepared audio has actually started and finished", async () => {
+    let speakingActive = false;
+
+    mocks.stopSTT.mockReturnValue("Tell me about billing");
+    mocks.apiStream.mockResolvedValue({ ok: true } as Response);
+    mocks.isPlaying.mockImplementation(() => speakingActive);
+    mocks.enqueueAudio.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          setTimeout(() => {
+            speakingActive = true;
+            mocks.audioAnalyserOptions?.onChunkStart?.(0);
+
+            setTimeout(() => {
+              speakingActive = false;
+            }, 500);
+
+            resolve();
+          }, 1000);
+        }),
+    );
+    mocks.consumeSSEStream.mockImplementation(
+      async (_response, onToken, onDone, _onError, onVoiceReady) => {
+        onVoiceReady?.({
+          type: "voice_ready",
+          voice_response: "Short spoken answer.",
+          voice_audio_base64: Buffer.from("audio").toString("base64"),
+          voice_audio_content_type: "audio/mpeg",
+        });
+        onToken("Full answer.");
+        onDone(buildDoneEvent({ voice_response: "Short spoken answer." }));
+      },
+    );
+
+    const { result } = renderHook(() => useVoiceMode());
+
+    act(() => {
+      result.current.activate();
+    });
+
+    let pendingTurn!: Promise<void>;
+    await act(async () => {
+      pendingTurn = result.current.sendVoiceMessage();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+
+    expect(useVoiceStore.getState().phase).toBe("processing");
+    expect(mocks.startSTT).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+
+    expect(useVoiceStore.getState().phase).toBe("speaking");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1400);
+      await pendingTurn;
+    });
+
+    expect(useVoiceStore.getState().phase).toBe("listening");
+    expect(mocks.startSTT).toHaveBeenCalledTimes(2);
+  });
+
   it("closes the session cleanly when End Session is pressed during speaking", () => {
     const { result } = renderHook(() => useVoiceMode());
 

@@ -336,11 +336,6 @@ export function useVoiceMode() {
     if (!state.isVoiceMode) {
       const { sessionId } = openSession();
 
-      clearPlayback("prepare");
-      resetAudio();
-      void resumeAudio();
-      setPhase("session_open");
-
       logVoiceLifecycle("session_opened", {
         sessionId,
       });
@@ -352,7 +347,7 @@ export function useVoiceMode() {
     if (state.phase === "session_open" || state.phase === "idle") {
       startListening(state.sessionId, "continue_session");
     }
-  }, [clearPlayback, openSession, resetAudio, resumeAudio, setPhase, startListening]);
+  }, [openSession, startListening]);
 
   const speakVoiceResponse = useCallback(
     async (
@@ -389,7 +384,7 @@ export function useVoiceMode() {
         }
 
         if (audioBlob.size > 0) {
-          enqueueAudio(audioBlob);
+          await enqueueAudio(audioBlob);
           return true;
         }
 
@@ -497,6 +492,7 @@ export function useVoiceMode() {
       let streamError: Error | null = null;
       let preparedVoiceText = "";
       let preparedVoiceQueued = false;
+      let preparedVoiceQueuePromise: Promise<void> | null = null;
 
       await consumeSSEStream(
         response,
@@ -569,7 +565,7 @@ export function useVoiceMode() {
 
           if (audioBlob && audioBlob.size > 0) {
             preparedVoiceQueued = true;
-            enqueueAudio(audioBlob);
+            preparedVoiceQueuePromise = enqueueAudio(audioBlob);
           }
         },
       );
@@ -592,6 +588,10 @@ export function useVoiceMode() {
       const finalDoneEvent = doneEvent as SSEDoneEvent;
       const voiceText =
         preparedVoiceText || normalizeVoiceText(finalDoneEvent.voice_response ?? "");
+
+      if (preparedVoiceQueuePromise) {
+        await preparedVoiceQueuePromise;
+      }
 
       if (!voiceText) {
         setSessionError(

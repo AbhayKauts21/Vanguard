@@ -218,13 +218,15 @@ export function EnergyCoreCanvas({ state, audioLevel = 0 }: EnergyCoreCanvasProp
     scene.add(innerSphere);
 
     let animationFrameId = 0;
-    const clock = new THREE.Clock();
+    const timer = new THREE.Timer();
+    timer.connect(document);
     const targetColor = new THREE.Color(INITIAL_PROFILE.color);
     const targetScale = new THREE.Vector3(1, 1, 1);
     const innerTargetScale = new THREE.Vector3(1, 1, 1);
 
-    const renderFrame = () => {
-      const elapsedTime = clock.getElapsedTime();
+    const renderFrame = (timestamp?: number) => {
+      timer.update(timestamp);
+      const elapsedTime = timer.getElapsed();
       const targetProfile = targetStateRef.current;
       const currentAudioLevel = audioLevelRef.current;
       const breathWave = Math.sin(elapsedTime * targetProfile.breathSpeed) * targetProfile.breathAmplitude;
@@ -304,6 +306,7 @@ export function EnergyCoreCanvas({ state, audioLevel = 0 }: EnergyCoreCanvasProp
     return () => {
       window.removeEventListener("resize", handleResize);
       window.cancelAnimationFrame(animationFrameId);
+      timer.dispose();
       geometry.dispose();
       innerGeometry.dispose();
       material.dispose();

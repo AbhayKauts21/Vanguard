@@ -249,7 +249,14 @@ export function useVoiceMode() {
   );
 
   const startListening = useCallback(
-    (sessionId: number, reason: "session_started" | "manual_interrupt" | "continue_session") => {
+    (
+      sessionId: number,
+      reason:
+        | "session_started"
+        | "manual_interrupt"
+        | "continue_session"
+        | "speaking_completed",
+    ) => {
       if (!isActiveSession(sessionId)) {
         logStaleEvent("start_listening", { sessionId, reason });
         return;
@@ -616,7 +623,7 @@ export function useVoiceMode() {
 
       if (isActiveTurn(sessionId, turnId)) {
         logVoiceLifecycle("speaking_completed", { sessionId, turnId });
-        transitionToSessionOpen(sessionId, "speaking_completed");
+        startListening(sessionId, "speaking_completed");
       }
     } catch (error) {
       if ((error as Error).name === "AbortError") {
@@ -650,6 +657,7 @@ export function useVoiceMode() {
     speakVoiceResponse,
     startAssistantMessage,
     stopSTT,
+    startListening,
     transitionToSessionOpen,
     upsertChatSummary,
     waitForPlaybackToSettle,

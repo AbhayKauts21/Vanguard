@@ -128,7 +128,7 @@ describe("useVoiceMode", () => {
     expect(useVoiceStore.getState().phase).toBe("listening");
   });
 
-  it("keeps the voice session open after prepared audio finishes speaking", async () => {
+  it("returns to listening after prepared audio finishes speaking", async () => {
     mocks.stopSTT.mockReturnValue("How do I reset my password?");
     mocks.apiStream.mockResolvedValue({ ok: true } as Response);
     mocks.enqueueAudio.mockImplementation(() => {
@@ -162,8 +162,9 @@ describe("useVoiceMode", () => {
     });
 
     expect(mocks.enqueueAudio).toHaveBeenCalledTimes(1);
+    expect(mocks.startSTT).toHaveBeenCalledTimes(2);
     expect(useVoiceStore.getState().isVoiceMode).toBe(true);
-    expect(useVoiceStore.getState().phase).toBe("session_open");
+    expect(useVoiceStore.getState().phase).toBe("listening");
     expect(useChatStore.getState().messages.at(-1)?.content).toContain("Full grounded answer.");
   });
 
@@ -200,11 +201,6 @@ describe("useVoiceMode", () => {
       await firstTurn;
     });
 
-    expect(useVoiceStore.getState().phase).toBe("session_open");
-
-    act(() => {
-      result.current.activate();
-    });
     expect(useVoiceStore.getState().phase).toBe("listening");
 
     await act(async () => {
@@ -214,9 +210,9 @@ describe("useVoiceMode", () => {
     });
 
     expect(mocks.apiStream).toHaveBeenCalledTimes(2);
-    expect(mocks.startSTT).toHaveBeenCalledTimes(2);
+    expect(mocks.startSTT).toHaveBeenCalledTimes(3);
     expect(useVoiceStore.getState().isVoiceMode).toBe(true);
-    expect(useVoiceStore.getState().phase).toBe("session_open");
+    expect(useVoiceStore.getState().phase).toBe("listening");
   });
 
   it("uses the backend voice summary verbatim for TTS fallback", async () => {
@@ -257,10 +253,10 @@ describe("useVoiceMode", () => {
       expect.any(Object),
     );
     expect(mocks.speakWithBrowserTTS).not.toHaveBeenCalled();
-    expect(useVoiceStore.getState().phase).toBe("session_open");
+    expect(useVoiceStore.getState().phase).toBe("listening");
   });
 
-  it("falls back to browser speech and keeps the session open afterward", async () => {
+  it("falls back to browser speech and returns to listening afterward", async () => {
     mocks.stopSTT.mockReturnValue("How do I reset my password?");
     mocks.apiStream.mockResolvedValue({ ok: true } as Response);
     mocks.synthesizeSpeech.mockResolvedValue(new Blob([]));
@@ -295,7 +291,7 @@ describe("useVoiceMode", () => {
 
     expect(mocks.speakWithBrowserTTS).toHaveBeenCalledWith("Short spoken answer.");
     expect(useVoiceStore.getState().isVoiceMode).toBe(true);
-    expect(useVoiceStore.getState().phase).toBe("session_open");
+    expect(useVoiceStore.getState().phase).toBe("listening");
   });
 
   it("interrupts manual speaking immediately and returns to listening without closing the session", () => {
@@ -407,7 +403,7 @@ describe("useVoiceMode", () => {
 
     expect(chunkStarts).toBe(2);
     expect(useVoiceStore.getState().isVoiceMode).toBe(true);
-    expect(useVoiceStore.getState().phase).toBe("session_open");
+    expect(useVoiceStore.getState().phase).toBe("listening");
   });
 
   it("closes the session cleanly when End Session is pressed during speaking", () => {

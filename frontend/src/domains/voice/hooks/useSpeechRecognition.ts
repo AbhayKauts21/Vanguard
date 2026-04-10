@@ -84,6 +84,11 @@ export function useSpeechRecognition() {
       return;
     }
 
+    if (engineRef.current) {
+      engineRef.current.stop();
+      engineRef.current = null;
+    }
+
     seedTranscriptRef.current = normalizeTranscript(options?.seedTranscript ?? "");
 
     if (seedTranscriptRef.current) {

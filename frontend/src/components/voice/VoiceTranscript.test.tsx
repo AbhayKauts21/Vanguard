@@ -1,12 +1,14 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VoiceTranscript } from "./VoiceTranscript";
 import { useVoiceStore } from "@/domains/voice/model";
 
-function setVoiceState(overrides: Partial<ReturnType<typeof useVoiceStore.getState>>) {
+function setVoiceState(
+  overrides: Partial<ReturnType<typeof useVoiceStore.getState>>,
+) {
   useVoiceStore.setState({
     isVoiceMode: true,
-    phase: "processing",
+    phase: "listening",
     userTranscript: "",
     finalTranscript: "",
     cleoTranscript: "",
@@ -26,108 +28,95 @@ describe("VoiceTranscript", () => {
     useVoiceStore.getState().reset();
   });
 
-  it("renders the interrupt control in processing and speaking phases", () => {
-    const onInterrupt = vi.fn();
+  it("shows phase-specific copy without rendering interrupt controls", () => {
+    setVoiceState({ phase: "session_open" });
+    const { rerender } = render(<VoiceTranscript onDeactivate={vi.fn()} />);
 
-    setVoiceState({ phase: "processing" });
-    const view = render(<VoiceTranscript onInterrupt={onInterrupt} />);
-
-    expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();
-
-    act(() => {
-      useVoiceStore.getState().setPhase("speaking");
-    });
-
-    expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();
-    expect(view.container.firstElementChild).toHaveClass("pointer-events-none");
-  });
-
-  it("keeps the interrupt control visible across a mounted processing to speaking transition", () => {
-    const onInterrupt = vi.fn();
-
-    setVoiceState({ phase: "processing" });
-    render(<VoiceTranscript onInterrupt={onInterrupt} />);
-
-    expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();
-
-    act(() => {
-      useVoiceStore.getState().setPhase("speaking");
-      useVoiceStore.getState().setFinalTranscript("compare that with enterprise");
-    });
-
-    expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();
     expect(
-      screen.getByText("compare that with enterprise"),
+      screen.getByText("Voice session is open. Tap the mic to ask the next question."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Interrupt" })).not.toBeInTheDocument();
+
+    setVoiceState({ phase: "speaking" });
+    rerender(<VoiceTranscript onDeactivate={vi.fn()} onInterrupt={vi.fn()} />);
+    expect(
+      screen.getByText("CLEO is speaking. Interrupt to jump to the next question."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();
+
+    setVoiceState({ phase: "processing" });
+    rerender(<VoiceTranscript onDeactivate={vi.fn()} />);
+    expect(
+      screen.getByText("CLEO is preparing your voice reply."),
+    ).toBeInTheDocument();
+
+    setVoiceState({ phase: "session_closing" });
+    rerender(<VoiceTranscript onDeactivate={vi.fn()} />);
+    expect(
+      screen.getByText("Closing voice session..."),
     ).toBeInTheDocument();
   });
 
-  it("hides the interrupt control outside interruptible phases", () => {
-    const onInterrupt = vi.fn();
-
-    setVoiceState({ phase: "listening" });
-    const { rerender } = render(<VoiceTranscript onInterrupt={onInterrupt} />);
-
-    expect(
-      screen.queryByRole("button", { name: "Interrupt" }),
-    ).not.toBeInTheDocument();
-
-    act(() => {
-      useVoiceStore.getState().setPhase("idle");
-    });
-    rerender(<VoiceTranscript onInterrupt={onInterrupt} />);
-
-    expect(
-      screen.queryByRole("button", { name: "Interrupt" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("hides the interrupt control when no handler is provided", () => {
-    setVoiceState({ phase: "processing" });
-    const { rerender } = render(<VoiceTranscript />);
-
-    expect(
-      screen.queryByRole("button", { name: "Interrupt" }),
-    ).not.toBeInTheDocument();
-
-    act(() => {
-      useVoiceStore.getState().setPhase("speaking");
-    });
-    rerender(<VoiceTranscript />);
-
-    expect(
-      screen.queryByRole("button", { name: "Interrupt" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("keeps the interrupt control visible with transcript text and an error banner", () => {
-    const onInterrupt = vi.fn();
-
+  it("shows the visible transcript and hides the internal CLEO transcript", () => {
     setVoiceState({
       phase: "speaking",
-      userTranscript: "compare that with the enterprise plan",
-      finalTranscript: "compare that with the enterprise plan",
-      cleoTranscript: "This should stay hidden.",
-      error: "Temporary voice issue",
+      userTranscript: "compare pricing with enterprise",
+      finalTranscript: "compare pricing with enterprise",
+      cleoTranscript: "Internal spoken summary",
     });
 
-    render(<VoiceTranscript onInterrupt={onInterrupt} />);
+    render(<VoiceTranscript onDeactivate={vi.fn()} />);
 
     expect(
-      screen.getByText("compare that with the enterprise plan"),
+      screen.getByText("compare pricing with enterprise"),
     ).toBeInTheDocument();
-    expect(screen.queryByText("This should stay hidden.")).not.toBeInTheDocument();
-    expect(screen.getByText("Temporary voice issue")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Interrupt" })).toBeInTheDocument();
+    expect(screen.queryByText("Internal spoken summary")).not.toBeInTheDocument();
   });
 
-  it("fires the interrupt handler exactly once per click", () => {
+  it("renders and dismisses the error banner while keeping the end session control", () => {
+    const onDeactivate = vi.fn();
+
+    setVoiceState({
+      phase: "session_open",
+      error: "Microphone access was denied.",
+    });
+
+    render(<VoiceTranscript onDeactivate={onDeactivate} />);
+
+    expect(screen.getByText("Microphone access was denied.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss voice error" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "End Session" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss voice error" }));
+
+    expect(useVoiceStore.getState().error).toBeNull();
+  });
+
+  it("fires the end session handler when requested", () => {
+    const onDeactivate = vi.fn();
+
+    setVoiceState({ phase: "listening" });
+    render(<VoiceTranscript onDeactivate={onDeactivate} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "End Session" }));
+
+    expect(onDeactivate).toHaveBeenCalledTimes(1);
+  });
+
+  it("fires the interrupt handler only while speaking", () => {
     const onInterrupt = vi.fn();
 
     setVoiceState({ phase: "speaking" });
-    render(<VoiceTranscript onInterrupt={onInterrupt} />);
+    const { rerender } = render(
+      <VoiceTranscript onDeactivate={vi.fn()} onInterrupt={onInterrupt} />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Interrupt" }));
-
     expect(onInterrupt).toHaveBeenCalledTimes(1);
+
+    setVoiceState({ phase: "listening" });
+    rerender(<VoiceTranscript onDeactivate={vi.fn()} onInterrupt={onInterrupt} />);
+
+    expect(screen.queryByRole("button", { name: "Interrupt" })).not.toBeInTheDocument();
   });
 });

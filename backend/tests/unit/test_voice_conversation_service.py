@@ -5,6 +5,7 @@ import pytest
 from app.domain.schemas import ConversationMessage
 from app.services.voice_conversation_service import (
     VOICE_MAX_COMPLETION_TOKENS,
+    VOICE_SENTENCE_LIMIT,
     VoiceConversationService,
     clamp_voice_text,
     strip_markdown_for_voice,
@@ -30,6 +31,20 @@ def test_clamp_voice_text_truncates_to_word_budget():
 
     assert len(clipped.split()) == 20
     assert clipped.endswith(".")
+
+
+def test_clamp_voice_text_limits_sentence_count():
+    text = (
+        "Sentence one is concise. "
+        "Sentence two stays relevant. "
+        "Sentence three still fits. "
+        "Sentence four should be removed."
+    )
+
+    clipped = clamp_voice_text(text, max_sentences=VOICE_SENTENCE_LIMIT)
+
+    assert clipped.count(".") <= VOICE_SENTENCE_LIMIT
+    assert "Sentence four" not in clipped
 
 
 @pytest.mark.asyncio
@@ -65,7 +80,7 @@ async def test_voice_conversation_service_uses_llm_and_clamps_output():
     )
 
     assert response == "Here is your short answer in plain speech. Try the password reset link next?"
-    assert captured["temperature"] == 0.4
+    assert captured["temperature"] == 0.2
     assert captured["max_tokens"] == VOICE_MAX_COMPLETION_TOKENS
     assert captured["messages"][0].role == "system"
     assert captured["messages"][1].role == "user"
@@ -94,3 +109,32 @@ async def test_voice_conversation_service_falls_back_to_clamped_plain_text():
     assert "###" not in response
     assert len(response.split()) <= 75
     assert "couldn't verify" in response.lower()
+
+
+@pytest.mark.asyncio
+async def test_voice_conversation_service_falls_back_when_llm_returns_empty_summary():
+    class EmptyLLMClient:
+        async def create_chat_completion(self, messages, *, temperature, max_tokens):
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="   "))]
+            )
+
+    service = VoiceConversationService(llm_client=EmptyLLMClient())
+
+    response = await service.create_voice_response(
+        question="How do I reset my password?",
+        answer=(
+            "Use the Forgot Password link in the portal. "
+            "Follow the email link to set a new password. "
+            "Contact support if the reset email does not arrive."
+        ),
+        history=[],
+        locale="en",
+        mode_used="rag",
+    )
+
+    assert response == (
+        "Use the Forgot Password link in the portal. "
+        "Follow the email link to set a new password. "
+        "Contact support if the reset email does not arrive."
+    )

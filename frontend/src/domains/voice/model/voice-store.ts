@@ -16,6 +16,12 @@ interface VoiceState {
   cleoTranscript: string;
   /** Normalized audio output level 0-1 for energy core sync. */
   audioLevel: number;
+  /** Monotonic session token for guarding async voice callbacks. */
+  sessionId: number;
+  /** Monotonic turn token for guarding async voice callbacks. */
+  turnId: number;
+  /** Count of stale callbacks ignored in the current session. */
+  staleEventCount: number;
   /** Error message if something goes wrong. */
   error: string | null;
   /** Whether the browser supports speech recognition. */
@@ -23,10 +29,18 @@ interface VoiceState {
 
   /* ── Actions ── */
 
-  /** Enter voice mode — begin listening. */
+  /** Open the session and leave it ready for the next listen cycle. */
   startVoiceMode: () => void;
+  /** Open a fresh session and advance the async guard tokens. */
+  openSession: () => { sessionId: number; turnId: number };
   /** Exit voice mode — full reset. */
   stopVoiceMode: () => void;
+  /** Advance the active turn token for a new request or interrupt. */
+  advanceTurn: () => number;
+  /** Invalidate the current session so late callbacks are ignored. */
+  invalidateSession: () => { previousSessionId: number; nextSessionId: number };
+  /** Track an ignored stale event and return the updated count. */
+  incrementStaleEventCount: () => number;
   /** Transition to a specific phase. */
   setPhase: (phase: VoicePhase) => void;
   /** Update the live user transcript (interim results). */
@@ -54,6 +68,9 @@ const INITIAL_STATE = {
   finalTranscript: "",
   cleoTranscript: "",
   audioLevel: 0,
+  sessionId: 0,
+  turnId: 0,
+  staleEventCount: 0,
   error: null,
   isSupported: true,
 };
@@ -73,7 +90,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   startVoiceMode: () =>
     set({
       isVoiceMode: true,
-      phase: "listening",
+      phase: "session_open",
       userTranscript: "",
       finalTranscript: "",
       cleoTranscript: "",
@@ -81,7 +98,74 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       error: null,
     }),
 
+  openSession: () => {
+    let sessionId = 0;
+    let turnId = 0;
+
+    set((s) => {
+      sessionId = s.sessionId + 1;
+      turnId = s.turnId + 1;
+
+      return {
+        isVoiceMode: true,
+        phase: "session_open" as VoicePhase,
+        userTranscript: "",
+        finalTranscript: "",
+        cleoTranscript: "",
+        audioLevel: 0,
+        sessionId,
+        turnId,
+        staleEventCount: 0,
+        error: null,
+      };
+    });
+
+    return { sessionId, turnId };
+  },
+
   stopVoiceMode: () => set({ ...INITIAL_STATE }),
+
+  advanceTurn: () => {
+    let turnId = 0;
+
+    set((s) => {
+      turnId = s.turnId + 1;
+      return { turnId };
+    });
+
+    return turnId;
+  },
+
+  invalidateSession: () => {
+    let previousSessionId = 0;
+    let nextSessionId = 0;
+
+    set((s) => {
+      previousSessionId = s.sessionId;
+      nextSessionId = s.sessionId + 1;
+
+      return {
+        sessionId: nextSessionId,
+        turnId: s.turnId + 1,
+      };
+    });
+
+    return {
+      previousSessionId,
+      nextSessionId,
+    };
+  },
+
+  incrementStaleEventCount: () => {
+    let staleEventCount = 0;
+
+    set((s) => {
+      staleEventCount = s.staleEventCount + 1;
+      return { staleEventCount };
+    });
+
+    return staleEventCount;
+  },
 
   setPhase: (phase) => set({ phase }),
 
@@ -103,8 +187,10 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   setError: (error) =>
     set((s) => ({
       error,
-      // If error during active session, stay in voice mode but halt phase
-      ...(error && s.isVoiceMode ? { phase: "idle" as VoicePhase } : {}),
+      // Keep the session open after failures so the user can retry or end it manually.
+      ...(error && s.isVoiceMode && s.phase !== "session_closing"
+        ? { phase: "session_open" as VoicePhase }
+        : {}),
     })),
 
   setSupported: (supported) => set({ isSupported: supported }),

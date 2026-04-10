@@ -78,19 +78,29 @@ async def tts(request: Request, body: TTSRequest):
             language=body.language,
         )
     except Exception as e:
-        rlog.error("request.failed", endpoint="/voice/tts", error=str(e))
+        rlog.error(
+            "request.failed",
+            endpoint="/voice/tts",
+            error=str(e),
+            text_length=len(body.text),
+        )
         return Response(content=str(e), status_code=500)
 
     rlog.info(
         "request.completed",
         endpoint="/voice/tts",
         status=200,
-        text=body.text[:20],
+        text_length=len(body.text),
+        audio_bytes=len(audio_bytes),
         duration_ms=round((time.perf_counter() - t0) * 1000, 1),
     )
 
     if not audio_bytes:
-        rlog.warning("request.empty_audio", endpoint="/voice/tts", text=body.text)
+        rlog.warning(
+            "request.empty_audio",
+            endpoint="/voice/tts",
+            text_length=len(body.text),
+        )
         # We still return 200 but zero length, which helps debug if it's arriving as zero.
 
     return Response(

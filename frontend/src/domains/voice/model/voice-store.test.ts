@@ -47,12 +47,12 @@ describe("useVoiceStore", () => {
   });
 
   describe("startVoiceMode", () => {
-    it("should activate voice mode and set phase to listening", () => {
+    it("should activate voice mode and set phase to session_open", () => {
       useVoiceStore.getState().startVoiceMode();
 
       const state = useVoiceStore.getState();
       expect(state.isVoiceMode).toBe(true);
-      expect(state.phase).toBe("listening");
+      expect(state.phase).toBe("session_open");
     });
 
     it("should clear all transcripts on start", () => {
@@ -104,6 +104,9 @@ describe("useVoiceStore", () => {
       const store = useVoiceStore.getState();
 
       store.startVoiceMode();
+      expect(useVoiceStore.getState().phase).toBe("session_open");
+
+      store.setPhase("listening");
       expect(useVoiceStore.getState().phase).toBe("listening");
 
       store.setPhase("processing");
@@ -112,8 +115,11 @@ describe("useVoiceStore", () => {
       store.setPhase("speaking");
       expect(useVoiceStore.getState().phase).toBe("speaking");
 
-      store.setPhase("idle");
-      expect(useVoiceStore.getState().phase).toBe("idle");
+      store.setPhase("session_open");
+      expect(useVoiceStore.getState().phase).toBe("session_open");
+
+      store.setPhase("session_closing");
+      expect(useVoiceStore.getState().phase).toBe("session_closing");
     });
   });
 
@@ -180,6 +186,19 @@ describe("useVoiceStore", () => {
       store.setError("some error");
       store.setError(null);
       expect(useVoiceStore.getState().error).toBeNull();
+    });
+
+    it("should keep an active session open after an error", () => {
+      const store = useVoiceStore.getState();
+      store.startVoiceMode();
+      store.setPhase("speaking");
+
+      store.setError("Playback failed.");
+
+      const state = useVoiceStore.getState();
+      expect(state.isVoiceMode).toBe(true);
+      expect(state.phase).toBe("session_open");
+      expect(state.error).toBe("Playback failed.");
     });
   });
 

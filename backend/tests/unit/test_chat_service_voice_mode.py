@@ -153,6 +153,7 @@ async def test_send_message_returns_voice_response_without_persisting_it(monkeyp
     assert response.assistant_message.content == "Full grounded answer with **markdown**."
     assert response.voice_response == "Short spoken reply."
     assert "voice_response" not in created_messages[-1]["metadata"]
+    assert voice_service.calls[0]["answer"] == "Full grounded answer with **markdown**."
     assert voice_service.calls[0]["mode_used"] == "rag"
     assert tts_service.calls == []
 
@@ -178,6 +179,7 @@ async def test_prepare_voice_turn_returns_rewrite_and_audio(monkeypatch):
     assert prepared.response.voice_response == "Short spoken reply."
     assert prepared.voice_audio_bytes == b"voice-audio"
     assert prepared.voice_audio_content_type == "audio/mpeg"
+    assert voice_service.calls[0]["answer"] == "Full grounded answer with **markdown**."
     assert tts_service.calls == [{"text": "Short spoken reply.", "language": "en"}]
 
 
@@ -268,4 +270,5 @@ async def test_stream_message_emits_voice_ready_and_persists_full_answer(monkeyp
     assert events[-1]["chat_summary"]["id"] == str(chat_id)
     assert created_messages[-1]["content"] == "Full grounded answer with **markdown**."
     assert "voice_response" not in created_messages[-1]["metadata"]
+    assert voice_service.calls[0]["answer"] == "Full grounded answer with **markdown**."
     assert tts_service.calls == [{"text": "Short spoken reply.", "language": "en"}]

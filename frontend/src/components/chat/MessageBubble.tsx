@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { useTranslations } from "next-intl";
 import type { Citation } from "@/types";
 import { CitationList } from "./CitationList";
+import { useVoiceStore } from "@/domains/voice/model";
 
 interface MessageBubbleProps {
   role: "user" | "assistant";
@@ -41,6 +42,10 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const t = useTranslations("chat");
   const isUser = role === "user";
+  const shouldHideVoiceMetadata = useVoiceStore(
+    (s) => s.isVoiceMode && s.phase === "speaking",
+  );
+  const showSupplementalPanels = !isUser && !shouldHideVoiceMetadata;
 
   return (
     <div
@@ -111,7 +116,7 @@ export function MessageBubble({
         )}
 
         {/* Tier 1: High confidence — show citations */}
-        {(modeUsed === "rag" || modeUsed === "shortcut") && (
+        {showSupplementalPanels && (modeUsed === "rag" || modeUsed === "shortcut") && (
           <CitationList 
             primary={primary_citations}
             secondary={secondary_citations}
@@ -121,7 +126,7 @@ export function MessageBubble({
         )}
 
         {/* Tier 2: Uncertain — show honest deflection */}
-        {modeUsed === "uncertain" && (
+        {showSupplementalPanels && modeUsed === "uncertain" && (
           <div className="mt-4 p-4 border border-yellow-500/20 bg-yellow-500/10 rounded-xl relative overflow-hidden group">
             <div className="flex items-start gap-3 relative z-10">
               <span className="text-xl">⚠️</span>
@@ -186,7 +191,7 @@ export function MessageBubble({
         )}
 
         {/* Tier 3: Azure fallback — show mode indicator */}
-        {modeUsed === "azure_fallback" && (
+        {showSupplementalPanels && modeUsed === "azure_fallback" && (
           <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-blue-500/20 bg-blue-500/10">
             <span className="text-blue-400 text-[14px]">⚡</span>
             <span className="text-blue-300/90 text-[11px] font-medium tracking-wide uppercase">

@@ -67,6 +67,15 @@ FALLBACK_FAILURE_RESPONSES = {
     "es": "Tuve un problema temporal al generar la respuesta. Inténtalo de nuevo.",
 }
 
+DOCS_DEFLECTION_MARKERS = (
+    "i don't have documentation on that topic",
+    "please contact our support team",
+    "i couldn't find any relevant documentation",
+    "outside our current knowledge base",
+    "no tengo documentación sobre ese tema",
+    "no pude encontrar documentación relevante",
+)
+
 
 class RAGService:
     """Orchestrates retrieval, routing, and generation."""
@@ -160,6 +169,7 @@ class RAGService:
 
             t0 = time.perf_counter()
             token_count = 0
+            buffered_answer_parts: list[str] = []
             token_stream = self.llm_client.generate_stream(
                 question=question,
                 context_chunks=context_docs,
@@ -167,7 +177,26 @@ class RAGService:
             )
             async for token in token_stream:
                 token_count += 1
+                buffered_answer_parts.append(token)
                 yield {"type": "token", "content": token}
+
+            answer_text = "".join(buffered_answer_parts).strip()
+            if self._looks_like_docs_deflection(answer_text):
+                rlog.info(
+                    "rag.docs_deflection_detected",
+                    mode="stream",
+                    max_confidence=round(max_confidence, 3),
+                )
+                yield {
+                    "type": "done",
+                    "primary_citations": [],
+                    "secondary_citations": [],
+                    "all_citations": [],
+                    "hidden_sources_count": 0,
+                    "mode_used": "uncertain",
+                    "max_confidence": max_confidence,
+                }
+                return
 
             gen_ms = round((time.perf_counter() - t0) * 1000, 1)
             total_ms = round((time.perf_counter() - t_start) * 1000, 1)
@@ -303,6 +332,21 @@ class RAGService:
                 context_chunks=context_docs,
                 history=list(history) if history else None,
             )
+            if self._looks_like_docs_deflection(answer):
+                rlog.info(
+                    "rag.docs_deflection_detected",
+                    mode="sync",
+                    max_confidence=round(max_confidence, 3),
+                )
+                return ChatResponse(
+                    answer=answer,
+                    primary_citations=[],
+                    secondary_citations=[],
+                    all_citations=[],
+                    hidden_sources_count=0,
+                    mode_used="uncertain",
+                    max_confidence=max_confidence,
+                )
             gen_ms = round((time.perf_counter() - t0) * 1000, 1)
             total_ms = round((time.perf_counter() - t_start) * 1000, 1)
 
@@ -466,6 +510,15 @@ class RAGService:
 
     def _normalize_query(self, question: str) -> str:
         return " ".join(question.lower().strip().split()).lstrip("¿¡").rstrip("?.! ")
+
+    def _normalize_answer_text(self, answer: str) -> str:
+        return " ".join(answer.lower().replace("*", " ").split())
+
+    def _looks_like_docs_deflection(self, answer: str) -> bool:
+        normalized = self._normalize_answer_text(answer)
+        if not normalized:
+            return False
+        return any(marker in normalized for marker in DOCS_DEFLECTION_MARKERS)
 
     def _uncertainty_message(self, locale: str) -> str:
         return UNCERTAINTY_RESPONSES.get(locale, UNCERTAINTY_RESPONSES["en"])

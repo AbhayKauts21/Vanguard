@@ -53,8 +53,8 @@ export function useAudioAnalyser(options: UseAudioAnalyserOptions = {}) {
 
   /** Enqueue an audio blob for sequential playback. */
   const enqueueAudio = useCallback(
-    (blob: Blob) => {
-      getQueue().enqueue(blob);
+    async (blob: Blob) => {
+      await getQueue().enqueue(blob);
     },
     [getQueue],
   );
@@ -86,7 +86,7 @@ export function useAudioAnalyser(options: UseAudioAnalyserOptions = {}) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      queueRef.current?.stop();
+      void queueRef.current?.dispose();
       queueRef.current = null;
     };
   }, []);
